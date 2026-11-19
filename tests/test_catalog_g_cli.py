@@ -184,6 +184,7 @@ def _generate_run_all_tests_cli(tmp_path: Path, *extra: str) -> tuple[Path, str]
         text=True,
         timeout=600,
         check=False,
+        encoding="utf-8",
     )
     assert done.returncode in (0, 3), f"{done.stdout}\n{done.stderr}"
     package = next(p for p in tmp_path.iterdir() if p.is_dir())

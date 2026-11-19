@@ -27,6 +27,22 @@ from ..ast_utils import parse_expr
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
+from ..picture_values import TEMPLATES
+from . import (
+    class_default_value,
+    class_name,
+    elapsed_time,
+    enum_to_array,
+    get_type_information,
+    grpc_any,
+    grpc_client,
+    grpc_enum,
+    grpc_server,
+    grpc_stream,
+    picture,
+    search_and_replace_pattern,
+    variant_type_parts,
+)
 
 
 def _type_descriptor_code(
@@ -65,14 +81,14 @@ def _type_descriptor_code(
     if lv_type is not None and is_variant_type_name(lv_type.underlying_type):
         variant = ctx.wired_input(wired.id, node) if wired is not None else None
         if variant is None:
-            raise ConversionGap(f"{entry.name} has no variant wired to it", node)
+            raise ConversionGap("no variant is wired to it", node)
         read = f"({variant}.type.code if {variant}.type is not None else 0)"
         base_name = result.python_param or "type_descriptor_enumeration"
         return bind_output(node, out.id, base_name, parse_expr(read), ctx)
     code = type_descriptor_code(lv_type) if lv_type is not None else None
     if code is None:
         raise ConversionGap(
-            f"{entry.name}: the type of the data wired to it is not recorded "
+            "the type of the data wired to it is not recorded "
             "as a LabVIEW type descriptor",
             node,
         )
@@ -82,6 +98,40 @@ def _type_descriptor_code(
 
 _HANDLERS: dict[str, Callable[[VINode, CodeGenContext, VIEntry], CodeFragment]] = {
     "TYPE_DESCRIPTOR_CODE": _type_descriptor_code,
+    "ELAPSED_TIME": elapsed_time.generate,
+    "GET_LV_CLASS_DEFAULT_VALUE": class_default_value.generate,
+    "GET_LV_CLASS_NAME": class_name.generate,
+    "ENUM_TO_ARRAY_OF_ENUMS": enum_to_array.generate,
+    "GET_TYPE_INFORMATION": get_type_information.generate,
+    "GET_ARRAY_INFORMATION": variant_type_parts.array_information,
+    "GET_CLUSTER_INFORMATION": variant_type_parts.cluster_information,
+    "GET_NUMERIC_INFORMATION": variant_type_parts.numeric_information,
+    "GET_REFNUM_INFORMATION": variant_type_parts.refnum_information,
+    "GET_WAVEFORM_INFORMATION": variant_type_parts.gap_waveform,
+    "PROTO_ENUM_TO_LV_ENUM": grpc_enum.proto_to_lv,
+    "LV_ENUM_TO_PROTO_ENUM": grpc_enum.lv_to_proto,
+    "GRPC_CREATE_CLIENT": grpc_client.create_client,
+    "GRPC_CLOSE_CLIENT": grpc_client.close_client,
+    "GRPC_CLIENT_UNARY_CALL": grpc_client.unary_call,
+    "GRPC_CLIENT_BEGIN_SERVER_STREAMING_CALL": grpc_stream.begin_server_streaming_call,
+    "GRPC_CLIENT_READ_FROM_STREAM": grpc_stream.read_from_stream,
+    "GRPC_CLIENT_COMPLETE_STREAMING_CALL": grpc_stream.complete_streaming_call,
+    "GRPC_CLIENT_CANCEL_CALL": grpc_stream.cancel_call,
+    "GRPC_CREATE_SERVER": grpc_server.create_server,
+    "GRPC_START_SERVER": grpc_server.start_server,
+    "GRPC_STOP_SERVER": grpc_server.stop_server,
+    "GRPC_REGISTER_SERVER_EVENT": grpc_server.register_server_event,
+    "GRPC_READ_CALL_REQUEST": grpc_server.read_call_request,
+    "GRPC_WRITE_CALL_RESPONSE": grpc_server.write_call_response,
+    "GRPC_COMPLETE_CALL": grpc_server.complete_call,
+    "GRPC_SET_CALL_STATUS": grpc_server.set_call_status,
+    "GRPC_IS_CALL_CANCELLED": grpc_server.is_call_cancelled,
+    "GRPC_METADATA_PASSTHROUGH": grpc_client.metadata_registration,
+    "GRPC_PACK_TO_ANY": grpc_any.pack_to_any,
+    "GRPC_UNPACK_FROM_ANY": grpc_any.unpack_from_any,
+    "GRPC_CLUSTER_METADATA": grpc_any.cluster_to_message_metadata,
+    "SEARCH_AND_REPLACE_PATTERN": search_and_replace_pattern.generate,
+    **{op: picture.generate for op in TEMPLATES},
 }
 
 

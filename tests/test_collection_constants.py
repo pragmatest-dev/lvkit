@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from lvkit.codegen.constant_value import constant_value_expression
-from lvkit.models import LVType, LVTypeKind
+from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.helpers import make_ctx
 from tests.prim_vi import scalar
 
@@ -38,4 +38,40 @@ def test_a_map_with_entries() -> None:
     assert (
         constant_value_expression(ctx, _collection("Map"), [["a", "1"], ["b", "2"]])
         == "{'a': 1, 'b': 2}"
+    )
+
+
+def _cluster(typedef: str | None) -> LVType:
+    return LVType(
+        kind=LVTypeKind.CLUSTER,
+        typedef_name=typedef,
+        fields=[ClusterField(name="x", type=I32), ClusterField(name="n", type=STRING)],
+    )
+
+
+def test_a_map_constant_with_cluster_keys_has_the_tuple_a_wired_key_becomes() -> None:
+    ctx = make_ctx()
+    for typedef in ("Pt", None):
+        lv_type = LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Map",
+            element_type=_cluster(typedef),
+            value_type=I32,
+        )
+        entries = [[{"x": "1", "n": "a"}, "5"]]
+        assert (
+            constant_value_expression(ctx, lv_type, entries) == "{(1, 'a'): 5}"
+        )
+
+
+def test_a_set_constant_with_array_elements_is_a_set_of_tuples() -> None:
+    ctx = make_ctx()
+    lv_type = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Set",
+        element_type=LVType(kind=LVTypeKind.ARRAY, element_type=I32, dimensions=1),
+    )
+    assert (
+        constant_value_expression(ctx, lv_type, [["1", "2"], ["3"]])
+        == "{(1, 2), (3,)}"
     )

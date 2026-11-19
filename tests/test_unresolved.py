@@ -186,12 +186,13 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    12 distinct gaps = 4 unsupported nodes (the type string of a Flatten To String
-    of a refnum, which has no type descriptor; the Flattened String To Variant
-    that reads those LabVIEW bytes with a type known only when the code runs; and
-    two Invoke Node methods that move a value as flattened bytes and a type
-    string: Ctrl Val.Set (Deprecated) and Ctrl Val.Get All (Deprecated)) + 8 VIs
-    that were not found. OpenG Get TDEnum from Data of a variant is no gap: a
+    11 distinct gaps = 3 unsupported nodes (the type string of a Flatten To String
+    of a refnum, which has no type descriptor; and two Invoke Node methods that
+    move a value as flattened bytes and a type string: Ctrl Val.Set (Deprecated)
+    and Ctrl Val.Get All (Deprecated)) + 8 VIs that were not found. The Flattened
+    String To Variant whose type string is known only when the code runs is no
+    gap: the package's ``variants`` module reads the type string and the bytes
+    (``codegen/flat_reader.py``). OpenG Get TDEnum from Data of a variant is no gap: a
     ``Variant`` records its type, so the code reads it from the variant
     (``codegen/nodes/vilib_op.py``). Ctrl
     Val.Set, Get and Get All and Run VI on a reference only known when the code
@@ -210,15 +211,14 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         _TESTCASE_CLASS,
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 12, f"expected 12 distinct gaps, got {len(items)}: {counts}"
+    assert len(items) == 11, f"expected 11 distinct gaps, got {len(items)}: {counts}"
     assert counts["placeholder_primitive"] == 0
     assert counts["terminal_mapping"] == 0
     assert counts["unknown_primitive"] == 0
     # The type string of a Flatten To String of a refnum
-    # (ops/flatten_to_string.py); the Flattened String To Variant reading those
-    # bytes with a run-time type (ops/flattened_string_to_variant.py); two
-    # deprecated Ctrl Val methods (codegen/nodes/invoke_node.py).
-    assert counts["unsupported_node"] == 4
+    # (ops/flatten_to_string.py); two deprecated Ctrl Val methods
+    # (codegen/nodes/invoke_node.py).
+    assert counts["unsupported_node"] == 3
     assert counts["unsupported_vi"] == 0
     assert counts["missing_vi"] == 8
 

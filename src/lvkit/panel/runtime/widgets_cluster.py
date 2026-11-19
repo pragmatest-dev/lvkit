@@ -15,6 +15,7 @@ from typing import Any
 from nicegui import ui
 
 from .port import Member, Port, bind_control, bind_indicator
+from .properties import DISABLED, disabled_applier
 from .view import PanelWidgets
 from .widgets import caption
 from .widgets_opaque import hidden_port
@@ -26,7 +27,7 @@ def _field(value: Any, member: Member, position: int, named: bool) -> Any:
 
 def cluster_port(named: bool, members: list[Member], *, readonly: bool) -> Port:
     ports: list[Port] = []
-    with ui.column().classes("w-full gap-1 p-2 border rounded"):
+    with ui.column().classes("w-full gap-1 p-2 border rounded") as root:
         for member in members:
             if member.builder is not hidden_port:
                 caption(member.label)
@@ -46,7 +47,7 @@ def cluster_port(named: bool, members: list[Member], *, readonly: bool) -> Port:
         for position, (member, port) in enumerate(zip(members, ports, strict=True)):
             port.show(_field(value, member, position, named))
 
-    cluster = Port(get, show)
+    cluster = Port(get, show, {DISABLED: disabled_applier(root)})
     for port in ports:
         port.on_change(lambda _: cluster.changed())
     return cluster

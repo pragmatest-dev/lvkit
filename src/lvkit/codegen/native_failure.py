@@ -16,8 +16,13 @@ A node NI runs despite an incoming error (``CodeFragment.runs_on_error``)
 reports its own failure only when no error came in: the failure is its
 ``own_error`` and ``error_flow.incoming_error_wins`` picks its error out.
 
-A node whose error out is not wired has nowhere to put the error, so its
-failure stays a Python exception.
+A node whose error out is not wired has nowhere to put the error, so the VI's
+automatic error handling (VI Properties > Execution,
+``ExecutionProps.auto_error_handling``) decides, as in LabVIEW. On, the failure
+stays a Python exception, and a call of a generated VI raises the error the
+callee returns (``raise_unwired_error``). Off, the failure is caught and
+dropped: the node's outputs take the values they take on any failure and the
+run continues.
 """
 
 from __future__ import annotations
@@ -28,13 +33,18 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from lvkit.graph.models import AnyGraphNode
-from lvkit.models import ScalarValue
+from lvkit.models import ScalarValue, contains_class_instance
 from lvkit.primitive_resolver import NativeError, PrimitiveEntry
 from lvkit.vilib_resolver import VIEntry
 
 from .ast_utils import build_assign, parse_expr
 from .error_codes import describe_error_code
-from .error_flow import assigned_names, output_defaults, own_error_terminals
+from .error_flow import (
+    assigned_names,
+    error_occurred,
+    output_defaults,
+    own_error_terminals,
+)
 from .errors_module import LABVIEW_ERROR_NAME
 from .fragment import CodeFragment
 
@@ -89,6 +99,17 @@ class CatalogFailures:
         )
 
 
+def own_exception_class(failure: NativeError) -> ast.ClassDef:
+    """The class definition of the exception ``failure`` makes of the operation's
+    own (``failure.base`` is its built-in base)."""
+    [definition] = ast.parse(
+        f"class {failure.exception}({failure.base}):\n"
+        f'    """LabVIEW error {failure.code}."""'
+    ).body
+    assert isinstance(definition, ast.ClassDef)
+    return definition
+
+
 def catch_failures(
     node: AnyGraphNode,
     fragment: CodeFragment,
@@ -97,6 +118,15 @@ def catch_failures(
 ) -> CodeFragment:
     """``fragment``, the code of the catalog node ``node``, with each failure
     ``catalog`` lists caught and made its error out."""
+    failures = tuple(
+        f
+        for f in catalog.failures
+        if not f.only_with_class
+        or any(
+            contains_class_instance(t.lv_type)
+            for t in getattr(node, "terminals", None) or ()
+        )
+    )
     _, outputs = own_error_terminals(node, ctx)
     # A class of the operation's own is raised whether or not it is caught; it
     # is registered with the module's other helpers, one definition per name,
@@ -105,32 +135,32 @@ def catch_failures(
     # all raise EmptyOrRelativePathError), so its definition names the error, not
     # the node.
     written: dict[str, str] = {}
-    for failure in catalog.failures:
+    for failure in failures:
         if failure.base is not None:
-            [definition] = ast.parse(
-                f"class {failure.exception}({failure.base}):\n"
-                f'    """LabVIEW error {failure.code}."""'
-            ).body
-            assert isinstance(definition, ast.ClassDef)
-            written[failure.exception] = ctx.add_module_function(definition)
+            written[failure.exception] = ctx.add_module_function(
+                own_exception_class(failure)
+            )
     renamed = {old: new for old, new in written.items() if old != new}
     if renamed:
         fragment.statements = [_rename(s, renamed) for s in fragment.statements]
-    if (
-        not catalog.failures
-        or not fragment.statements
-        or not any(ctx.is_wired(term.id) for term in outputs)
-    ):
+    if not failures or not fragment.statements:
         return fragment
-    if fragment.runs_on_error:
-        error = ctx.make_output_var("own_error", node.id)
-        succeeded = "None"
-        fragment.own_error = error
-    else:
-        error = ctx.make_output_var("error_out", node.id, outputs[0].id)
-        succeeded = _incoming_error(node, ctx)
-        for term in outputs:
-            fragment.bindings[term.id] = error
+    # With no error out wired the failure has nowhere to go: the VI's automatic
+    # error handling decides. On, it stays a Python exception; off, it is
+    # dropped and the run continues.
+    error: str | None = None
+    succeeded = "None"
+    if any(ctx.is_wired(term.id) for term in outputs):
+        if fragment.runs_on_error:
+            error = ctx.make_output_var("own_error", node.id)
+            fragment.own_error = error
+        else:
+            error = ctx.make_output_var("error_out", node.id, outputs[0].id)
+            succeeded = _incoming_error(node, ctx)
+            for term in outputs:
+                fragment.bindings[term.id] = error
+    elif automatic_error_handling(ctx):
+        return fragment
     defaults = output_defaults(
         node,
         ctx,
@@ -142,30 +172,75 @@ def catch_failures(
     )
     exception = ctx.make_output_var("exception", node.id)
     handlers = []
-    for failure in catalog.failures:
+    for failure in failures:
         if failure.module is not None:
             fragment.imports.add(exception_import(failure))
-        error_value = _labview_error(failure, catalog.source, exception)
+        body = list(defaults)
+        if error is not None:
+            error_value = _labview_error(failure, catalog.source, exception)
+            body.append(build_assign(error, error_value))
         handlers.append(
             ast.ExceptHandler(
                 type=ast.Name(
                     id=written.get(failure.exception, exception_name(failure)),
                     ctx=ast.Load(),
                 ),
-                name=exception,
-                body=[*defaults, build_assign(error, error_value)],
+                name=None if error is None else exception,
+                body=body or [ast.Pass()],
             )
         )
-    ctx.import_labview_error()
+    orelse: list[ast.stmt] = []
+    if error is not None:
+        ctx.import_labview_error()
+        orelse = [build_assign(error, parse_expr(succeeded))]
     fragment.statements = [
         ast.Try(
             body=fragment.statements,
             handlers=handlers,
-            orelse=[build_assign(error, parse_expr(succeeded))],
+            orelse=orelse,
             finalbody=[],
         )
     ]
     return fragment
+
+
+def automatic_error_handling(ctx: CodeGenContext) -> bool:
+    """Whether the VI being generated has automatic error handling on (VI
+    Properties > Execution). A VI whose setting is unknown (its save record is
+    unparsed) is on, LabVIEW's default."""
+    if ctx.graph is None or not ctx.vi_name:
+        return True
+    setting = ctx.graph.get_vi_properties(ctx.vi_name).execution.auto_error_handling
+    return setting is not False
+
+
+def raise_unwired_error(
+    node: AnyGraphNode, bindings: dict[str, str], ctx: CodeGenContext
+) -> list[ast.stmt]:
+    """The statements after a call of a generated VI whose error out is not
+    wired, in a VI with automatic error handling on: an error the call
+    produced is raised, as LabVIEW stops at the node and shows the error. An
+    error that only came in on the node's error in and passed through is not
+    the node's own. With the setting off, nothing."""
+    if not automatic_error_handling(ctx):
+        return []
+    error_in, outputs = own_error_terminals(node, ctx)
+    incoming = ctx.wired_input(error_in.id, node) if error_in is not None else None
+    statements: list[ast.stmt] = []
+    for term in outputs:
+        value = bindings.get(term.id)
+        # A call's own terminal has an edge from the callee's pane even when
+        # nothing is wired to it, so wired means it feeds something.
+        if value is None or ctx.graph is None or ctx.graph.outgoing_edges(term.id):
+            continue
+        test = error_occurred(value)
+        if incoming not in (None, "None"):
+            test += f" and {value} is not {incoming}"
+        [statement] = ast.parse(f"if {test}:\n    raise {value}").body
+        statements.append(statement)
+    if statements:
+        ctx.import_labview_error()
+    return statements
 
 
 class _Rename(ast.NodeTransformer):
@@ -219,6 +294,15 @@ def exception_import(failure: NativeError) -> str:
 def _labview_error(failure: NativeError, source: str, exception: str) -> ast.expr:
     """``LabVIEWError(code=…, source=…, message=…)`` for ``failure``, caught as
     the variable ``exception``."""
+    if failure.code_expression is not None:
+        message = (failure.message_expression or "str({exception})").format(
+            exception=exception
+        )
+        return parse_expr(
+            f"{LABVIEW_ERROR_NAME}(code="
+            f"{failure.code_expression.format(exception=exception)}, "
+            f"source={source!r}, message={message})"
+        )
     if failure.code_attribute is not None:
         return parse_expr(
             f"{LABVIEW_ERROR_NAME}(code={exception}.{failure.code_attribute}, "

@@ -24,11 +24,13 @@ from lvkit.models import (
     ClusterField,
     LVType,
     LVTypeKind,
+    SavedTag,
     WireLineStyle,
     WireStyle,
 )
 from lvkit.parser.metadata import _decode_pth0_components
 from lvkit.parser.models import ParsedDependencyRef
+from lvkit.parser.saved_tags import read_property_tags
 
 from .type_names import ROOT_CLASS
 from .vi_files import (
@@ -75,6 +77,7 @@ class LVPrivateDataField:
     lv_type_name: str = ""  # Raw LV type from VCTP (e.g. "String", "Boolean")
     sub_fields: list[LVPrivateDataField] = field(default_factory=list)
     ref_type: str = ""  # Refnum kind from VCTP (e.g. "DataValueRef"), else ""
+    labelled: bool = True  # False when the VI gives no label and ``name`` is invented
 
 
 @dataclass
@@ -122,6 +125,8 @@ class LVClass:
     # NI.Lib.Version, verbatim dotted-quad string (e.g. "1.0.0.7"). Present on
     # ~100% of classes; None if absent.
     version: str | None = None
+    # The tags the class file saves: its ``<Property>`` elements, in file order.
+    tags: list[SavedTag] = field(default_factory=list)
     # The FULL ancestor chain, nearest-first (immediate parent -> ... ->
     # root) -- built by recursively following parent_class and resolving each
     # ancestor's own .lvclass file on disk (see _build_ancestor_chain). Best
@@ -144,6 +149,8 @@ class LVLibrary:
     path: Path
     version: str | None = None
     members: list[LVLibraryMember] = field(default_factory=list)
+    # The tags the library file saves: its ``<Property>`` elements, in file order.
+    tags: list[SavedTag] = field(default_factory=list)
 
 
 @dataclass
@@ -389,7 +396,7 @@ def private_data_field_to_cluster_field(f: LVPrivateDataField) -> ClusterField:
             lv_type,
             fields=[private_data_field_to_cluster_field(sf) for sf in f.sub_fields],
         )
-    return ClusterField(name=f.name, type=lv_type)
+    return ClusterField(name=f.name, type=lv_type, labelled=f.labelled)
 
 
 def _resolve_type_ids(
@@ -493,6 +500,7 @@ def _resolve_type_ids(
             copy += 1
         taken.add(name)
         field_.name = name
+        field_.labelled = False
 
     return fields
 
@@ -607,6 +615,7 @@ def parse_lvclass(lvclass_path: Path | str, roots: LibraryRoots) -> LVClass:
         version=version,
         ancestors=ancestors,
         wire_style=_parse_wire_style(root),
+        tags=read_property_tags(root),
     )
 
 
@@ -1058,6 +1067,7 @@ def parse_lvlib(lvlib_path: Path | str) -> LVLibrary:
         path=lvlib_path,
         version=version,
         members=members,
+        tags=read_property_tags(root),
     )
 
 

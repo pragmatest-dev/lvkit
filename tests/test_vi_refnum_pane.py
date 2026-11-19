@@ -31,7 +31,7 @@ def test_a_strictly_typed_vi_refnum_carries_its_connector_pane(
     tmp_path: Path,
 ) -> None:
     main = tmp_path / "Pane.xml"
-    main.write_text(_MAIN_XML)
+    main.write_text(_MAIN_XML, encoding="utf-8")
     types = parse_vctp_types(main)
 
     typed = types[4]
@@ -51,6 +51,6 @@ def test_a_strictly_typed_vi_refnum_carries_its_connector_pane(
 
 def test_a_vi_refnum_without_a_type_has_no_pane(tmp_path: Path) -> None:
     main = tmp_path / "Pane.xml"
-    main.write_text(_MAIN_XML)
+    main.write_text(_MAIN_XML, encoding="utf-8")
     generic = parse_vctp_types(main)[5]
     assert generic.element_type is None

@@ -266,9 +266,9 @@ class TestPropertyReads:
         module = ast.Module(body=fragment.statements, type_ignores=[])
         code = ast.unparse(ast.fix_missing_locations(module)).splitlines()
         assert code == [
-            "vi_name = vi.__name__",
+            "vi_name = vi.vi_name",
             "vi_path = inspect.getfile(vi)",
-            "vi_name_2 = vi.__name__",
+            "vi_name_2 = vi.vi_name",
         ]
         assert fragment.bindings["path"] == "vi_path"
         assert fragment.bindings["again"] == "vi_name_2"

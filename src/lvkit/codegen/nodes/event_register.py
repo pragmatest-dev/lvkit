@@ -130,7 +130,7 @@ def _items(
     if lv_type is not None and lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields:
         rows.append(ast.Constant(value=None))
         for position, member in enumerate(lv_type.fields):
-            read = member_expression(ctx, lv_type, position, value, node.id)
+            read = member_expression(ctx, lv_type, position, value)
             _items(node, number, member.type, read, rows, registered, ctx)
         return
     descriptor = lv_type.type_descriptor() if lv_type is not None else "value"

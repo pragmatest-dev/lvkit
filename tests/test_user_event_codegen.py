@@ -237,7 +237,7 @@ def test_a_vi_generates_on_a_user_event_it_takes_as_a_parameter(
     package = project.generate("Caller.vi")
     assert package.gaps == []
     assert package.function().seen == 7
-    sender = Path(str(package.stub("send").__file__)).read_text()
+    sender = Path(str(package.stub("send").__file__)).read_text(encoding="utf-8")
     assert "'User Event'" in sender
     assert "Enum" not in sender
     assert "lvkit" not in sender + package.source

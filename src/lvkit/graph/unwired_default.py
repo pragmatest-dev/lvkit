@@ -22,7 +22,7 @@ from ..lv_type_codes import (
 from ..models import LVType, LVTypeKind, ScalarValue, Terminal, TerminalDirection
 from ..path_value import is_path_text
 from ..primitive_resolver import PrimitiveResolver
-from ..terminal_default import DefaultBehavior, TerminalDefault
+from ..terminal_default import DefaultBehavior, TerminalDefault, default_for_wiring
 from ..vilib_resolver import VILibResolver
 from .core import InMemoryVIGraph
 from .index_array_plan import IndexUse, plan_index_array
@@ -55,6 +55,33 @@ def default_fits(value: ScalarValue, lv_type: LVType | None) -> bool:
     if is_string_type_name(underlying):
         return isinstance(value, str)
     return False
+
+
+def instance_saved_default(node: AnyGraphNode, terminal: Terminal) -> ScalarValue:
+    """What an unwired input of a call of an embedded instance holds: the saved
+    default of the instance's control at that slot, else its type's default
+    (``VINode.instance_defaults``). None when the call is not of an instance, the
+    instance has no control there, or the type has no scalar default."""
+    if not isinstance(node, VINode) or node.instance_defaults is None:
+        return None
+    if terminal.index not in node.instance_defaults:
+        return None
+    saved = node.instance_defaults[terminal.index]
+    if saved is not None:
+        return lvnet_typed_scalar(saved, terminal.lv_type)
+    lv_type = terminal.lv_type
+    if lv_type is None or lv_type.kind != LVTypeKind.PRIMITIVE:
+        return None
+    underlying = lv_type.underlying_type or ""
+    if is_boolean_type_name(underlying):
+        return False
+    if underlying in INTEGER_TYPE_NAMES:
+        return 0
+    if underlying in REAL_FLOAT_TYPE_NAMES:
+        return 0.0
+    if is_string_type_name(underlying):
+        return ""
+    return None
 
 
 def _catalog_terminals(
@@ -174,11 +201,19 @@ def instance_default(
         behavior = _behavior(entry, placed, laid_out)
         if behavior is not None:
             return DefaultValue(literal=f"({behavior.value})", type_descriptor=label)
-        value, name = entry.default, getattr(entry, "name", name)
+        wired = {
+            t.index
+            for t in node.terminals
+            if t.direction == "input" and graph.incoming_edges(t.id)
+        }
+        value, name = default_for_wiring(entry, wired), getattr(entry, "name", name)
     elif isinstance(node, VINode):
         pane = _pane_terminal_at(graph, node, terminal.index)
         if pane is not None:
             value, name = pane_default(pane), pane.name
+    saved = instance_saved_default(node, terminal)
+    if saved is not None:
+        value = saved
     if value is None:
         return bare
     if not default_fits(value, terminal.lv_type):

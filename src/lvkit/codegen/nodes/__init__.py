@@ -38,6 +38,7 @@ from ..native_failure import CatalogFailures, catch_failures
 
 # Import modules (not classes) for dispatch
 from . import (
+    call_chain,
     case,
     compound,
     constant,
@@ -53,6 +54,7 @@ from . import (
     formula,
     global_variable,
     in_place,
+    interleave,
     invoke_node,
     local_variable,
     loop,
@@ -174,6 +176,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "xNode": xnode.generate,
     "eventRegNode": event_register.generate_register,
     "decimate": decimate.generate,
+    "interLeave": interleave.generate,
 }
 
 
@@ -196,6 +199,9 @@ def _generate_primitive(
     # distinguished only by prim_id -- see nodes/first_call.py.
     if node.node_type == "prim" and node.prim_id == first_call.FIRST_CALL_PRIM_ID:
         return first_call.generate(node, ctx)
+    # Call Chain is a generic `class="prim"` node too -- see nodes/call_chain.py.
+    if node.node_type == "prim" and node.prim_id == call_chain.CALL_CHAIN_PRIM_ID:
+        return call_chain.generate(node, ctx)
     # The user event functions are generic `class="prim"` nodes too -- see
     # nodes/user_events.py.
     if node.node_type == "prim" and node.prim_id in user_events.USER_EVENT_PRIM_IDS:

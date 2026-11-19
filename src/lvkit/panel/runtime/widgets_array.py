@@ -21,6 +21,7 @@ from typing import Any
 from nicegui import ui
 
 from .port import Member, Port, bind_control, bind_indicator
+from .properties import DISABLED, disabled_applier
 from .view import PanelWidgets
 from .widgets import as_number, bool_port, complex_port, number_port, string_port
 from .widgets_choice import choice_port
@@ -224,7 +225,7 @@ def array_port(
         "suppressCellFocus": readonly,
     }
     port: Port
-    with ui.column().classes(f"{WIDTH_CLS} gap-1"):
+    with ui.column().classes(f"{WIDTH_CLS} gap-1") as root:
         if not readonly:
             add = ui.button(icon="add", on_click=lambda: add_row())
             add.props("flat dense round size=xs").classes("text-gray-500")
@@ -276,7 +277,7 @@ def array_port(
                 refresh()
                 port.changed()
 
-    port = Port(get, show)
+    port = Port(get, show, {DISABLED: disabled_applier(root)})
     if initial:
         show(initial)
     if not readonly:

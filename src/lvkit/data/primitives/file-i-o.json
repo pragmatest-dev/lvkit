@@ -192,7 +192,18 @@
     },
     "8050": {
       "name": "Open/Create/Replace File",
+      "op": "OPEN_CREATE_REPLACE_FILE",
       "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
         {
           "exception": "FileNotFoundError",
           "code": 7
@@ -202,10 +213,23 @@
           "code": 8
         },
         {
+          "exception": "FileExistsError",
+          "code": 10
+        },
+        {
           "exception": "OSError",
           "code": 6
+        },
+        {
+          "exception": "ReplaceCancelledError",
+          "code": 43,
+          "base": "Exception"
         }
       ],
+      "live_io_when_input": {
+        "index": 10,
+        "value": 5
+      },
       "terminals": [
         {
           "index": 6,
@@ -255,7 +279,8 @@
           "index": 1,
           "direction": "output",
           "name": "cancelled",
-          "type": "Boolean"
+          "type": "Boolean",
+          "keeps_on_failure": true
         },
         {
           "index": 3,
@@ -265,17 +290,43 @@
           "type": "Refnum"
         }
       ],
-      "python_code": {
-        "refnum": "open(in_11, 'r+b')",
-        "cancelled": "False",
-        "error_out": "in_8"
-      },
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/open-create-replace-file.html",
       "verified": false
     },
     "8051": {
       "name": "Read from Binary File",
+      "op": "READ_FROM_BINARY_FILE",
       "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
+          "exception": "EOFError",
+          "code": 4
+        },
+        {
+          "exception": "UnsupportedOperation",
+          "module": "io",
+          "code": 8
+        },
+        {
+          "exception": "ValueError"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
         {
           "exception": "OSError",
           "code": 6
@@ -310,13 +361,15 @@
           "index": 10,
           "direction": "input",
           "name": "count (1)",
-          "type": "NumInt32"
+          "type": "NumInt32",
+          "default_behavior": "one element"
         },
         {
           "index": 11,
           "direction": "input",
           "name": "file (use dialog)",
-          "type": "Refnum"
+          "type": "Refnum",
+          "default_behavior": "file dialog"
         },
         {
           "index": 0,
@@ -334,7 +387,8 @@
           "index": 2,
           "direction": "output",
           "name": "data",
-          "type": "String"
+          "type": "String",
+          "keeps_on_failure": true
         },
         {
           "index": 3,
@@ -343,12 +397,6 @@
           "type": "Refnum"
         }
       ],
-      "python_code": {
-        "data": "in_11.read(in_10)",
-        "refnum_out": "in_11",
-        "error_out": "in_8",
-        "cancelled": "False"
-      },
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-binary-file.html",
       "verified": false
     },
@@ -356,6 +404,11 @@
       "name": "Close File",
       "runs_on_error": true,
       "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError"
+        },
         {
           "exception": "OSError",
           "code": 6
@@ -388,11 +441,11 @@
         }
       ],
       "python_code": {
-        "_body": "in_7.close()",
+        "_body": "if in_7 is None:\n    raise InvalidRefnumError('Close File: there is no open file to close')\nelse:\n    in_7.close()",
         "path": "getattr(in_7, 'name', None)",
         "error_out": "in_4"
       },
-      "note": "closes the file; the path output is the closed file's path",
+      "note": "closes the file; the path output is the closed file's path. NI: Close File runs even if an error occurred before it (\"closes the file regardless of whether an error occurred in a preceding operation\"). An Open/Create/Replace File that failed or was cancelled leaves no refnum (None); closing it is error 1 \"An input parameter is invalid\" (the error Close File gives an invalid refnum; forums.ni.com Help-Invalid-reference-error-when-closing-file), unless an error came in, which error out then keeps.",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/close-file.html",
       "verified": false
     },
@@ -405,6 +458,11 @@
         },
         {
           "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "UnsupportedOperation",
+          "module": "io",
           "code": 8
         },
         {
@@ -437,7 +495,8 @@
           "index": 11,
           "direction": "input",
           "name": "file (use dialog)",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_behavior": "file dialog"
         },
         {
           "index": 0,
@@ -475,7 +534,31 @@
     },
     "8078": {
       "name": "Write to Binary File",
+      "op": "WRITE_TO_BINARY_FILE",
       "errors": [
+        {
+          "exception": "EmptyOrRelativePathError",
+          "code": 1430,
+          "base": "ValueError"
+        },
+        {
+          "exception": "InvalidPathError",
+          "code": 1,
+          "base": "ValueError"
+        },
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "UnsupportedOperation",
+          "module": "io",
+          "code": 8
+        },
         {
           "exception": "OSError",
           "code": 6
@@ -517,7 +600,8 @@
           "index": 11,
           "direction": "input",
           "name": "file (use dialog)",
-          "type": "Refnum"
+          "type": "Refnum",
+          "default_behavior": "file dialog"
         },
         {
           "index": 0,
@@ -538,11 +622,6 @@
           "type": "Refnum"
         }
       ],
-      "python_code": {
-        "refnum_out": "(in_11.write(in_10), in_11)[1]",
-        "error_out": "in_8",
-        "cancelled": "False"
-      },
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-binary-file.html",
       "verified": false
     },
@@ -566,6 +645,11 @@
         },
         {
           "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "UnsupportedOperation",
+          "module": "io",
           "code": 8
         },
         {
@@ -617,7 +701,8 @@
           "index": 11,
           "direction": "input",
           "name": "file (use dialog)",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "default_behavior": "file dialog"
         }
       ],
       "verified": true

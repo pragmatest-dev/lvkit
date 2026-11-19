@@ -18,7 +18,14 @@ import networkx as nx
 from ..class_property import property_role
 from ..library_folders import library_location
 from ..load_mode import LoadMode
-from ..models import ClusterField, FPTerminal, LVType, Terminal, TerminalDirection
+from ..models import (
+    ClusterField,
+    FPTerminal,
+    LVType,
+    SavedTag,
+    Terminal,
+    TerminalDirection,
+)
 from ..parser.models import ParsedDependencyRef, ParsedFrontPanel
 from ..type_names import ROOT_CLASS
 from .core import _OPERATION_KINDS, _graph_node_to_op_kind, _node_order_key
@@ -41,6 +48,7 @@ from .models import (
     StubVIInfo,
     SubVICall,
     TerminalRef,
+    TypedefStatus,
     VIContext,
     VIDotNetAssemblies,
     VIHealth,
@@ -115,6 +123,7 @@ class QueryMixin:
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
     _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
+    _vi_tags: dict[str, list[SavedTag]]
     _layouts: dict[str, Layout]
     _vilib_roots: tuple[Path, ...]
     _userlib_roots: tuple[Path, ...]
@@ -471,6 +480,20 @@ class QueryMixin:
         ):
             return None
         return key
+
+    def is_strict_typedef(self, lv_type: LVType) -> bool:
+        """Whether ``lv_type`` is an instance of a strict type definition: the
+        loaded control file it is (``type_key``) records ``StrictTypeDefVI``
+        (``KindProps.typedef_status``). False for a type that denotes no loaded
+        control."""
+        key = self.type_key(lv_type)
+        if key is None:
+            return False
+        properties = self._vi_properties.get(key)
+        return (
+            properties is not None
+            and properties.kind.typedef_status is TypedefStatus.STRICT_TYPEDEF
+        )
 
     def class_method(self, class_key: str, method: str) -> tuple[str, str] | None:
         """``(owner_key, path)`` of the file that declares ``method`` for the
@@ -1296,6 +1319,10 @@ class QueryMixin:
         be read."""
         return self._vi_dotnet_assemblies.get(vi_name, VIDotNetAssemblies())
 
+    def get_vi_tags(self, vi_name: str) -> list[SavedTag]:
+        """The tags the VI saves with its file, in file order."""
+        return list(self._vi_tags.get(vi_name, ()))
+
     def get_vi_front_panel(self, vi_name: str) -> ParsedFrontPanel | None:
         """The VI's OWN front-panel layout (every control, not just the
         connector-pane subset), or None when the VI is unknown or its node
@@ -1545,6 +1572,16 @@ class QueryMixin:
         if key is None:
             return None
         return self._dep_graph.nodes[key].get("qname", key)  # display qname
+
+    def is_in_packed_library(self, vi_name: str) -> bool:
+        """Whether a packed project library (``.lvlibp``) contains the VI: one of
+        the owners its own ``LIBN`` block records is a ``.lvlibp`` file (NI, Is In
+        Packed Library: "Returns TRUE if a packed project library contains the
+        VI")."""
+        metadata = self._vi_metadata.get(vi_name)
+        return metadata is not None and any(
+            owner.lower().endswith(".lvlibp") for owner in metadata.owning_libraries
+        )
 
     def get_class_hierarchy(self, class_key: str) -> ClassHierarchyInfo | None:
         """Get hierarchy info for one loaded class: parent, children,

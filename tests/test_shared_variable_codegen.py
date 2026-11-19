@@ -131,7 +131,7 @@ def imported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 def written_package(tmp_path: Path, vis) -> tuple[Path, dict[str, str]]:
     root = tmp_path / "pkg"
     root.mkdir(parents=True)
-    (root / "__init__.py").write_text("")
+    (root / "__init__.py").write_text("", encoding="utf-8")
     graph = package_graph(vis)
     modules = PackageModules.from_graph(graph, [name for name, _, _ in vis])
     paths = {
@@ -145,7 +145,7 @@ def written_package(tmp_path: Path, vis) -> tuple[Path, dict[str, str]]:
             "pkg", root, paths, root / f"{module}.py", package_modules=modules
         )
         sources[module] = generate(vi, resolver, graph)
-        (root / f"{module}.py").write_text(sources[module])
+        (root / f"{module}.py").write_text(sources[module], encoding="utf-8")
     assert [p.name for p in modules.write(root)] == ["shared_variables.py"]
     write_support_modules(root)
     return root, sources
@@ -156,14 +156,14 @@ def test_the_shared_module_does_not_depend_on_the_order_of_the_vis(
 ) -> None:
     forward, _ = written_package(tmp_path / "a", [writer(), reader()])
     backward, _ = written_package(tmp_path / "b", [reader(), writer()])
-    assert (forward / "shared_variables.py").read_text() == (
+    assert (forward / "shared_variables.py").read_text(encoding="utf-8") == (
         backward / "shared_variables.py"
-    ).read_text()
+    ).read_text(encoding="utf-8")
 
 
 def test_a_write_in_one_vi_is_read_in_another(tmp_path: Path, imported) -> None:
     root, sources = written_package(tmp_path, [writer(), reader()])
-    assert (root / "shared_variables.py").read_text() == (
+    assert (root / "shared_variables.py").read_text(encoding="utf-8") == (
         "from __future__ import annotations\n"
         "from typing import Any\n"
         "from datetime import UTC\n"

@@ -1,15 +1,13 @@
 """Variant To Flattened String (8203) and Flattened String To Variant (8202) on
 ``Variant`` values: the types decided when the code is generated (the flattened
-data is the variant's ``value``), the round trip, and the pickle of the whole
-``Variant`` used for a variant whose type is not known until the program runs."""
+data is the variant's ``value``), the round trip, and the flattening of a
+``Variant`` whose type is not known until the program runs."""
 
 from __future__ import annotations
 
-import ast
-
 import pytest
 
-from lvkit.models import ClusterField, LVType, LVTypeKind
+from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 from lvkit.primitive_resolver import get_resolver
 from lvkit.type_string import encode
 from tests.helpers import generated_variants
@@ -138,14 +136,15 @@ def test_a_typed_variant_flattens_with_its_type_and_writes_its_type_string() -> 
     # A type known when the code is generated flattens the variant's value.
     assert ".value" in generated.source and "pickle" not in generated.source
     type_string, data = result_values(generated.function(7))
-    assert type_string == [4, 3]
+    # The control is labelled x, so its descriptor ends in that label.
+    assert type_string == encode(I32, "x")
     assert data.encode("latin-1").hex() == "00000007"
     assert "pickle" not in generated.source
 
 
 def test_a_typed_cluster_flattens_as_nis_flattened_data_page() -> None:
     type_string, data = result_values(to_string(record()).function(("ABC", 4)))
-    assert type_string == encode(record())
+    assert type_string == encode(record(), "x")
     assert data.encode("latin-1").hex() == "000000034142430004"
 
 
@@ -159,8 +158,10 @@ def test_the_round_trip_hands_back_the_value() -> None:
     assert "pickle" not in round_trip(I32).source
 
 
-def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
-    flatten = generate(
+def unknown_type_flatten() -> Generated:
+    """A VI that flattens a variant its caller supplies, of a type the diagram
+    does not know."""
+    return generate(
         {"v": VARIANT},
         {"t": TS, "d": STR},
         [
@@ -172,19 +173,11 @@ def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
         ],
         [("fp:v", "vf:0"), ("vf:1", "fp:t"), ("vf:2", "fp:d")],
     )
-    assert "pickle.dumps" in flatten.source
-    variants = generated_variants()
-    given = variants.Variant(
-        {"a": [1, 2.5]},
-        variants.LV_I32,
-        {"note": variants.Variant("x", variants.LV_String)},
-    )
-    type_string, _ = result_values(flatten.function(given))
-    assert type_string is None
-    # The pickled data string, read back with a type string known only at run
-    # time, is unpickled.
-    both = generate(
-        {"v": VARIANT, "t": TS},
+
+
+def unknown_type_round_trip() -> Generated:
+    return generate(
+        {"v": VARIANT},
         {"r": VARIANT},
         [
             node(
@@ -198,19 +191,90 @@ def test_a_variant_of_unknown_type_is_pickled_and_read_back_by_pickle() -> None:
                 [(3, "output", VARIANT), (6, "input", STR), (7, "input", TS)],
             ),
         ],
-        [("fp:v", "vf:0"), ("vf:2", "fv:6"), ("fp:t", "fv:7"), ("fv:3", "fp:r")],
+        [("fp:v", "vf:0"), ("vf:1", "fv:7"), ("vf:2", "fv:6"), ("fv:3", "fp:r")],
     )
-    assert "pickle.loads" in both.source
-    # The whole Variant, with its type and attributes, comes back equal.
-    (back,) = result_values(both.function(given, [4, 3]))
-    assert back == given and back is not given
-    ast.parse(both.source)
 
 
-def test_labview_bytes_with_a_run_time_type_string_are_a_gap() -> None:
+RUN_TIME_CASES = [
+    (I32, 42),
+    (scalar("NumFloat64"), 2.5),
+    (STR, "hello"),
+    (scalar("Boolean"), True),
+    (array("NumInt32"), [1, 2, 3]),
+    (array("NumInt32", 2), [[1, 2, 3], [4, 5, 6]]),
+    (array("NumInt32", 3), [[[1, 2]], [[3, 4]]]),
+    (record(), ("ABC", 4)),
+    (
+        LVType(
+            LVTypeKind.ENUM,
+            underlying_type="UnitUInt8",
+            values={"a": EnumValue(value=0), "b": EnumValue(value=1)},
+        ),
+        1,
+    ),
+]
+
+
+@pytest.mark.parametrize(("lv_type", "value"), RUN_TIME_CASES)
+def test_a_variant_of_unknown_type_flattens_as_the_type_it_records(
+    lv_type: LVType, value: object
+) -> None:
+    flatten = unknown_type_flatten()
+    assert "pickle" not in flatten.source and "lvkit" not in flatten.source
+    variants = generated_variants()
+    words = encode(lv_type)
+    given = variants.Variant(value, variants.type_from_string(words))
+    type_string, data = result_values(flatten.function(given))
+    # The type string is the descriptor the reader expects, and the data string
+    # is the bytes the generation-time writer (Flatten To String's) gives.
+    assert [w & 0xFFFF for w in type_string] == [w & 0xFFFF for w in words]
+    _, static_data = result_values(to_string(lv_type).function(value))
+    assert data == static_data
+    (back,) = result_values(unknown_type_round_trip().function(given))
+    assert back.value == value or list(back.value) == list(value)
+    assert back.type.type_string == given.type.type_string
+
+
+@pytest.mark.parametrize(
+    ("lv_type", "default_value"),
+    [
+        (I32, 0),
+        (STR, ""),
+        (scalar("Boolean"), False),
+        (array("NumInt32", 2), []),
+        (record(), ("", 0)),
+    ],
+)
+def test_a_typed_variant_holding_no_value_flattens_the_types_default(
+    lv_type: LVType, default_value: object
+) -> None:
+    flatten = unknown_type_flatten()
+    variants = generated_variants()
+    empty = variants.Variant(None, variants.type_from_string(encode(lv_type)))
+    type_string, data = result_values(flatten.function(empty))
+    _, default_data = result_values(to_string(lv_type).function(default_value))
+    assert data == default_data
+    assert [w & 0xFFFF for w in type_string] == [w & 0xFFFF for w in encode(lv_type)]
+
+
+def test_a_variant_of_unknown_type_with_no_writable_type_raises_naming_it() -> None:
+    flatten = unknown_type_flatten()
+    variants = generated_variants()
+    with pytest.raises(NotImplementedError, match="holds no type"):
+        flatten.function(variants.Variant())
+    bare = variants.Variant(1, variants.LVType(0x70, "Refnum", None))
+    with pytest.raises(NotImplementedError, match="'Refnum', which records no"):
+        flatten.function(bare)
+    refnum = variants.Variant(1, variants.type_from_string([4, 0x70]))
+    with pytest.raises(NotImplementedError, match="is not written"):
+        flatten.function(refnum)
+
+
+def test_labview_bytes_with_a_run_time_type_string_are_read_by_that_type() -> None:
     """A data string that did not come from a pickling Variant To Flattened
     String holds LabVIEW's bytes (OpenG Get Default Data from TD reads a Type
-    Cast): with no type known when generating, that is a gap, never pickle."""
+    Cast): they are read by the type string when the code runs, never pickle; a
+    type the reader does not know raises naming it."""
     generated = generate(
         {"d": STR, "t": TS},
         {"v": VARIANT},
@@ -224,13 +288,53 @@ def test_labview_bytes_with_a_run_time_type_string_are_a_gap() -> None:
         [("fp:d", "fv:6"), ("fp:t", "fv:7"), ("fv:3", "fp:v")],
     )
     assert "pickle.loads" not in generated.source
-    with pytest.raises(NotImplementedError, match="LabVIEW's flattened bytes"):
-        generated.function("\x00\x00\x00\x07", [4, 3])
+    variants = generated_variants()
+    (read,) = result_values(generated.function("\x00\x00\x00\x07", [4, 3]))
+    assert read == variants.Variant(7, variants.LV_I32)
+    (cluster,) = result_values(
+        generated.function("\x00\x00\x00\x03ABC\x00\x04", encode(record()))
+    )
+    assert cluster.value == ("ABC", 4)
+    with pytest.raises(NotImplementedError, match="not read"):
+        generated.function("\x00\x00\x00\x00", [4, 0x54])
 
 
-def test_a_known_type_with_no_flattened_form_is_a_gap_that_raises_where_it_runs() -> (
-    None
-):
+def test_labview_bytes_with_no_type_string_wired_are_a_gap() -> None:
+    generated = generate(
+        {"d": STR},
+        {"v": VARIANT},
+        [node("fv", 8202, [(3, "output", VARIANT), (6, "input", STR)])],
+        [("fp:d", "fv:6"), ("fv:3", "fp:v")],
+    )
+    with pytest.raises(NotImplementedError, match="no type string wired"):
+        generated.function("\x00\x00\x00\x07")
+
+
+def test_a_known_type_with_no_type_string_is_a_gap_that_raises_where_it_runs() -> None:
     generated = to_string(scalar("Path"))
-    with pytest.raises(NotImplementedError, match="does not handle.*Path"):
+    with pytest.raises(NotImplementedError, match="no type string for.*Path"):
         generated.function(None)
+
+
+def test_a_multi_dimensional_array_is_its_sizes_then_its_elements_row_major() -> None:
+    """NI's "Flattened Data" page: the 32-bit size of each dimension precedes the
+    data, the slowest varying dimension first; the elements follow row by row."""
+    variants = generated_variants()
+    flatten = unknown_type_flatten()
+    expected = {
+        2: (
+            [[1, 2, 3], [4, 5, 6]],
+            "0000000200000003" + "".join(f"{n:08x}" for n in range(1, 7)),
+        ),
+        3: (
+            [[[1, 2]], [[3, 4]]],
+            "000000020000000100000002" + "".join(f"{n:08x}" for n in range(1, 5)),
+        ),
+    }
+    for rank, (value, hexed) in expected.items():
+        lv_type = array("NumInt32", rank)
+        given = variants.Variant(value, variants.type_from_string(encode(lv_type)))
+        _, run_time = result_values(flatten.function(given))
+        _, generated = result_values(to_string(lv_type).function(value))
+        assert run_time.encode("latin-1").hex() == hexed
+        assert generated.encode("latin-1").hex() == hexed

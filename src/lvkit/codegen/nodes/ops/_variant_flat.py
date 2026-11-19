@@ -5,8 +5,8 @@ The flattened bytes are written and read by a type decided when the code is
 generated, from the graph: a variant made by To Variant has the type of the wire
 fed to it, and a type string is a literal list of numbers (a diagram constant) or
 the type string output of a Variant To Flattened String whose variant has such a
-type. A ``Variant`` (``variants_module``) whose type the graph does not give is
-pickled whole instead."""
+type. A variant whose type only the running program knows is flattened by the
+type it records (``variants.variant_to_flattened``)."""
 
 from __future__ import annotations
 
@@ -18,12 +18,12 @@ from lvkit.models import LVType, Terminal
 from lvkit.type_string import TypeStringError, decode
 
 from ...context import CodeGenContext
+from ...variant_values import variant_label
 from ._flat_node import terminal
 
 TO_VARIANT = 8201
 VARIANT_TO_FLATTENED_STRING = 8203
 _TYPE_STRING_OUTPUT = 1
-_DATA_STRING_OUTPUT = 2
 _VARIANT_INPUT = 0
 _TO_VARIANT_INPUT = 1
 
@@ -59,6 +59,21 @@ def variant_static_type(ctx: CodeGenContext, node: PrimitiveNode) -> LVType | No
     return lv_type
 
 
+def variant_static_label(ctx: CodeGenContext, node: PrimitiveNode) -> str:
+    """The label of the data of the variant a Variant To Flattened String is wired
+    to, when To Variant makes it (``variant_label``): the label its type string ends
+    in, as the variant's own ``name`` is."""
+    variant = terminal(node, "input", _VARIANT_INPUT)
+    origin = _source_node(ctx, variant.id) if variant is not None else None
+    if origin is None or origin[0].prim_id != TO_VARIANT or ctx.graph is None:
+        return ""
+    anything = terminal(origin[0], "input", _TO_VARIANT_INPUT)
+    edges = ctx.graph.incoming_edges(anything.id) if anything is not None else []
+    if not edges:
+        return ""
+    return variant_label(ctx, ctx.graph.get_terminal(edges[0].terminal_id))
+
+
 def type_string_type(
     ctx: CodeGenContext, node: PrimitiveNode, type_string: Terminal | None
 ) -> LVType | None:
@@ -84,26 +99,9 @@ def type_string_type(
     return None
 
 
-def is_pickled(ctx: CodeGenContext, data_string: Terminal | None) -> bool:
-    """Whether the data string wired to ``data_string`` is one Variant To
-    Flattened String pickled: its data string output, for a variant whose type
-    is not known when the code is generated. Only such a string can be unpickled;
-    any other (from Flatten To String, a Type Cast, a file) holds LabVIEW's
-    flattened bytes."""
-    if data_string is None:
-        return False
-    origin = _source_node(ctx, data_string.id)
-    return (
-        origin is not None
-        and origin[0].prim_id == VARIANT_TO_FLATTENED_STRING
-        and origin[1] == _DATA_STRING_OUTPUT
-        and variant_static_type(ctx, origin[0]) is None
-    )
-
-
 __all__ = [
     "TypeStringError",
-    "is_pickled",
     "type_string_type",
+    "variant_static_label",
     "variant_static_type",
 ]

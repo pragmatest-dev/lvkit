@@ -154,7 +154,7 @@ def test_any_other_file_outside_the_project_is_under_external_by_its_own_project
     below it, never a folder above that tree."""
     libs = tree.base / "Users" / "someone" / "Documents" / "libs"
     (libs / "Sub").mkdir(parents=True)
-    (libs / "Libs.lvproj").write_text("")
+    (libs / "Libs.lvproj").write_text("", encoding="utf-8")
     key = tree.key("Sub", "Helper.vi", under=libs)
     layout = _layout(tree.key("a.vi"), key, root=tree.proj)
     assert layout.places[key] == ModulePlace(("external", "libs", "sub"), "helper")
@@ -180,7 +180,7 @@ def test_outside_projects_in_one_git_repo_are_placed_by_the_repo(
     for service in ("sessionmanagement", "discovery"):
         v1 = repo / "gRPC" / service / "v1"
         (v1 / "RPC Messages").mkdir(parents=True)
-        (v1 / f"{service}.lvproj").write_text("")
+        (v1 / f"{service}.lvproj").write_text("", encoding="utf-8")
         keys.append(tree.key("RPC Messages", "Register gRPC Messages.vi", under=v1))
     layout = _layout(tree.key("a.vi"), *keys, root=tree.proj)
     assert [layout.places[k] for k in keys] == [
@@ -311,10 +311,10 @@ def test_a_module_and_a_package_of_one_name_stop_generation(tree: _Tree) -> None
 def test_the_project_is_the_nearest_folder_with_a_project_marker(
     tmp_path: Path,
 ) -> None:
-    (tmp_path / "A.lvproj").write_text("")
+    (tmp_path / "A.lvproj").write_text("", encoding="utf-8")
     vi = tmp_path / "src" / "deep" / "x.vi"
     vi.parent.mkdir(parents=True)
-    vi.write_text("")
+    vi.write_text("", encoding="utf-8")
     assert project_root(vi) == tmp_path.resolve()
     inner = tmp_path / "src" / ".git"
     inner.mkdir()
@@ -330,9 +330,9 @@ def test_a_lvproj_folder_inside_a_git_repo_is_the_project_but_the_repo_is_the_st
     (tmp_path / ".git").mkdir()
     labview = tmp_path / "LabVIEW"
     (labview / "sub").mkdir(parents=True)
-    (labview / "My.lvproj").write_text("<Project/>")
+    (labview / "My.lvproj").write_text("<Project/>", encoding="utf-8")
     vi = labview / "sub" / "A.vi"
-    vi.write_text("")
+    vi.write_text("", encoding="utf-8")
     assert project_root(vi) == labview.resolve()
     assert store_root(vi) == tmp_path.resolve()
 
@@ -344,14 +344,14 @@ def test_a_git_repo_inside_a_store_is_its_own_project_but_shares_the_store(
     vendored = tmp_path / "vendor" / "lib"
     (vendored / ".git").mkdir(parents=True)
     vi = vendored / "x.vi"
-    vi.write_text("")
+    vi.write_text("", encoding="utf-8")
     assert project_root(vi) == vendored.resolve()
     assert store_root(vi) == tmp_path.resolve()
 
 
 def test_with_no_marker_the_project_is_the_vis_own_folder(tmp_path: Path) -> None:
     vi = tmp_path / "x.vi"
-    vi.write_text("")
+    vi.write_text("", encoding="utf-8")
     assert project_root(vi) == tmp_path.resolve()
 
 

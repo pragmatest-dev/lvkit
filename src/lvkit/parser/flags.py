@@ -47,6 +47,28 @@ def is_ext_func_return_value(dco_class: str | None, flags: int) -> bool:
 # panel structure").
 FP_IS_INDICATOR = 0x1
 
+# The same ``objFlags`` record a control's starting state (labview-binary-format.md
+# "A control's starting Visible and Disabled state is in its ddo objFlags"): bit 3
+# is set on a control hidden when the VI starts; bit 9 on a disabled one, and
+# bits 9 and 7 together on one disabled and greyed out.
+FP_HIDDEN = 0x8
+FP_DISABLED = 0x200
+FP_GREYED_OUT = 0x80
+
+# A Boolean control's mechanical action is three independent bits of the same
+# ``objFlags`` (labview-binary-format.md "A Boolean's mechanical action is in its
+# ddo objFlags"): bit 16 until released, bit 17 latch, bit 18 released (against
+# pressed).
+FP_BOOL_UNTIL_RELEASED = 0x10000
+FP_BOOL_LATCH = 0x20000
+FP_BOOL_ON_RELEASE = 0x40000
+
+# The values of LabVIEW's Disabled property (DisabledEnum): enabled, disabled,
+# disabled and greyed out.
+ENABLE_STATE_ENABLED = 0
+ENABLE_STATE_DISABLED = 1
+ENABLE_STATE_GREYED_OUT = 2
+
 # Connector-pane TypeDesc ``Flags`` (the Function TypeDesc that CONP points to,
 # one child per connector slot). Bit 8 marks an output; bits 11 and 12 are the
 # wiring rule and never both set: bit 12 = Required, bit 11 = Recommended,
@@ -77,6 +99,56 @@ def is_inverted_terminal(flags: int) -> bool:
 def is_indicator(flags: int) -> bool:
     """Check if a front-panel control's ``ddo`` ``objFlags`` mark an indicator."""
     return bool(flags & FP_IS_INDICATOR)
+
+
+def starts_hidden(flags: int) -> bool:
+    """Whether a front-panel control's ``ddo`` ``objFlags`` mark it hidden when
+    the VI starts (Visible False)."""
+    return bool(flags & FP_HIDDEN)
+
+
+def starting_enable_state(flags: int) -> int | None:
+    """The Disabled property's value a control starts with, from its ``ddo``
+    ``objFlags``: enabled when neither bit is set, disabled when only the
+    disabled bit is, disabled and greyed out when both are. The greyed bit never
+    occurs without the disabled bit in the corpus; such flags give None."""
+    disabled = bool(flags & FP_DISABLED)
+    greyed = bool(flags & FP_GREYED_OUT)
+    if disabled and greyed:
+        return ENABLE_STATE_GREYED_OUT
+    if disabled:
+        return ENABLE_STATE_DISABLED
+    if not greyed:
+        return ENABLE_STATE_ENABLED
+    return None
+
+
+MECHANICAL_ACTION_NAMES = (
+    "Switch When Pressed",
+    "Switch When Released",
+    "Switch Until Released",
+    "Latch When Pressed",
+    "Latch When Released",
+    "Latch Until Released",
+)
+"""The names of the Mechanical Action values 0-5, in NI's order (LabVIEW's Boolean
+shortcut menu, top left to bottom right)."""
+
+
+def mechanical_action(flags: int) -> int | None:
+    """The Mechanical Action a Boolean control is saved with, from its ``ddo``
+    ``objFlags``, as the number NI's property gives (0-5 "as shown in the shortcut
+    menu from top left to bottom right": Switch When Pressed, Switch When Released,
+    Switch Until Released, Latch When Pressed, Latch When Released, Latch Until
+    Released): 3 for a latch plus 0 pressed, 1 released or 2 until released. The
+    until-released and released bits never occur together in the corpus; such flags
+    give None."""
+    released = bool(flags & FP_BOOL_ON_RELEASE)
+    until = bool(flags & FP_BOOL_UNTIL_RELEASED)
+    if released and until:
+        return None
+    trigger = 1 if released else 2 if until else 0
+    return (3 if flags & FP_BOOL_LATCH else 0) + trigger
 
 
 def get_wiring_rule(flags: int) -> ParsedWiringRule:

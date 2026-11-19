@@ -187,12 +187,14 @@ def _svg(tmp_path: Path, thread_info: str = "", return_type: str = "27") -> str:
     (tmp_path / "Clfn_BDHb.xml").write_text(
         _BD_XML.replace("<funcTD>", f"{thread_info}<funcTD>").replace(
             "TypeID(27)", f"TypeID({return_type})"
-        )
+        ),
+        encoding="utf-8",
     )
     (tmp_path / "Clfn.xml").write_text(
         _MAIN_XML.replace("<!-- TypeID 27: Void -->", "<!-- TypeID 28: NumInt32 -->")
         if return_type == "28"
-        else _MAIN_XML
+        else _MAIN_XML,
+        encoding="utf-8",
     )
     graph = InMemoryVIGraph()
     graph.load_vi(tmp_path / "Clfn_BDHb.xml", layout=True)

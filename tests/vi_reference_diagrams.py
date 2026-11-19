@@ -95,12 +95,23 @@ def application_type() -> LVType:
     )
 
 
-def open_vi_reference(uid: int) -> str:
+def open_vi_reference(uid: int, *, errors: bool = False) -> str:
     """Terminals: ``uid + 1`` the VI reference out, ``uid + 3`` the VI path in,
-    ``uid + 5`` the options in."""
+    ``uid + 5`` the options in; with ``errors``, ``uid + 7`` the error out and
+    ``uid + 9`` the error in."""
+    error_terminals = (
+        f'<SL__arrayElement class="term" uid="{uid + 7}">'
+        f'<dco class="parm" uid="{uid + 8}"><objFlags>1</objFlags>'
+        "<parmIndex>0</parmIndex></dco></SL__arrayElement>"
+        f'<SL__arrayElement class="term" uid="{uid + 9}">'
+        f'<dco class="parm" uid="{uid + 10}"><parmIndex>8</parmIndex></dco>'
+        "</SL__arrayElement>"
+        if errors
+        else ""
+    )
     return (
         f'<SL__arrayElement class="prim" uid="{uid}"><primResID>8010</primResID>'
-        '<termList elements="3">'
+        f'<termList elements="{5 if errors else 3}">'
         f'<SL__arrayElement class="term" uid="{uid + 1}">'
         f'<dco class="parm" uid="{uid + 2}"><objFlags>1</objFlags>'
         "<parmIndex>3</parmIndex></dco></SL__arrayElement>"
@@ -109,7 +120,7 @@ def open_vi_reference(uid: int) -> str:
         "</SL__arrayElement>"
         f'<SL__arrayElement class="term" uid="{uid + 5}">'
         f'<dco class="parm" uid="{uid + 6}"><parmIndex>9</parmIndex></dco>'
-        "</SL__arrayElement></termList></SL__arrayElement>"
+        f"</SL__arrayElement>{error_terminals}</termList></SL__arrayElement>"
     )
 
 
@@ -274,8 +285,8 @@ def load(
     """A caller VI with the given diagram and the VI ``Callee.vi`` it can call,
     in one graph; ``callee_terminals`` are the callee's connector pane. A Static
     VI Reference on the diagram names the callee."""
-    (tmp_path / CALLEE_FILE).write_text(diagram([], []))
-    (tmp_path / CALLER_FILE).write_text(diagram(nodes, wires))
+    (tmp_path / CALLEE_FILE).write_text(diagram([], []), encoding="utf-8")
+    (tmp_path / CALLER_FILE).write_text(diagram(nodes, wires), encoding="utf-8")
     graph = InMemoryVIGraph()
     callee = graph.load_vi(tmp_path / CALLEE_FILE)
     caller = graph.load_vi(tmp_path / CALLER_FILE)

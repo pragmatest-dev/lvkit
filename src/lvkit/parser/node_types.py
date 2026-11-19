@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from enum import IntEnum, StrEnum
 from typing import Any
 
-from ..models import LVType, PropertyDef, PropertySegment
+from ..models import MAP_ACCESS_NODE_TYPE, LVType, PropertyDef, PropertySegment
 from ..text_encoding import decode_labview_text
 from .error_ring import ErrorRing
 from .extfunc import (
@@ -1867,6 +1867,21 @@ class DecomposeArrayHandler(DecomposeClusterHandler):
     display_name = "In Place Element"
 
 
+class MapAccessHandler(DecomposeClusterHandler):
+    """The In Place Element structure's Map Get / Replace Value border node
+    (class="Class018D", the left and right halves paired by one ``poser``).
+
+    Public NI docs ("Map Get / Replace Value", labview-api-ref
+    ``functions/map-get-replace-value.html``): the left half retrieves the value
+    of a key in a map, the right half modifies or discards it. The ``dcoAgg`` is
+    the ``value`` terminal; the ``dcoList`` holds the key, the key not found
+    flag and the default value (left) or action (right) terminals.
+    """
+
+    xml_class = MAP_ACCESS_NODE_TYPE
+    display_name = "Map Get / Replace Value"
+
+
 class _DecomposeDataValRefHandler(NodeTypeHandler):
     """Stub handler for DVR decompose nodes (class="decomposeDataValRefNode").
 
@@ -1886,9 +1901,9 @@ class _DecomposeDataValRefHandler(NodeTypeHandler):
 
 
 class _DecomposeMatchHandler(NodeTypeHandler):
-    """Stub handler for variant match nodes (class="decomposeMatchNode").
-
-    Variant decompose — terminals are parsed but codegen is deferred to V2.
+    """The In Place Element structure's In Place In / Out Element border node
+    (class="decomposeMatchNode"): the whole value enters on one half and leaves,
+    same type, on the other (``codegen/nodes/in_place._pass_whole_values``).
     """
 
     xml_class = "decomposeMatchNode"
@@ -2082,10 +2097,12 @@ _HANDLERS: list[NodeTypeHandler] = [
     ExpressionNodeHandler(),
     DecomposeClusterHandler(),
     DecomposeArrayHandler(),
+    MapAccessHandler(),
     _DecomposeDataValRefHandler(),
     _DecomposeMatchHandler(),
     DecomposeRecomposeStructureHandler(),
     ExtFuncHandler(),
+    GenericHandler("interLeave", "Interleave 1D Arrays"),
     # Built-in primitives with specialized XML classes.
     # aDelete/aIndx/subset resolve by XML class via the node_types section of
     # primitives.json, so they carry NO primResID. Their old numeric IDs were

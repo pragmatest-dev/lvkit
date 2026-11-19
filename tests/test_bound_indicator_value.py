@@ -120,7 +120,7 @@ def test_value_signaling_read_of_an_indicator_is_a_gap(
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "binding model" in str(package.gaps[0])
+    assert "reads 'Value (Signaling)', which is write only" in str(package.gaps[0])
 
 
 def test_a_value_read_of_a_held_indicator_is_what_was_written(

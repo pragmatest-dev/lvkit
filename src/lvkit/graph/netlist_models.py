@@ -15,6 +15,7 @@ from enum import Enum, StrEnum
 from ..models import (
     DisableStructureKind,
     LVType,
+    SavedTag,
     ScalarValue,
     TunnelMode,
 )
@@ -828,6 +829,14 @@ class ConnectorPaneTerminal:
     # label (``name``) stays the identity; the caption is display text.
     caption: str | None = None
     caption_visible: bool = False
+    # How the control starts (``FPTerminal.starts_hidden`` / ``enable_state``):
+    # hidden, and its Disabled value (0 enabled, 1 disabled, 2 disabled and
+    # grayed out).
+    starts_hidden: bool = False
+    enable_state: int = 0
+    # A Boolean's Mechanical Action (``FPTerminal.mechanical_action``, NI's 0-5;
+    # 0 Switch When Pressed, also for every control that is not a Boolean).
+    mechanical_action: int = 0
     # The control's or indicator's terminal on the block diagram -- see
     # ``BoundaryOutput``.
     terminal_uid: str | None = None
@@ -961,6 +970,9 @@ class NetlistModule:
     # inside it (emergent state, not a user setting). Same
     # netlist_to_dict-only carry-through as ``properties`` above.
     health: VIHealth = field(default_factory=VIHealth)
+    # The tags the VI saves with its file; ``netlist_to_dict``-only carry-through
+    # like ``properties`` (``describe.py`` has its own ``## Tags`` section).
+    tags: list[SavedTag] = field(default_factory=list)
     # The owning class's context when this VI is a .lvclass method -- the
     # describe.py ``## Class`` section's JSON counterpart. None for a non-
     # method VI. Same netlist_to_dict-only carry-through as the two above.

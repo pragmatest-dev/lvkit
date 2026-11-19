@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import NamedTuple
-
 from lvkit.lv_type_codes import (
     COMPLEX_TYPE_NAMES,
     INTEGER_BYTE_WIDTHS,
@@ -16,6 +14,8 @@ from lvkit.lv_type_codes import (
     is_string_type_name,
 )
 from lvkit.models import LVType, LVTypeKind
+
+from ...labview_format import FormatKind
 
 
 def _scalar_underlying(lv_type: LVType | None) -> str | None:
@@ -39,18 +39,6 @@ def is_real(lv_type: LVType | None) -> bool:
 
 def is_array(lv_type: LVType | None) -> bool:
     return lv_type is not None and lv_type.kind == LVTypeKind.ARRAY
-
-
-class FormatKind(NamedTuple):
-    """How Format Into String sees an input: its kind (``string``, ``path``,
-    ``bool``, ``int``, ``float``, ``complex``, ``enum``, ``timestamp``, or the name
-    of a type it has no conversion for), for an integer its bit width and
-    signedness, and for an enum each item's value and label."""
-
-    kind: str
-    bits: int = 0
-    signed: bool = False
-    labels: tuple[tuple[int, str], ...] = ()
 
 
 def format_kind(lv_type: LVType | None) -> FormatKind:
@@ -88,3 +76,31 @@ def format_kind(lv_type: LVType | None) -> FormatKind:
     if name == TD_FULL_TYPE.Path.name:
         return FormatKind("path")
     return FormatKind(name or "unknown")
+
+
+# An enum is ordered by its number: the generated enum is an ``IntEnum`` (or a
+# plain ``int`` when it records no item labels), which ``<`` orders as an integer.
+_ORDERED_KINDS = frozenset(
+    {"int", "float", "bool", "string", "timestamp", "enum", "enum with no item labels"}
+)
+
+
+def unorderable_leaf(lv_type: LVType) -> LVType | None:
+    """The first value inside ``lv_type`` that Python's ``<`` does not order as
+    LabVIEW does, or None when every one does. A value is an integer, an enum (by
+    its number), a real number, a Boolean (FALSE below TRUE), a string (by
+    character code) or a time stamp, alone or as the element of an array or a
+    field of a cluster (a cluster
+    with no fields is returned as it is)."""
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        return unorderable_leaf(lv_type.element_type)
+    if lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields:
+        for field in lv_type.fields:
+            if field.type is None:
+                return lv_type
+            if (leaf := unorderable_leaf(field.type)) is not None:
+                return leaf
+        return None
+    if format_kind(lv_type).kind in _ORDERED_KINDS:
+        return None
+    return lv_type

@@ -24,6 +24,10 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.lv_type_codes import type_descriptor_code
 from lvkit.models import ClusterField, LVType, LVTypeKind
 
+from .flat_reader import flat_reader_source
+from .flat_writer import flat_writer_source
+from .type_reader import type_reader_source
+
 VARIANTS_MODULE_NAME = "variants"
 VARIANT_NAME = "Variant"
 LV_TYPE_NAME = "LVType"
@@ -59,7 +63,44 @@ def _inline_expression(lv_type: LVType) -> str:
         encoded: tuple[int, ...] | None = tuple(type_string.encode(lv_type))
     except type_string.TypeStringError:
         encoded = None
-    return f"{LV_TYPE_NAME}({code}, {name!r}, {encoded!r})"
+    return (
+        f"{LV_TYPE_NAME}({code}, {name!r}, {encoded!r}"
+        f"{_refnum_arguments(lv_type)}{_typedef_argument(lv_type)})"
+    )
+
+
+def _typedef_argument(lv_type: LVType) -> str:
+    """The keyword arguments of the type of a type definition's instance that
+    record what its code does not: that it is one, the type definition's name
+    (``typedef_name``, as the file records it: library, then the ``.ctl``) and
+    whether the definition is a strict one (``strict_typedef``)."""
+    if not lv_type.typedef_name:
+        return ""
+    text = f", typedef_name={lv_type.typedef_name!r}"
+    if lv_type.strict_typedef:
+        text += ", strict_typedef=True"
+    return text
+
+
+def _refnum_arguments(lv_type: LVType) -> str:
+    """The keyword arguments of a refnum's ``LVType`` that record what a type code
+    alone does not: its kind (``refnum_kind``, a ``REFNUM_TYPE`` name), the VI
+    Server class of a generic reference (``server_class``) and the strict type of
+    a typed refnum (``strict``, the type of what it refers to: a Queue's element).
+    A strict type that has no type-descriptor code is recorded by its name alone."""
+    if lv_type.underlying_type != "Refnum" or lv_type.ref_type is None:
+        return ""
+    text = f", refnum_kind={lv_type.ref_type!r}"
+    if lv_type.server_class is not None:
+        text += f", server_class={lv_type.server_class.value!r}"
+    element = lv_type.element_type
+    if element is not None:
+        try:
+            strict = _inline_expression(element)
+        except ConversionGap:
+            strict = f"{LV_TYPE_NAME}(0, {element.type_descriptor()!r})"
+        text += f", strict={strict}"
+    return text
 
 
 # The scalar types whose ``LVType`` is fixed, by the type-descriptor name of each.
@@ -128,7 +169,8 @@ class TypeExpression(NamedTuple):
 
 def lv_type_expression(lv_type: LVType) -> TypeExpression:
     """The expression of the package's ``LVType`` for ``lv_type``: the name of the
-    constant of ``variants`` that is that type, else ``LVType(...)`` written out."""
+    constant of ``variants`` that is that type, else ``LVType(...)`` written out
+    (a type definition's name and strictness read off the type)."""
     inline = _inline_expression(lv_type)
     constant = _CONSTANTS.get(inline)
     if constant is not None:
@@ -147,6 +189,8 @@ _CLASSES_SOURCE = '''"""The value of a LabVIEW variant."""
 
 from __future__ import annotations
 
+import math
+import struct
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -154,30 +198,65 @@ from typing import Any
 @dataclass(frozen=True)
 class LVType:
     """A LabVIEW type: the type-descriptor ``code``, its ``name`` for messages
-    and, where it has one, the bytes of its type string."""
+    and, where it has one, the bytes of its type string. A refnum also records
+    what its code does not: its kind (``refnum_kind``, ``Queue``, ``LVObjCtl``,
+    ...), the VI Server class of a generic reference (``server_class``, ``VI`` or
+    ``Application``) and the type of what a typed refnum refers to (``strict``).
+    An instance of a type definition records the definition's name
+    (``typedef_name``) and whether that definition is a strict one
+    (``strict_typedef``); every other type has none."""
 
     code: int
     name: str
     type_string: tuple[int, ...] | None = None
+    refnum_kind: str | None = None
+    server_class: str | None = None
+    strict: LVType | None = None
+    typedef_name: str | None = None
+    strict_typedef: bool = False
 
 
 @dataclass
 class Variant:
-    """A variant: the data, its type (None for an empty variant) and its named
-    attributes, each a variant."""
+    """A variant: the data, its type (None for an empty variant), its named
+    attributes, each a variant, and its ``name``, the label of the control or
+    indicator the data was made from ("" when it came from no labelled data). The
+    name is not part of what two variants are equal by."""
 
     value: Any = None
     type: LVType | None = None
     attributes: dict[str, Variant] = field(default_factory=dict)
+    name: str = field(default="", compare=False)
 
     def __copy__(self) -> Variant:
-        return Variant(self.value, self.type, dict(self.attributes))
+        return Variant(self.value, self.type, dict(self.attributes), self.name)
 '''
+
+
+def _scalar_constants_by_code() -> dict[int, str]:
+    """The constant of each scalar type that has a type string, by its code."""
+    constants: dict[int, str] = {}
+    for lv_type in map(_scalar, _SCALAR_TYPE_NAMES):
+        code, _ = lv_type_code_and_name(lv_type)
+        try:
+            type_string.encode(lv_type)
+        except type_string.TypeStringError:
+            continue
+        constants[code] = _constant_name(lv_type)
+    return constants
 
 
 def _module_source() -> str:
     lines = [f"{name} = {inline}" for inline, name in _CONSTANTS.items()]
-    return _CLASSES_SOURCE + "\n\n" + "\n".join(lines) + "\n"
+    return (
+        _CLASSES_SOURCE
+        + "\n\n"
+        + "\n".join(lines)
+        + "\n"
+        + type_reader_source(_scalar_constants_by_code())
+        + flat_reader_source()
+        + flat_writer_source()
+    )
 
 
 VARIANTS_MODULE_SOURCE = _module_source()

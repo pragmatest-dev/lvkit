@@ -685,6 +685,19 @@ class ParsedFPControl:
     # (and so a cluster field or array element takes its container's); this is
     # the control's own.
     shows_as_indicator: bool = False
+    # The control's own ddo ``objFlags`` also record how it starts: hidden
+    # (Visible False), and the Disabled property's value (0 enabled, 2 disabled and
+    # greyed out; None when the flags leave it open). See ``parser/flags.py``.
+    starts_hidden: bool = False
+    starting_enable_state: int | None = 0
+    # A Boolean control's Mechanical Action (0-5, NI's order), from the same
+    # ``objFlags``; None for any other control, or flags that name none.
+    mechanical_action: int | None = None
+    # For an array (``indArr``): the front-panel class of its element control
+    # (``stdRing``, ``stdBool``, ``stdNum``, ...), and a Boolean element's
+    # Mechanical Action; None for any other control.
+    element_control_type: str | None = None
+    element_mechanical_action: int | None = None
     # This control's own resolved LabVIEW type, from the VI's VCTP type map
     # (`type_mapping.parse_type_map_rich`) -- the SAME per-terminal machinery a
     # connector-pane terminal's type comes from. Real per-control identity
@@ -719,6 +732,9 @@ class ParsedFPControl:
     label_visible: bool = True
     caption_visible: bool = False
     enum_values: list[str] = field(default_factory=list)
+    # A Combo Box saved with this many drop-down strings whose form is not decoded
+    # (0: none, or not a Combo Box); ``enum_values`` is then empty.
+    undecoded_strings: int = 0
     # A ring's own item values (``ringSparseValues``), parallel to
     # ``enum_values``, when they differ from the ordinals -- for an `indArr`,
     # its ring ELEMENT's. Empty for a ring numbered 0, 1, 2, ... and for every
@@ -968,6 +984,9 @@ class ParsedFrontPanel:
     lv_version: str | None = None
     # The VI's font table (``fontid`` indexes it from 0); empty when it has none.
     fonts: tuple[ParsedFPFont, ...] = ()
+    # The window's bounds the file saves, ``(left, top, right, bottom)`` in screen
+    # pixels; None when the heap records none (``utils.saved_window_bounds``).
+    window_bounds: tuple[int, int, int, int] | None = None
 
     def tab_index(self, uid: str) -> int | None:
         """The position of the control ``uid`` in the panel's tabbing order (its

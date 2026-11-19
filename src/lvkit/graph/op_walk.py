@@ -34,6 +34,7 @@ from ..num_format import format_numeric_const
 from ..parser.constants import NMUX_NAMED_LANE_NODE_CLASSES
 from ..structure import _fields_from_xml, private_data_field_to_cluster_field
 from .models import Constant, VINode
+from .selector_text import StringRangeText, quote_selector_value
 
 if TYPE_CHECKING:
     from .core import InMemoryVIGraph
@@ -406,8 +407,10 @@ _DEFAULT_LABEL = "Default"
 
 def _is_string_selector(frame: CaseFrame, lv_type: LVType | None) -> bool:
     """Whether the frame's values are strings (shown quoted)."""
-    return bool(frame.selector_strings) or bool(
-        lv_type and lv_type.underlying_type == "String"
+    return (
+        bool(frame.selector_strings)
+        or bool(frame.selector_string_ranges)
+        or bool(lv_type and lv_type.underlying_type == "String")
     )
 
 
@@ -428,7 +431,11 @@ def _selector_values(frame: CaseFrame, lv_type: LVType | None) -> list[str]:
         )
     if frame.selector_ranges:  # integer selector
         return _range_tokens(frame.selector_ranges, str)
-    return list(frame.selector_strings)  # string selector: one frame, several
+    # string selector: one frame, several values then ranges (``a..c``)
+    return [
+        *frame.selector_strings,
+        *(StringRangeText.of(r) for r in frame.selector_string_ranges),
+    ]
 
 
 def error_code_ranges(frame: CaseFrame) -> list[SelectorRange]:
@@ -516,7 +523,8 @@ def _selector_label(
     if not _is_string_selector(frame, lv_type):
         return ", ".join(shown)
     own = len(selector_frame_values(frame, lv_type, is_error))
-    return ", ".join([*(quote_value(v) for v in shown[:own]), *shown[own:]])
+    quoted = (quote_selector_value(v, quote_value) for v in shown[:own])
+    return ", ".join([*quoted, *shown[own:]])
 
 
 # ============================================================

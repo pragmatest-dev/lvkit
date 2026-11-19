@@ -2811,38 +2811,44 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
+      "op": "ELAPSED_TIME",
+      "match_names": [
+        "subElapsedTime.vi"
+      ],
       "terminals": [
         {
           "name": "Reset",
-          "index": null,
+          "index": 2,
           "direction": "input",
-          "type": null,
+          "type": "Boolean",
           "enum_values": null,
           "python_param": "reset",
-          "description": "Controls the initialization of the internal state of the VI. The default is FALSE."
+          "description": "Controls the initialization of the internal state of the VI. The default is FALSE.",
+          "default": false
         },
         {
           "name": "Time Target (s)",
-          "index": null,
+          "index": 0,
           "direction": "input",
-          "type": null,
+          "type": "NumFloat64",
           "enum_values": null,
           "python_param": "time_target",
-          "description": "Specifies how much time must elapse before the Time has Elapsed Boolean is set to TRUE. The default is 1."
+          "description": "Specifies how much time must elapse before the Time has Elapsed Boolean is set to TRUE. The default is 1.",
+          "default": 1.0
         },
         {
           "name": "Auto Reset",
-          "index": null,
+          "index": 3,
           "direction": "input",
-          "type": null,
+          "type": "Boolean",
           "enum_values": null,
           "python_param": "auto_reset",
           "description": "Resets the start time to the value in Present (s) when the Express VI reaches the Time Target (s) ."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 5,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -2851,61 +2857,61 @@
         },
         {
           "name": "Set Start Time (s)",
-          "index": null,
+          "index": 8,
           "direction": "input",
-          "type": null,
+          "type": "NumFloat64",
           "enum_values": null,
           "python_param": "set_start_time",
           "description": "Uses the current time or a time offset from 12:00 a.m., Friday, January 1, 1904 [01-01-1904 00:00:00] as the start time instead of the time this VI first ran."
         },
         {
           "name": "Present (s)",
-          "index": null,
+          "index": 14,
           "direction": "output",
-          "type": null,
+          "type": "NumFloat64",
           "enum_values": null,
           "python_param": "present",
           "description": "Displays the present time in seconds since 12:00 a.m., Friday, January 1, 1904, Universal Time [01-01-1904 00:00:00]."
         },
         {
           "name": "Start Time Text",
-          "index": null,
+          "index": 13,
           "direction": "output",
-          "type": null,
+          "type": "String",
           "enum_values": null,
           "python_param": "start_time_text",
           "description": "If Automatically reset after time target is FALSE, displays (in text format) the date and time the VI first ran or the time you wire to the Set Start Time (s) input. Otherwise displays the date and time of the last reset."
         },
         {
           "name": "Present Text",
-          "index": null,
+          "index": 15,
           "direction": "output",
-          "type": null,
+          "type": "String",
           "enum_values": null,
           "python_param": "present_text",
           "description": "Displays the present date and time in text format."
         },
         {
           "name": "Time has Elapsed",
-          "index": null,
+          "index": 17,
           "direction": "output",
-          "type": null,
+          "type": "Boolean",
           "enum_values": null,
           "python_param": "time_has_elapsed",
           "description": "Indicates if the Elapsed Time (s) is greater than the start time plus Time Target (s) ."
         },
         {
           "name": "Get Start Time (s)",
-          "index": null,
+          "index": 11,
           "direction": "output",
-          "type": null,
+          "type": "NumFloat64",
           "enum_values": null,
           "python_param": "get_start_time",
           "description": "If Automatically reset after time target is FALSE, displays the date and time the VI first ran or the time you wire to the Set Start Time (s) input. Otherwise displays the date and time of the last reset."
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 19,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -2914,18 +2920,18 @@
         },
         {
           "name": "Elapsed Time (s)",
-          "index": null,
+          "index": 16,
           "direction": "output",
-          "type": null,
+          "type": "NumFloat64",
           "enum_values": null,
           "python_param": "elapsed_time",
           "description": "Displays the amount of time in seconds that has elapsed since the start time and the Present (s) time."
         },
         {
           "name": "Elapsed Time Text",
-          "index": null,
+          "index": 18,
           "direction": "output",
-          "type": null,
+          "type": "String",
           "enum_values": null,
           "python_param": "elapsed_time_text",
           "description": "Displays the amount of time in seconds that has elapsed since the start time."

@@ -18,6 +18,19 @@ import inspect
 import locale
 import re
 from dataclasses import dataclass
+from typing import NamedTuple
+
+
+class FormatKind(NamedTuple):
+    """How Format Into String sees an input: its kind (``string``, ``path``,
+    ``bool``, ``int``, ``float``, ``complex``, ``enum``, ``timestamp``, or the name
+    of a type it has no conversion for), for an integer its bit width and
+    signedness, and for an enum each item's value and label."""
+
+    kind: str
+    bits: int = 0
+    signed: bool = False
+    labels: tuple[tuple[int, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -161,19 +174,27 @@ def _lv_unsupported(spec, kind):
     if kind is None:
         return f"Format Into String specifier {spec.text!r} has no input to take"
     part = None
-    if "#" in spec.flags:
+    if "#" in spec.flags and (
+        spec.code not in tuple("efgp") or kind not in ("float", "complex")
+    ):
         part = "'#' modifier"
     elif "^" in spec.flags:
         part = "'^' modifier"
-    elif spec.significant is not None:
+    elif spec.significant is not None and (
+        spec.code != "p" or kind not in ("float", "complex")
+    ):
         part = "significant digits"
+    elif spec.code == "g" and "#" not in spec.flags:
+        part = "code 'g' without the '#' modifier"
+    elif spec.code in ("g", "p") and kind not in ("float", "complex"):
+        part = f"code {spec.code!r} with a {kind} input"
     elif spec.unit:
         part = "unit"
     elif spec.embedded:
         part = "embedded time format"
     elif spec.bare_precision:
         part = "precision without digits"
-    elif spec.code not in tuple("sduxobfe"):
+    elif spec.code not in tuple("sduxobfegp"):
         part = f"conversion code {spec.code!r}"
     elif spec.code in tuple("uxob") and spec.plus:
         part = f"'+' flag with code {spec.code!r}"
@@ -240,6 +261,132 @@ def _lv_scientific(value, precision, plus, width, left, zero):
     return _lv_pad(_lv_exponent(value, precision, plus), width, left, zero)
 
 
+def _lv_strip_zeros(text):
+    """The number text with the trailing zeros of its fraction removed, and the
+    point too when nothing is left after it; what follows the digits (an
+    exponent, an SI prefix) stays. NI, Format Specifier Syntax, the ``#``
+    modifier: "Removes trailing zeros. If the number has no fractional part, this
+    modifier also removes the description part." (the decimal point)."""
+    found = re.match(r"^([+-]?\d+)(?:\.(\d*))?(.*)$", text)
+    if found is None:
+        return text
+    whole, fraction, rest = found.groups()
+    fraction = (fraction or "").rstrip("0")
+    return whole + ("." + fraction if fraction else "") + rest
+
+
+def _lv_general(value, precision, plus):
+    """The number written by ``g``: NI, Format Specifier Syntax: "Automatic
+    formatting. Depending on the exponent of the number, uses either f or e.
+    Exponent is greater than -4 or less than the precision specified: uses f.
+    Exponent is less than -4 or greater than the precision specified: uses e."
+    The precision is the number of significant digits (NI's example: 12000000
+    with ``%#g`` is ``1.2E+7`` and 12.00 is ``12``). An exponent of exactly -4,
+    or a precision of 0, is not settled by NI's pages."""
+    if value != value or value in (float("inf"), float("-inf")):
+        raise NotImplementedError(
+            "Format Into String code 'g' for " + str(value) + " has no conversion"
+        )
+    if precision < 1:
+        raise NotImplementedError(
+            "Format Into String code 'g' with a precision of " + str(precision)
+            + " for " + str(value) + " has no conversion: NI's docs do not say "
+            "what it writes"
+        )
+    exponent = int(format(value, f".{precision - 1}e").split("e")[1])
+    if value == 0:
+        exponent = 0
+    if exponent == -4:
+        raise NotImplementedError(
+            "Format Into String code 'g' for " + str(value) + " (exponent -4) has "
+            "no conversion: NI's docs do not say which notation it uses"
+        )
+    if exponent < -4 or exponent >= precision:
+        return _lv_exponent(value, precision - 1, plus)
+    return format(value, f"{'+' if plus else ''}.{precision - 1 - exponent}f")
+
+
+def _lv_si(value, precision, significant, plus, strip):
+    """The number in SI notation (``p``): the value scaled to an exponent that is
+    a multiple of three, written with ``precision`` digits after the point (or
+    ``significant`` digits in all) and the SI prefix letter after it (``y z a f p
+    n u m`` below 1, ``k M G T P E Z Y`` above; none for 1 up to 1000; micro is
+    ``u``). NI, Format Specifier Syntax: "The %p code adds the SI prefixes";
+    ``%.2p`` of 12000000 is ``12.00M`` and ``%_2p`` is ``12M``; "A value of .2
+    specifies that you want a precision of two digits in the resulting string. A
+    value of _2 specifies that you want two significant digits". NI's pages do not
+    give the prefixes' list, the micro letter (an NI forum post, "Bug with Scan
+    from String using SI (%p) format code", shows "3u" for micro and "m", "M"),
+    the range, or what rounding past a prefix writes: a value beyond y..Y, NaN,
+    infinity, a rounding that reaches the next prefix (999.9996 as ``%.2p``), a
+    significant-digit count with a digit left of its place, or one whose last
+    digit is 0 without ``#`` has no conversion here."""
+    from decimal import Decimal
+
+    if value != value or value in (float("inf"), float("-inf")):
+        raise NotImplementedError(
+            "Format Into String code 'p' for " + str(value) + " has no conversion"
+        )
+    if value == 0:
+        exponent = 0
+    else:
+        ten = int(format(abs(value), "e").split("e")[1])
+        exponent = ten - ten % 3
+    if exponent < -24 or exponent > 24:
+        raise NotImplementedError(
+            "Format Into String code 'p' for " + str(value) + " has no SI prefix"
+        )
+    scaled = Decimal(value).scaleb(-exponent)
+    whole_digits = len(str(int(abs(scaled))))
+    decimals = precision
+    if significant is not None:
+        decimals = significant - whole_digits
+        if value == 0 or decimals < 0:
+            raise NotImplementedError(
+                "Format Into String code 'p' with " + str(significant)
+                + " significant digits for " + str(value) + " has no conversion"
+            )
+    text = format(scaled, f"{'+' if plus else ''}.{decimals}f")
+    if len(str(int(abs(Decimal(text))))) != whole_digits and value != 0:
+        raise NotImplementedError(
+            "Format Into String code 'p' for " + str(value) + " rounds to the next "
+            "SI prefix, which NI's docs do not say how to write"
+        )
+    if strip:
+        text = _lv_strip_zeros(text)
+    elif significant is not None and decimals > 0 and text.endswith("0"):
+        raise NotImplementedError(
+            "Format Into String code 'p' with " + str(significant)
+            + " significant digits for " + str(value) + " has no conversion: NI's "
+            "docs do not say whether a last digit of 0 is written"
+        )
+    if exponent == 0:
+        return text
+    letters = "yzafpnum" if exponent < 0 else "kMGTPEZY"
+    return text + letters[(exponent + 24) // 3 if exponent < 0 else exponent // 3 - 1]
+
+
+def _lv_float_field(
+    value, code, precision, significant, plus, strip, width, left, zero
+):
+    """A floating-point number written with ``f``, ``e``, ``g`` or ``p`` in a
+    field ``width`` wide; ``strip`` is the ``#`` modifier (trailing zeros
+    removed)."""
+    if code == "e":
+        text = _lv_exponent(value, precision, plus)
+    elif code == "g":
+        text = _lv_general(value, precision, plus)
+    elif code == "p":
+        return _lv_pad(
+            _lv_si(value, precision, significant, plus, strip), width, left, zero
+        )
+    else:
+        text = format(value, f"{'+' if plus else ''}.{precision}f")
+    if strip:
+        text = _lv_strip_zeros(text)
+    return _lv_pad(text, width, left, zero)
+
+
 def _lv_format_value(spec, value, kind, bits, labels, point=None):
     """The text of one value written for ``spec`` (one ``_lv_unsupported`` has
     accepted for this kind). ``labels`` maps an enum's values to its items'
@@ -263,15 +410,19 @@ def _lv_format_value(spec, value, kind, bits, labels, point=None):
     else:
         number = value
     precision = 6 if spec.precision is None else spec.precision
-    if code == "e":
-        text = _lv_scientific(
-            number, precision, spec.plus, spec.width, spec.left, spec.zero
+    if code in "efgp":
+        text = _lv_float_field(
+            number,
+            code,
+            precision,
+            spec.significant,
+            spec.plus,
+            "#" in spec.flags,
+            spec.width,
+            spec.left,
+            spec.zero,
         )
         return text if point is None else text.replace(".", point)
-    if code == "f":
-        text = format(number, f"{'+' if spec.plus else ''}.{precision}f")
-        if point is not None:
-            text = text.replace(".", point)
     else:
         whole = _lv_round_int(number)
         if code == "d":
@@ -285,12 +436,51 @@ def _lv_format_value(spec, value, kind, bits, labels, point=None):
     return _lv_pad(text, spec.width, spec.left, spec.zero)
 
 
+def _lv_default_code(kind):
+    """The specifier Format Into String writes a value of ``kind`` with when it has
+    no format string, or None for a kind with no default: ``%s`` for a string, a
+    path, an enum (its item label) and a Boolean (TRUE or FALSE), ``%d`` for an
+    integer, ``%f`` for a floating-point number and the real part of a complex one,
+    ``%<%.3X %x>T`` for a time stamp.
+
+    NI, Format Into String: "Defaults match the data type of the input arguments"
+    (``format string``); the codes are those of NI's Format Specifier Syntax page."""
+    codes = {
+        "string": "%s",
+        "path": "%s",
+        "enum": "%s",
+        "bool": "%s",
+        "int": "%d",
+        "float": "%f",
+        "complex": "%f",
+        "timestamp": "%<%.3X %x>T",
+    }
+    return codes.get(kind)
+
+
 def _lv_format_into_string(format_string, initial, args):
     """What Format Into String writes: ``initial`` followed by the format string
     with each specifier replaced by the value it takes from ``args``, a list of
-    ``(value, kind, bits, labels)`` (``labels``: an enum's values to labels)."""
+    ``(value, kind, bits, labels)`` (``labels``: an enum's values to labels).
+
+    An empty format string is the same as none: one default specifier per value,
+    joined by a space. A forum answer to "format into string bug"
+    (forums.ni.com/t5/LabVIEW/format-into-string-bug/td-p/614667): "Make the
+    entire format string empty, you do get the start string with all the strings
+    concatenated to the end, and no error."."""
     text = initial
     point = None
+    if format_string == "" and args:
+        codes = []
+        for arg in args:
+            code = _lv_default_code(arg[1])
+            if code is None:
+                raise NotImplementedError(
+                    "Format Into String with an empty format string has no default "
+                    "format for a " + str(arg[1]) + " input"
+                )
+            codes.append(code)
+        format_string = " ".join(codes)
     for piece in _lv_parse(format_string):
         if isinstance(piece, str):
             text += _lv_decode_escapes(piece)
@@ -323,14 +513,20 @@ _DEPENDENCIES: dict[object, tuple[object, ...]] = {
     _lv_round_int: (),
     _lv_exponent: (),
     _lv_scientific: (_lv_pad, _lv_exponent),
+    _lv_strip_zeros: (),
+    _lv_general: (_lv_exponent,),
+    _lv_si: (_lv_strip_zeros,),
+    _lv_float_field: (_lv_pad, _lv_exponent, _lv_general, _lv_si, _lv_strip_zeros),
     _lv_negative_float_reason: (),
     _lv_format_value: (
         _lv_pad,
         _lv_round_int,
-        _lv_scientific,
+        _lv_float_field,
         _lv_negative_float_reason,
     ),
+    _lv_default_code: (),
     _lv_format_into_string: (
+        _lv_default_code,
         _lv_decode_escapes,
         _lv_parse,
         _lv_unsupported,

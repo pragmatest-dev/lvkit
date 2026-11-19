@@ -1,0 +1,31 @@
+{
+  "source": "enum names and numbers are the Enum Metadata the measurement plug-in's generated Register gRPC Messages VIs record; the Python classes are NI's protobuf packages (ni/ni-apis-python) and protobuf's own type_pb2",
+  "flat_typedef_suffix": "_Flat",
+  "flat_typedef_suffix_source": "the gRPC scripting tools' Create Enum Data Clusters (simple).vi names a second typedef of the same enum values with the name plus Get Constant.vi's FlatTypeDefSuffix (OneOf Constants), the string _Flat; the Flat typedef holds the identical items, and only the plain name is registered (Register Enum Metadata), so a Flat name is the enum of the plain name",
+  "enums": {
+    "google_protobuf_Field_Kind": {
+      "proto_name": "google.protobuf.Field.Kind",
+      "distribution": "protobuf",
+      "module": "google.protobuf.type_pb2",
+      "enum": "Field.Kind"
+    },
+    "google_protobuf_Field_Cardinality": {
+      "proto_name": "google.protobuf.Field.Cardinality",
+      "distribution": "protobuf",
+      "module": "google.protobuf.type_pb2",
+      "enum": "Field.Cardinality"
+    },
+    "google_protobuf_Syntax": {
+      "proto_name": "google.protobuf.Syntax",
+      "distribution": "protobuf",
+      "module": "google.protobuf.type_pb2",
+      "enum": "Syntax"
+    },
+    "nidevice_grpc_SessionInitializationBehavior": {
+      "proto_name": "nidevice_grpc.SessionInitializationBehavior",
+      "distribution": "ni.grpcdevice.v1.proto",
+      "module": "session_pb2",
+      "enum": "SessionInitializationBehavior"
+    }
+  }
+}

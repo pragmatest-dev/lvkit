@@ -36,12 +36,14 @@ from ..error_path import is_error_wire_vi
 from ..errors import UnknownDefault
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
+from ..ini_module import imports_ini
 from ..label_names import python_label
-from ..native_failure import CatalogFailures, catch_failures
+from ..native_failure import CatalogFailures, catch_failures, raise_unwired_error
 from ..value_copy import is_by_value_object, owned_input
-from ..vilib_pane import check_against_pane
+from ..vilib_pane import check_against_pane, with_instance_defaults
 from . import accessor_call, error_vi, method_call, vilib_op
 from .template_inputs import template_reads
+from .vilib_default_behavior import behavior_variable
 
 
 def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
@@ -104,7 +106,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
         fragment = (
             vilib_op.generate(node, ctx, vilib_vi)
             if vilib_vi.op
-            else _generate_inline(node, ctx, vilib_vi)
+            else generate_inline(node, ctx, vilib_vi)
         )
         fragment.runs_on_error = vilib_vi.runs_on_error
         return catch_failures(node, fragment, CatalogFailures.of_vilib(vilib_vi), ctx)
@@ -116,7 +118,11 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     )
     # The called function takes the error in and decides whether to skip.
     return CodeFragment(
-        statements=[*parts.prelude, stmt],
+        statements=[
+            *parts.prelude,
+            stmt,
+            *raise_unwired_error(node, parts.bindings, ctx),
+        ],
         bindings=parts.bindings,
         runs_on_error=True,
     )
@@ -214,7 +220,7 @@ def terminal_placeholder(terminal: VITerminal) -> str:
     return terminal.python_param or to_var_name(terminal.name)
 
 
-def _generate_inline(
+def generate_inline(
     node: VINode, ctx: CodeGenContext, vilib_vi: VIEntry
 ) -> CodeFragment:
     """Generate inline Python code instead of function call.
@@ -254,6 +260,14 @@ def _generate_inline(
     # The placeholders are read from the catalog template only, never from a
     # value written into it (a value can hold braces of its own, an f-string).
     values: dict[str, str] = {}
+    # Inputs a documented behaviour made a value for (a task NI creates).
+    made: dict[str, str] = {}
+    made_statements: list[ast.stmt] = []
+    behaviors = {
+        terminal_placeholder(vt): vt.default_behavior
+        for vt in vilib_vi.terminals
+        if vt.direction == TerminalDirection.INPUT and vt.default_behavior is not None
+    }
     for term in ctx.enriched_terminals(node):
         if term.direction != "input" or term.index not in vilib_inputs:
             continue
@@ -264,6 +278,22 @@ def _generate_inline(
                 value = "None"
             elif param_key in vilib_defaults:
                 value = vilib_defaults[param_key]
+            elif param_key in behaviors:
+                value = behavior_variable(
+                    behaviors[param_key],
+                    ctx,
+                    node,
+                    f"{func_name}_{param_key}",
+                    made_statements,
+                )
+                if value is None:
+                    raise UnknownDefault(
+                        vilib_vi.name,
+                        term.name or param_key,
+                        node,
+                        behaviors[param_key],
+                    )
+                made[param_key] = value
             else:
                 raise UnknownDefault(vilib_vi.name, term.name or param_key, node)
         values[param_key] = value or "None"
@@ -288,7 +318,9 @@ def _generate_inline(
                         continue
                     if term.index in vilib_inputs:
                         if vilib_inputs[term.index] == in_param:
-                            resolved = ctx.wired_input(term.id, node)
+                            resolved = ctx.wired_input(term.id, node) or made.get(
+                                in_param
+                            )
                             if resolved:
                                 ref_passthrough[out_param] = resolved
                             break
@@ -350,10 +382,13 @@ def _generate_inline(
         statements = [ast.Expr(value=parsed_expr.body)]
 
     # Build imports from vilib imports
-    imports = set(vilib_vi.imports) if vilib_vi.imports else set()
+    # An import of the package's ``ini`` module is spelled for the calling module.
+    imports = {i for i in vilib_vi.imports if not imports_ini(i)}
+    if len(imports) != len(vilib_vi.imports):
+        ctx.import_ini()
 
     return CodeFragment(
-        statements=statements,
+        statements=[*made_statements, *statements],
         bindings=bindings,
         imports=imports,
     )
@@ -362,6 +397,7 @@ def _generate_inline(
 def _checked_against_pane(entry: VIEntry, node: VINode, ctx: CodeGenContext) -> VIEntry:
     """``entry`` completed from the connector pane of the VI the call names when
     that VI is loaded; a catalog terminal that disagrees with the pane is a gap."""
+    entry = with_instance_defaults(entry, node)
     key = ctx.graph.loaded_callee_key(node) if ctx.graph is not None else None
     if ctx.graph is None or key is None:
         return entry

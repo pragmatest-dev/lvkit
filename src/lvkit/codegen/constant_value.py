@@ -27,10 +27,12 @@ from lvkit.measure_data import measure_data_value_type
 from lvkit.models import (
     LVType,
     LVTypeKind,
+    UndecodedPicture,
     VariantData,
     _is_error_cluster,
     unique_names,
 )
+from lvkit.picture_records import PictureData
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR, timestamp_expression
 
 from .ast_utils import (
@@ -63,8 +65,9 @@ _TIMESTAMP = LVType(
 _DOUBLE = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
 _U32 = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumUInt32")
 
-# Types written as ``None`` whatever the decoded value.
-_NO_VALUE_TYPES = frozenset({"Void", "Picture"})
+# Types written as ``None`` whatever the decoded value (a Picture is written from
+# its drawing, ``_picture``).
+_NO_VALUE_TYPES = frozenset({"Void"})
 # Types whose decoded value is the display text the scalar formatting reads.
 _SCALAR_TYPES = frozenset({"Boolean", "String", "Tag", "Path", "Refnum"})
 
@@ -79,6 +82,8 @@ def constant_value_expression(
         return ctx.class_object_expression(lv_type)
     if underlying in _NO_VALUE_TYPES:
         return "None"
+    if underlying == "Picture":
+        return _picture(ctx, value, where)
     if is_variant_type_name(underlying):
         if not isinstance(value, VariantData):
             raise ConversionGap(_not_read(where, lv_type))
@@ -214,7 +219,7 @@ def _collection(
         if not entries:
             return "set()"
         elements = [
-            constant_value_expression(ctx, key_type, entry, f"an element of {where}")
+            _key_constant(ctx, key_type, entry, f"an element of {where}")
             for entry in entries
         ]
         return "{" + ", ".join(elements) + "}"
@@ -224,12 +229,53 @@ def _collection(
     items = []
     for entry in entries:
         assert isinstance(entry, list)
-        key = constant_value_expression(ctx, key_type, entry[0], f"a key of {where}")
+        key = _key_constant(ctx, key_type, entry[0], f"a key of {where}")
         value = constant_value_expression(
             ctx, value_type, entry[1], f"a value of {where}"
         )
         items.append(f"{key}: {value}")
     return "{" + ", ".join(items) + "}"
+
+
+def _key_constant(
+    ctx: CodeGenContext, lv_type: LVType, value: object, where: str
+) -> str:
+    """A key or element of a Map or Set constant, written the way a wired one
+    enters the collection (``collection_keys``): a cluster or an array as a tuple
+    of its values, anything else as the constant."""
+    if lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields is not None:
+        if not isinstance(value, dict) or _is_error_cluster(lv_type):
+            return constant_value_expression(ctx, lv_type, value, where)
+        keys = unique_names(f.name for f in lv_type.fields)
+        parts = []
+        for f, key in zip(lv_type.fields, keys):
+            if f.type is None:
+                raise ConversionGap(
+                    f"The type of the field {f.name!r} of {where} is not known"
+                )
+            parts.append(_key_constant(ctx, f.type, value.get(key), where))
+        return f"({', '.join(parts)}{',' if len(parts) == 1 else ''})"
+    if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+        if not isinstance(value, list):
+            return constant_value_expression(ctx, lv_type, value, where)
+        return _key_array(
+            ctx, lv_type.element_type, lv_type.dimensions or 1, value, where
+        )
+    return constant_value_expression(ctx, lv_type, value, where)
+
+
+def _key_array(
+    ctx: CodeGenContext,
+    element: LVType,
+    dimensions: int,
+    value: list[object],
+    where: str,
+) -> str:
+    if dimensions > 1:
+        items = [_key_array(ctx, element, dimensions - 1, v, where) for v in value]  # type: ignore[arg-type]
+    else:
+        items = [_key_constant(ctx, element, v, where) for v in value]
+    return f"({', '.join(items)}{',' if len(items) == 1 else ''})"
 
 
 def _variant(ctx: CodeGenContext, value: VariantData, where: str) -> str:
@@ -250,6 +296,24 @@ def _variant(ctx: CodeGenContext, value: VariantData, where: str) -> str:
         items.append(f"{name!r}: {_variant(ctx, attribute, part)}")
     ctx.import_variant()
     return f"{VARIANT_NAME}({held}, {type_expr}, {{{', '.join(items)}}})"
+
+
+def _picture(ctx: CodeGenContext, value: object, where: str) -> str:
+    """A Picture constant: ``None`` when empty, else the RGBA image of its one
+    copy pixmap record, placed at the top-left corner (``picture_records``); any
+    other drawing is a gap naming what is not decoded."""
+    if isinstance(value, UndecodedPicture):
+        raise ConversionGap(f"{where[0].upper()}{where[1:]} holds {value.reason()}")
+    if not isinstance(value, PictureData):
+        return "None"
+    pixmap = value.pixmap()
+    if pixmap is None:
+        raise ConversionGap(f"{where[0].upper()}{where[1:]} holds {value.reason()}")
+    ctx.add_import("from PIL import Image")
+    return (
+        f"Image.frombytes('RGB', ({pixmap.width}, {pixmap.height}), "
+        f"bytes.fromhex('{pixmap.pixels.hex()}')).convert('RGBA')"
+    )
 
 
 def _not_read(where: str, lv_type: LVType) -> str:
@@ -285,7 +349,10 @@ def _cluster(
     if not lv_type.typedef_name and not lv_type.classname:
         trailing = "," if len(expressions) == 1 else ""
         return f"({', '.join(expressions)}{trailing})"
-    attributes = field_attribute_names(f.name for f in lv_type.fields)
+    # An instance of a loaded typedef takes the typedef's field names, each at
+    # its saved position.
+    named = ctx.typedef_instance(lv_type).fields or lv_type.fields
+    attributes = field_attribute_names(f.name for f in named)
     arguments = ", ".join(
         f"{attribute}={expression}"
         for attribute, expression in zip(attributes, expressions, strict=True)

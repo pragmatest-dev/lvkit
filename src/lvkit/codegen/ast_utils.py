@@ -44,7 +44,7 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
 
     A number is 0, a Boolean False, a string ``""``, an enum or ring its first
     item, a path the empty path, a timestamp 1904-01-01 00:00:00 UTC, an array
-    ``[]``; a named cluster is a
+    ``[]``, a map ``{}``, a set ``set()``; a named cluster is a
     ``SimpleNamespace`` of its fields' defaults and an anonymous one a tuple of
     them (the forms cluster constants take); an error cluster is ``None`` (no
     error). A type with no Python value (a refnum, a variant) is ``None``, and so
@@ -67,6 +67,10 @@ def type_default_expr(lv_type: LVType | None) -> ast.expr:
             return parse_expr("Path('')")
         if lv_type.is_timestamp:
             return parse_expr(EPOCH_1904_EXPRESSION)
+        if underlying == "Map":
+            return ast.Dict(keys=[], values=[])
+        if underlying == "Set":
+            return parse_expr("set()")
         return _scalar_default(underlying)
     if kind in (LVTypeKind.ENUM, LVTypeKind.RING):
         return ast.Constant(value=0)
@@ -510,17 +514,18 @@ _PY_BUILTINS = frozenset(dir(builtins))
 # (``tests/test_reserved_module_names.py`` checks this).
 GENERATED_MODULE_NAMES = frozenset(
     {
-        "builtins", "concurrent", "copy", "ctypes", "filecmp", "fnmatch",
-        "functools", "gc", "getpass", "hightime",
-        "importlib", "inspect", "io", "ipaddress", "keyword", "locale", "math",
-        "nidaqmx",
+        "builtins", "calendar", "concurrent", "copy", "ctypes", "datetime", "filecmp",
+        "fnmatch",
+        "functools", "gc", "getpass", "grpc", "hightime",
+        "importlib", "inspect", "io", "ipaddress", "json", "keyword", "locale", "math",
+        "configparser", "ni", "nidaqmx",
         "nidcpower", "nidigital", "nidmm", "nifgen", "niscope", "niswitch",
         "nitypes", "nptdms", "numpy", "os", "pathlib", "pickle", "pyvisa",
         "random", "re",
         "serial",
         "shutil", "socket", "stat", "statistics",
         "struct", "subprocess", "sys", "tempfile", "threading", "time",
-        "unicodedata", "uuid", "webbrowser",
+        "unicodedata", "uuid", "webbrowser", "xml",
         "zipfile",
     }
 )  # fmt: skip

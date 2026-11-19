@@ -183,9 +183,13 @@ def test_status_and_cancel() -> None:
 
 
 def test_notifiers_py_is_written_only_when_a_module_imports_it(tmp_path: Path) -> None:
-    (tmp_path / "plain.py").write_text("def f():\n    return 1\n")
+    (tmp_path / "plain.py").write_text("def f():\n    return 1\n", encoding="utf-8")
     _write_notifiers_module(tmp_path)
     assert not (tmp_path / "notifiers.py").exists()
-    (tmp_path / "uses.py").write_text("from .notifiers import Notifier\n")
+    (tmp_path / "uses.py").write_text(
+        "from .notifiers import Notifier\n", encoding="utf-8"
+    )
     _write_notifiers_module(tmp_path)
-    assert (tmp_path / "notifiers.py").read_text() == NOTIFIERS_MODULE_SOURCE
+    assert (tmp_path / "notifiers.py").read_text(
+        encoding="utf-8"
+    ) == NOTIFIERS_MODULE_SOURCE

@@ -124,7 +124,7 @@ _BD_XML = """<?xml version='1.0' encoding='utf-8'?>
 
 def _load(tmp_path: Path) -> tuple[InMemoryVIGraph, str]:
     bd_xml = tmp_path / "IpeSeq_BDHb.xml"
-    bd_xml.write_text(_BD_XML)
+    bd_xml.write_text(_BD_XML, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
     return graph, graph.list_vis()[0]

@@ -1214,6 +1214,9 @@ def _pane_terminal_of_row(
         lv_type=_pane_lv_type(t.type, types_dict, memo),
         caption=t.caption,
         caption_visible=t.caption_visible,
+        starts_hidden=t.starts_hidden,
+        enable_state=t.enable_state,
+        mechanical_action=t.mechanical_action,
         terminal_uid=t.uid,
     )
 

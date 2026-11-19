@@ -66,7 +66,7 @@ def test_a_file_and_an_empty_folder_are_deleted(
     package = _delete(project, hierarchy=False)
     assert "shutil" not in package.source
     file = tmp_path / "f.txt"
-    file.write_text("x")
+    file.write_text("x", encoding="utf-8")
     folder = tmp_path / "empty"
     folder.mkdir()
     for target in (file, folder):
@@ -82,7 +82,7 @@ def test_a_folder_with_contents_needs_entire_hierarchy(
     package = _delete(project, hierarchy=None)
     folder = tmp_path / "full"
     folder.mkdir()
-    (folder / "f.txt").write_text("x")
+    (folder / "f.txt").write_text("x", encoding="utf-8")
     error = package.function(folder, False).error_out
     assert (error.status, error.code, error.source) == (True, 6, "Delete")
     assert folder.exists()
@@ -163,7 +163,7 @@ def test_the_delete_with_no_hierarchy_input(
     project.add(vi)
     package = project.generate(NAME)
     file = tmp_path / "f.txt"
-    file.write_text("x")
+    file.write_text("x", encoding="utf-8")
     result = package.function(file)
     assert (result.error_out, result.deleted) == (None, file)
     assert not file.exists()
@@ -189,7 +189,7 @@ def test_entire_hierarchy_deletes_a_file_too(
     deleted as it is without it."""
     package = _delete(project, hierarchy=hierarchy)
     file = tmp_path / "f.txt"
-    file.write_text("x")
+    file.write_text("x", encoding="utf-8")
     args = (file,) if hierarchy else (file, True)
     assert package.function(*args).error_out is None
     assert not file.exists()

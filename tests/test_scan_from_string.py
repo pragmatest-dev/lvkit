@@ -5,18 +5,25 @@ later outputs at their defaults and gives error 85."""
 
 from __future__ import annotations
 
+import ast
 import sys
+from datetime import UTC
 from typing import Any
 
+import hightime
 import pytest
 
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.labview_format import _lv_format_into_string
+from lvkit.codegen.scan_module import SCAN_MODULE_SOURCE
 from lvkit.graph.models import Constant, PrimitiveNode, VIContext, Wire
-from lvkit.models import FPTerminal, LVType, Terminal
+from lvkit.models import EnumValue, FPTerminal, LVType, LVTypeKind, Terminal
+from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 from tests.helpers import GENERATED_PACKAGE, build_graph, exec_generated
 from tests.test_catalog_files_strings_arrays import ERROR_CLUSTER
+from tests.time_zone import needs_posix_tz
 from tests.vilib_caller import BOOL, DBL, I32, STRING, U32, primitive
 
 U8 = primitive("NumUInt8")
@@ -311,6 +318,37 @@ def test_an_unwired_format_reads_each_output_by_its_type() -> None:
     assert _values(_result(None, [I32, DBL, STRING], "1 2.5 z"), 3) == [1, 2.5, "z"]
 
 
+CPLX = primitive("NumComplex128")
+
+
+@pytest.mark.parametrize(
+    ("format_text", "text"),
+    [(None, "1.5"), ("%g", "1.5"), ("%f", "1.5"), ("%e", "1.5E+0")],
+)
+def test_a_complex_output_reads_a_real_number_into_its_real_part(
+    format_text: str | None, text: str
+) -> None:
+    assert _values(_result(format_text, [CPLX], text), 1) == [complex(1.5, 0.0)]
+
+
+def test_a_complex_output_stops_after_the_real_part_of_a_sum() -> None:
+    result = _result("%f", [CPLX], "2+2")
+    assert _values(result, 1) == [complex(2, 0)]
+    assert result.remaining == "+2"
+
+
+def test_what_a_format_writes_for_a_complex_value_a_scan_reads_back() -> None:
+    written = _lv_format_into_string("%f", "", [(complex(2.5, 7), "complex", 128, [])])
+    assert written == "2.500000"
+    assert _values(_result("%f", [CPLX], written), 1) == [complex(2.5, 0)]
+
+
+def test_a_complex_format_wired_at_run_time_reads_what_a_constant_one_reads() -> None:
+    for format_text in ("%g", "%f", "%e"):
+        wired = _wired_result(format_text, [CPLX], "-1.5e3")
+        assert _values(wired, 1) == [complex(-1500, 0)]
+
+
 def test_the_pattern_is_written_into_the_module_with_no_lvkit_import() -> None:
     source, _ = _scan("%d:%d", [I32, I32])
     assert "re.match(" in source
@@ -327,6 +365,7 @@ def test_the_pattern_is_written_into_the_module_with_no_lvkit_import() -> None:
         ("%3f", [DBL], "width with a floating-point code"),
         ("%f", [I32], "into a int output"),
         ("%d", [STRING], "a number into a string output"),
+        ("%d", [primitive("NumComplex128")], "code 'd' into a complex output"),
         ("%s", [I32], "a string into a int output"),
         ("%d", [I32, I32], "1 specifiers and the node has 2 outputs"),
     ],
@@ -342,8 +381,369 @@ def test_what_has_no_conversion_is_a_gap_with_its_reason(
         function(text="1")
 
 
-def test_a_format_wired_at_run_time_is_a_gap() -> None:
+def _enum(*labels: str) -> LVType:
+    return LVType(
+        kind=LVTypeKind.ENUM,
+        underlying_type="UnitUInt16",
+        values={label: EnumValue(value=i) for i, label in enumerate(labels)},
+    )
+
+
+COLOR = _enum("Red", "Green", "Blue")
+
+
+def test_an_enum_reads_the_label_of_an_item_as_its_value() -> None:
+    assert _values(_result("%s", [COLOR], "Blue"), 1) == [2]
+    assert _values(_result(None, [COLOR], "Green rest"), 1) == [1]
+    result = _result("color: %s", [COLOR], "color: Red")
+    assert _values(result, 1) == [0]
+    assert result.remaining == ""
+
+
+def test_text_after_the_label_is_left_and_the_match_is_case_sensitive() -> None:
+    result = _result("%s", [COLOR], "Greenish")
+    assert _values(result, 1) == [1]
+    assert result.remaining == "ish"
+    result = _result("%s", [COLOR], "green", error=True, arguments={"error_in": None})
+    assert _values(result, 1) == [0]
+    assert result.error_out.code == 85
+
+
+def test_a_label_that_matches_nothing_keeps_the_default_and_is_error_85() -> None:
+    result = _result(
+        "%s",
+        [COLOR],
+        "Purple",
+        error=True,
+        defaults=[2],
+        arguments={"default0": 2, "error_in": None},
+    )
+    assert _values(result, 1) == [2]
+    assert result.error_out.code == 85
+    assert result.remaining == "Purple"
+
+
+@pytest.mark.parametrize(
+    ("format_text", "outputs", "reason"),
+    [
+        ("%s", [_enum("", "A")], "an empty one"),
+        ("%3s", [COLOR], "a width with an enum output"),
+        ("%d", [COLOR], "into a enum output"),
+        ("%[a-z]", [COLOR], "a string into a enum output"),
+    ],
+)
+def test_an_enum_scan_with_no_documented_result_is_a_gap(
+    format_text: str, outputs: list[LVType], reason: str
+) -> None:
     gaps: list[Gap] = []
-    _, function = _scan("%d", [I32], wire_format=True, gaps=gaps)
+    _, function = _scan(format_text, outputs, gaps=gaps)
     assert len(gaps) == 1
-    assert "only known when the code runs" in gaps[0].message
+    assert reason in gaps[0].message
+    with pytest.raises(NotImplementedError, match="Scan From String"):
+        function(text="One")
+
+
+def test_an_enum_label_with_braces_and_regular_expression_characters() -> None:
+    odd = _enum("a{b}", "c.d")
+    assert _values(_result("%s", [odd], "a{b}"), 1) == [0]
+    assert _values(_result("%s", [odd], "c.d"), 1) == [1]
+
+
+def test_the_longest_label_wins_whatever_the_order_of_the_items() -> None:
+    for labels in (("Generic", "GenericClass"), ("GenericClass", "Generic")):
+        enum = _enum(*labels)
+        assert _values(_result("%s", [enum], "GenericClass"), 1) == [
+            labels.index("GenericClass")
+        ]
+        assert _values(_result("%s", [enum], "Generic"), 1) == [
+            labels.index("Generic")
+        ]
+
+
+# A time stamp: ``%<...>T`` reads the codes of the embedded time format.
+TIME = LVType(
+    kind=LVTypeKind.PRIMITIVE,
+    underlying_type="MeasureData",
+    measure_flavor=TIMESTAMP_FLAVOR,
+)
+
+
+def _utc(*parts: int, **keywords: int) -> hightime.datetime:
+    return hightime.datetime(*parts, **keywords, tzinfo=UTC)
+
+
+def test_a_utc_time_stamp_reads_its_date_and_time() -> None:
+    result = _result(
+        "%^<%Y-%m-%dT%H:%M:%S>T", [TIME], "2026-11-16T10:20:30.123Z"
+    )
+    assert _values(result, 1) == [_utc(2026, 11, 16, 10, 20, 30)]
+    assert result.remaining == ".123Z"
+
+
+def test_the_fraction_of_a_second_reads_its_digits_exactly() -> None:
+    result = _result("%^<%S%99u>T", [TIME], "30.123456789012")
+    value = _values(result, 1)[0]
+    assert (value.second, value.microsecond, value.femtosecond) == (
+        30,
+        123456,
+        789012000,
+    )
+    result = _result("%,;%^<%99u>T", [TIME], ",5")
+    assert _values(result, 1)[0].microsecond == 500000
+    result = _result("%^<%H.%M.%S.%3u>T", [TIME], "01.02.03.456")
+    assert _values(result, 1)[0].microsecond == 456000
+
+
+def test_a_field_the_format_does_not_name_keeps_the_default_time_stamp() -> None:
+    result = _result("%^<%H:%M>T", [TIME], "07:30")
+    assert _values(result, 1) == [_utc(1904, 1, 1, 7, 30)]
+
+
+def test_two_digit_years_follow_the_century_rule() -> None:
+    assert _values(_result("%^<%y>T", [TIME], "68"), 1)[0].year == 2068
+    assert _values(_result("%^<%y>T", [TIME], "69"), 1)[0].year == 1969
+
+
+@needs_posix_tz
+def test_a_time_stamp_without_the_flag_is_local_time(time_zone) -> None:
+    time_zone("America/Denver")
+    result = _result("%<%Y-%m-%d %H:%M>T", [TIME], "2026-07-01 12:00")
+    assert _values(result, 1) == [_utc(2026, 7, 1, 18, 0)]
+    result = _result("%<%Y-%m-%d %H:%M>T", [TIME], "2026-01-01 12:00")
+    assert _values(result, 1) == [_utc(2026, 1, 1, 19, 0)]
+
+
+def test_a_text_that_does_not_match_gives_the_default() -> None:
+    result = _result("%^<%Y-%m-%d>T", [TIME], "20x6-11-16")
+    assert _values(result, 1) == [_utc(1904, 1, 1)]
+
+
+@pytest.mark.parametrize(
+    ("format_text", "reason"),
+    [
+        ("%^<%b %d>T", "the code '%b'"),
+        ("%^<%I:%M %p>T", "the code '%I'"),
+        ("%^<%x>T", "the code '%x'"),
+        ("%^<%Y %Y>T", "'%Y' twice"),
+        ("%;%^<%99u>T", "the system decimal separator"),
+        ("%^<%u>T", "without its digit count"),
+        ("%+<%Y>T", "a flag"),
+    ],
+)
+def test_a_time_code_the_scan_cannot_read_is_a_gap(
+    format_text: str, reason: str
+) -> None:
+    gaps: list[Gap] = []
+    _scan(format_text, [TIME], gaps=gaps)
+    assert len(gaps) == 1
+    assert reason in gaps[0].message
+
+
+def test_a_time_into_a_number_is_seconds_since_1904() -> None:
+    # JDP's "%[+-]%^<%H:%M>T" reads an hour and minute offset as seconds.
+    result = _result("%^<%H:%M>T", [DBL], "05:30")
+    assert _values(result, 1) == [5.5 * 3600]
+    # The default is 100 s = 00:01:40: the seconds the format does not name stay.
+    result = _result(
+        "%^<%H:%M>T",
+        [DBL],
+        "05:30",
+        defaults=[100.0],
+        arguments={"default0": 100.0},
+    )
+    assert _values(result, 1) == [5.5 * 3600 + 40]
+    result = _result("%[+-]%^<%H:%M>T", [STRING, DBL], "-01:15")
+    assert _values(result, 2) == ["-", 4500.0]
+
+
+def test_a_time_into_an_integer_is_a_gap() -> None:
+    gaps: list[Gap] = []
+    _scan("%^<%H:%M>T", [I32], gaps=gaps)
+    assert "a time into a int output" in gaps[0].message
+
+
+def test_a_fraction_of_a_second_is_exact_to_the_digit() -> None:
+    result = _result("%^<%Y-%m-%dT%H:%M:%S%3u>T", [TIME], "2026-11-16T10:20:30.123Z")
+    value = _values(result, 1)[0]
+    assert value == _utc(2026, 11, 16, 10, 20, 30, 123000)
+    assert (value.microsecond, value.femtosecond, value.yoctosecond) == (123000, 0, 0)
+    assert result.remaining == "Z"
+
+
+# A format string wired from a value the code computes is translated when the
+# code runs, by the same translator (the package's ``scan`` module).
+
+
+def _wired_result(
+    format_text: str, outputs: list[LVType], text: str, **options: Any
+) -> Any:
+    arguments = {**options.pop("arguments", {}), "format_": format_text}
+    _, function = _scan(format_text, outputs, wire_format=True, **options)
+    return function(text=text, **arguments)
+
+
+_RUN_TIME_CASES = [
+    ("%d", [I32], "-42"),
+    ("%d", [I32], "  \t 12abc"),
+    ("%d:%d:%f", [I32, I32, DBL], "12:34:56.25"),
+    ("%g", [DBL], "-1.5e3"),
+    ("%,;%g", [DBL], "3,25"),
+    ("%s %x", [STRING, I32], "name FF rest"),
+    ("HTTP/%d.%d %d ", [I32, I32, I32], "HTTP/1.1   200 OK"),
+    ("%[^,],%s", [STRING, STRING], "welcome to LabVIEW,Smith"),
+    ("%3d%3d", [I32, I32], "0123456789"),
+    ("%d", [U8], "300"),
+    ("%d", [I8], "-300"),
+    ("%d", [BOOL], "1"),
+    ("%s", [BOOL], "YES"),
+    ("%d%%", [I32], "50%"),
+    ("%d:%d", [I32, I32], "12:ab"),
+    ("%d", [I32], "abc"),
+    ("%s", [COLOR], "Blue"),
+    ("%s", [COLOR], "Purple"),
+    ("%^<%Y-%m-%dT%H:%M:%S%3u>T", [TIME], "2026-11-16T10:20:30.123Z"),
+    ("%^<%H:%M>T", [DBL], "05:30"),
+    ("%p", [DBL], "12M"),
+    ("%p", [DBL], "12.00M"),
+    ("%p", [DBL], "10.0kHz"),
+    ("%,;%p", [DBL], "1,5k"),
+    ("%p %p", [DBL, DBL], "3u 4m"),
+    ("%p", [CPLX], "2.5n"),
+]
+
+# NI, Format Specifier Syntax Examples, SI Notation (%p): format ``%.2p`` writes
+# 12000000 as "12.00M" and ``%_2p`` as "12M"; a scan reads them back. Forum
+# reports ("Bug with Scan from String using SI (%p) format code"): "10.0k" reads
+# 10000, "10.0kHz" reads 10.
+_SI_CASES = [
+    ("12.00M", 12000000.0, ""),
+    ("12M", 12000000.0, ""),
+    ("1.5k", 1500.0, ""),
+    ("3u", 3e-6, ""),
+    ("-2.5m", -0.0025, ""),
+    ("7", 7.0, ""),
+    ("1y", 1e-24, ""),
+    ("1Y", 1e24, ""),
+    ("10.0k", 10000.0, ""),
+    ("10.0kHz", 10.0, "kHz"),
+    ("12uA", 12.0, "uA"),
+    ("5k rest", 5000.0, " rest"),
+    ("  5k", 5000.0, ""),
+]
+
+
+@pytest.mark.parametrize(("text", "value", "remaining"), _SI_CASES)
+def test_an_si_prefix_scales_the_number_it_follows(
+    text: str, value: float, remaining: str
+) -> None:
+    for read in (_result, _wired_result):
+        result = read("%p", [DBL], text)
+        assert _values(result, 1) == [pytest.approx(value, rel=1e-12)]
+        assert result.remaining == remaining
+
+
+def test_what_a_format_writes_with_p_a_scan_reads_back() -> None:
+    for number in (12000000.0, 0.0015, -3.5e-9, 42.0):
+        written = _lv_format_into_string("%.3p", "", [(number, "float", 64, [])])
+        assert _values(_result("%p", [DBL], written), 1) == [
+            pytest.approx(number, rel=1e-3)
+        ]
+
+
+def test_the_si_prefix_scan_is_written_into_the_module_with_no_lvkit_import() -> None:
+    source, _ = _scan("%p", [DBL])
+    assert "lvkit" not in source
+    assert "re.match(" in source
+
+
+@pytest.mark.parametrize("format_text", ["%#f", "%#d", "%#p", "%+p", "%#g"])
+def test_a_scan_reads_no_modifier(format_text: str) -> None:
+    gaps: list[Gap] = []
+    _, function = _scan(format_text, [DBL], gaps=gaps)
+    assert len(gaps) == 1
+    assert "a modifier" in gaps[0].message
+    with pytest.raises(NotImplementedError, match="no modifiers"):
+        function(text="1")
+
+
+def test_p_into_an_integer_output_is_a_gap() -> None:
+    gaps: list[Gap] = []
+    _scan("%p", [I32], gaps=gaps)
+    assert len(gaps) == 1
+    assert "'%p'" in gaps[0].message
+
+
+@pytest.mark.parametrize(("format_text", "outputs", "text"), _RUN_TIME_CASES)
+def test_a_format_wired_at_run_time_reads_what_a_constant_one_reads(
+    format_text: str, outputs: list[LVType], text: str
+) -> None:
+    options: dict[str, Any] = {
+        "error": True,
+        "arguments": {"error_in": None},
+    }
+    constant = _result(format_text, outputs, text, **options)
+    wired = _wired_result(format_text, outputs, text, **options)
+    assert _values(wired, len(outputs)) == _values(constant, len(outputs))
+    assert (wired.remaining, wired.offset) == (constant.remaining, constant.offset)
+    assert (wired.error_out is None) == (constant.error_out is None)
+    if wired.error_out is not None:
+        assert wired.error_out.code == constant.error_out.code == 85
+        assert wired.error_out.source == constant.error_out.source
+
+
+def test_a_wired_format_keeps_the_default_and_the_initial_scan_location() -> None:
+    result = _wired_result(
+        "%d:%d",
+        [I32, I32],
+        "ab 12:cd",
+        initial=True,
+        error=True,
+        defaults=[None, 7],
+        arguments={"initial": 2, "default1": 7, "error_in": None},
+    )
+    assert _values(result, 2) == [12, 7]
+    assert result.error_out.source == "Scan From String (arg 2)"
+    assert (result.remaining, result.offset) == (":cd", 5)
+
+
+def test_a_wired_format_is_translated_by_the_scan_module_not_written_in() -> None:
+    source, _ = _scan("%d", [I32], wire_format=True)
+    assert "scan_text(format_, text, " in source
+    assert "re.match(" not in source
+    assert "lvkit" not in source
+
+
+def test_two_formats_wired_at_run_time_in_one_vi_each_read_by_their_own() -> None:
+    _, function = _scan("%d", [I32], wire_format=True)
+    assert function(text="12 34", format_="%d").out0 == 12
+    assert function(text="12 34", format_="%x").out0 == 0x12
+    first = function(text="ab-5", format_="ab%d")
+    second = function(text="ab-5", format_="%x")
+    assert (first.out0, first.remaining) == (-5, "")
+    assert (second.out0, second.remaining) == (0xAB, "-5")
+
+
+def test_a_format_with_no_conversion_raises_naming_it_when_the_code_runs() -> None:
+    gaps: list[Gap] = []
+    _, function = _scan("%d", [DBL], wire_format=True, gaps=gaps)
+    assert gaps == []
+    with pytest.raises(NotImplementedError) as refused:
+        function(text="1.5", format_="%5.2f")
+    assert "'%5.2f'" in str(refused.value)
+    assert "a precision" in str(refused.value)
+    with pytest.raises(NotImplementedError, match="has 2 specifiers"):
+        function(text="1", format_="%d %d")
+
+
+def test_the_scan_module_imports_nothing_from_the_package_or_lvkit() -> None:
+    imported = [
+        node
+        for node in ast.walk(ast.parse(SCAN_MODULE_SOURCE))
+        if isinstance(node, ast.ImportFrom | ast.Import)
+    ]
+    for node in imported:
+        if isinstance(node, ast.ImportFrom):
+            assert node.level == 0
+            assert (node.module or "").split(".")[0] != "lvkit"
+        else:
+            assert all(a.name.split(".")[0] != "lvkit" for a in node.names)

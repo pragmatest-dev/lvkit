@@ -2288,7 +2288,7 @@
       ],
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "gap_reason": "To Probe String has no NI page: what string it makes of a value, and what its maximum string length cuts, are not documented. Its terminals are the callers' (probe string out 3, error in 4, maximum string length 6, data value 7)."
+      "gap_reason": "To Probe String has no NI function page; NI's custom-probe page says only that it converts the data into the string the probe's Value column shows, compressed and trimmed to fit the available space, so its text depends on the probe window's size and no format for each type is published (web searches of NI forums and docs found none); what it makes of a value, and what its maximum string length cuts, are not documented. Its terminals are the callers' (probe string out 3, error in 4, maximum string length 6, data value 7)."
     },
     "2414": {
       "name": "Type Of",
@@ -2531,7 +2531,7 @@
           "refnum_type": "generic_class"
         },
         {
-          "index": 6,
+          "index": 8,
           "direction": "output",
           "name": "Error Out",
           "type": "ErrorCluster"
@@ -3412,13 +3412,13 @@
           "refnum_type": "rt_fifo"
         },
         {
-          "index": 9,
+          "index": 10,
           "direction": "output",
           "name": "created new?",
           "type": "Boolean"
         },
         {
-          "index": 10,
+          "index": 11,
           "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
@@ -3456,32 +3456,32 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 4,
+          "index": 7,
           "direction": "output",
           "name": "# elements",
           "type": "NumUInt32"
         },
         {
-          "index": 5,
+          "index": 8,
           "direction": "output",
           "name": "rt fifo out",
           "type": "Refnum",
           "refnum_type": "rt_fifo"
         },
         {
-          "index": 6,
+          "index": 9,
           "direction": "output",
           "name": "element out",
           "type": "String"
         },
         {
-          "index": 7,
+          "index": 10,
           "direction": "output",
           "name": "empty?",
           "type": "Boolean"
         },
         {
-          "index": 8,
+          "index": 11,
           "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
@@ -3519,32 +3519,32 @@
           "type": "ErrorCluster"
         },
         {
-          "index": 4,
+          "index": 5,
           "direction": "input",
           "name": "overwrite on timeout (T)",
           "type": "Boolean"
         },
         {
-          "index": 5,
+          "index": 7,
           "direction": "output",
           "name": "# elements",
           "type": "NumUInt32"
         },
         {
-          "index": 6,
+          "index": 8,
           "direction": "output",
           "name": "rt fifo out",
           "type": "Refnum",
           "refnum_type": "rt_fifo"
         },
         {
-          "index": 7,
+          "index": 10,
           "direction": "output",
           "name": "timed out?",
           "type": "Boolean"
         },
         {
-          "index": 8,
+          "index": 11,
           "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"
@@ -3564,19 +3564,19 @@
           "refnum_type": "rt_fifo"
         },
         {
-          "index": 1,
+          "index": 2,
           "direction": "input",
           "name": "force destroy? (F)",
           "type": "Boolean"
         },
         {
-          "index": 2,
+          "index": 3,
           "direction": "input",
           "name": "error in (no error)",
           "type": "ErrorCluster"
         },
         {
-          "index": 3,
+          "index": 11,
           "direction": "output",
           "name": "error out",
           "type": "ErrorCluster"

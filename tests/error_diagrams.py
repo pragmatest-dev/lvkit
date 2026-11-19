@@ -106,6 +106,10 @@ class Pane:
     # Raw heap xml placed inside the control's ddo after its parts: a ring's item
     # list, a cluster's fields, an array's element.
     inner: str = ""
+    # The control's saved default, as the escaped bytes of its ``DefaultData``.
+    default_data: str = ""
+    # The control's own ``ddo`` ``objFlags``: how it starts (hidden, disabled).
+    ddo_flags: int = 0
 
 
 def _slot_flags(pane: Pane) -> int:
@@ -205,6 +209,8 @@ class Vi:
         ddo_class: str = "stdNum",
         bounds: tuple[int, int, int, int] | None = None,
         inner: str = "",
+        default_data: str = "",
+        ddo_flags: int = 0,
     ) -> int:
         """A control or indicator; ``rule`` puts it on the connector pane with
         that wiring rule. Returns the uid of its terminal on the diagram."""
@@ -213,7 +219,10 @@ class Vi:
         if rule is not None:
             slot = sum(1 for p in self.panes if p.slot is not None)
         self.panes.append(
-            Pane(uid, label, type_id, indicator, rule, slot, ddo_class, bounds, inner)
+            Pane(
+                uid, label, type_id, indicator, rule, slot, ddo_class, bounds, inner,
+                default_data, ddo_flags,
+            )
         )
         term = uid + 1
         self.fp_terms[uid] = term
@@ -228,6 +237,8 @@ class Vi:
         ddo_class: str = "stdNum",
         bounds: tuple[int, int, int, int] | None = None,
         inner: str = "",
+        default_data: str = "",
+        ddo_flags: int = 0,
     ) -> int:
         return self.pane(
             label,
@@ -236,6 +247,8 @@ class Vi:
             ddo_class=ddo_class,
             bounds=bounds,
             inner=inner,
+            default_data=default_data,
+            ddo_flags=ddo_flags,
         )
 
     def indicator(
@@ -247,6 +260,8 @@ class Vi:
         ddo_class: str = "stdNum",
         bounds: tuple[int, int, int, int] | None = None,
         inner: str = "",
+        default_data: str = "",
+        ddo_flags: int = 0,
     ) -> int:
         return self.pane(
             label,
@@ -256,6 +271,8 @@ class Vi:
             ddo_class=ddo_class,
             bounds=bounds,
             inner=inner,
+            default_data=default_data,
+            ddo_flags=ddo_flags,
         )
 
     def error_in(self, rule: int | None = RECOMMENDED) -> int:
@@ -291,13 +308,26 @@ class Vi:
     # -- nodes --------------------------------------------------------------
 
     def constant(
-        self, type_id: int, hex_value: str, *, nested_type: int | None = None
+        self,
+        type_id: int,
+        hex_value: str,
+        *,
+        nested_type: int | None = None,
+        label: str | None = None,
     ) -> int:
         """A diagram constant holding the saved value ``hex_value``.
         ``nested_type`` gives it a display object whose first control has that
-        type, ahead of the constant's own type as in a saved cluster constant."""
+        type, ahead of the constant's own type as in a saved cluster constant.
+        ``label`` gives it a visible label."""
         uid = self.next_uid(2)
         ddo = ""
+        if label is not None:
+            ddo = (
+                '<ddo class="stdNum"><partsList>'
+                '<SL__arrayElement class="label"><objFlags>0</objFlags>'
+                f'<textRec><text>"{label}"</text></textRec></SL__arrayElement>'
+                "</partsList></ddo>"
+            )
         if nested_type is not None:
             ddo = (
                 '<ddo class="stdClust"><partsList><SL__arrayElement class="stdString">'
@@ -859,6 +889,13 @@ class Vi:
         zplane = ""
         for p in self.panes:
             bounds = f"<bounds>{p.bounds}</bounds>" if p.bounds else ""
+            if p.ddo_flags:
+                bounds = f"<objFlags>{p.ddo_flags}</objFlags>{bounds}"
+            default = (
+                f'<DefaultData>"{p.default_data}"</DefaultData>'
+                if p.default_data
+                else ""
+            )
             zplane += (
                 f'<SL__arrayElement class="fPDCO" uid="{p.uid}">'
                 f"<objFlags>{1 if p.indicator else 0}</objFlags>"
@@ -868,7 +905,7 @@ class Vi:
                 f'<SL__arrayElement class="label" uid="{p.uid}2">'
                 f'<textRec class="textHair"><text>"{p.label}"</text></textRec>'
                 "</SL__arrayElement></partsList>"
-                f"{p.inner}</ddo></SL__arrayElement>"
+                f"{p.inner}</ddo>{default}</SL__arrayElement>"
             )
         order = "".join(_ref(p.uid) for p in self.panes)
         slots = sorted(

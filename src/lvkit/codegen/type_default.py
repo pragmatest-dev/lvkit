@@ -56,6 +56,11 @@ class ClassNames(Protocol):
         module."""
         ...
 
+    def typedef_instance(self, lv_type: LVType) -> LVType:
+        """``lv_type`` with the field names of the loaded typedef it is an
+        instance of."""
+        ...
+
 
 def is_class_type(lv_type: LVType | None) -> bool:
     """Whether ``lv_type`` is a LabVIEW class (LabVIEW Object included)."""
@@ -92,7 +97,9 @@ def type_default(
         ctx.import_variant()
         return mark_default_object(parse_expr(f"{VARIANT_NAME}()"))
     if lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
-        return cluster_default_expr(lv_type, lambda t: type_default(ctx, t, what))
+        return cluster_default_expr(
+            ctx.typedef_instance(lv_type), lambda t: type_default(ctx, t, what)
+        )
     return type_default_expr(lv_type)
 
 

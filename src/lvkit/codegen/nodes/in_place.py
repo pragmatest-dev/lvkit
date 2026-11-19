@@ -21,11 +21,12 @@ generate() is structured as three explicit passes:
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import AnyGraphNode, InPlaceNode, PrimitiveNode
 from lvkit.models import (
+    MAP_ACCESS_NODE_TYPE,
     ClusterField,
     InPlaceBorderSide,
     Terminal,
@@ -34,20 +35,25 @@ from lvkit.models import (
 )
 
 from .. import error_flow
-from ..ast_utils import COPY_IMPORT, parse_expr
+from ..ast_utils import build_assign, parse_expr
 from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
+from ..cluster_members import ClusterShape, is_anonymous_cluster
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from ..native_array import guarded_index, replaced_element
+from ..native_array import guarded_indexes, replaced_elements
 from ..type_default import type_default
-from ..value_copy import own_path, owned_input
-from .nmux import _attribute_target, _field_expr, _field_path
+from ..value_copy import owned_input
+from . import in_place_map, waveform_bundle
+from .nmux import _write_elements, element_read
 
 _CLUSTER = "decomposeClusterNode"
 _ARRAY = "decomposeArrayNode"
 _DVR = "decomposeDataValRefNode"
-_BORDER_NODE_TYPES = (_CLUSTER, _ARRAY, _DVR)
+_MAP = MAP_ACCESS_NODE_TYPE
+# A whole-value tile: no field split, the value enters and leaves unchanged.
+_WHOLE = "decomposeMatchNode"
+_BORDER_NODE_TYPES = (_CLUSTER, _ARRAY, _DVR, _MAP)
 
 
 @dataclass
@@ -66,26 +72,32 @@ class _Tile:
 @dataclass
 class _Element:
     """The data an In Place Element Structure edits: the variable that holds it
-    and, for an array, the variable that indexes the element."""
+    and, for an array, the index variables of each element it takes (one set per
+    element, one index per dimension in a set, outermost first; a map's one set
+    is its key)."""
 
     whole: str
-    index: str | None = None
+    index_sets: list[list[str]] = field(default_factory=list)
 
 
 def _split_children(
     children: list[AnyGraphNode], ctx: CodeGenContext
-) -> tuple[list[_Tile], list[AnyGraphNode]]:
-    """Split the structure's inner graph nodes into border tiles and regular body
-    nodes. A cluster tile is a node with a pairing id and field terminals in one
-    direction only; an array or data value reference tile is told by its node
-    type."""
+) -> tuple[list[_Tile], list[PrimitiveNode], list[AnyGraphNode]]:
+    """Split the structure's inner graph nodes into border tiles, whole-value
+    tiles and regular body nodes. A cluster tile is a node with a pairing id and
+    field terminals in one direction only; an array, data value reference or
+    whole-value tile is told by its node type."""
     tiles: list[_Tile] = []
+    whole: list[PrimitiveNode] = []
     regular: list[AnyGraphNode] = []
     for op in children:
+        if isinstance(op, PrimitiveNode) and op.node_type == _WHOLE:
+            whole.append(op)
+            continue
         node_type = None
         side = None
         if isinstance(op, PrimitiveNode):
-            if op.node_type in (_ARRAY, _DVR):
+            if op.node_type in (_ARRAY, _DVR, _MAP):
                 node_type = op.node_type
             elif ctx.poser_uid(op):
                 node_type = _CLUSTER
@@ -95,7 +107,7 @@ def _split_children(
             tiles.append(_Tile(op, side, node_type, (node_type, ctx.poser_uid(op))))
         else:
             regular.append(op)
-    return tiles, regular
+    return tiles, whole, regular
 
 
 def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
@@ -105,7 +117,7 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     all_imports: set[str] = set()
 
     tunnels = ctx.tunnels(node)
-    tiles, inner_nodes = _split_children(ctx.child_nodes(node), ctx)
+    tiles, whole_tiles, inner_nodes = _split_children(ctx.child_nodes(node), ctx)
 
     # --- Input boundary ---
     _bind_input_tunnels(node, tunnels, ctx)
@@ -120,6 +132,8 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     for tile in tiles:
         ctx.merge(error_flow.guard(tile.op, CodeFragment(), ctx).bindings)
 
+    _pass_whole_values(node, whole_tiles, ctx)
+
     # --- Body (regular inner ops only) ---
     body_stmts = ctx.generate_body(inner_nodes, (node.id, None))
     for stmt in body_stmts:
@@ -128,13 +142,14 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     all_imports.update(ctx.imports)
 
     # --- Output boundary ---
+    _pass_whole_values(node, whole_tiles, ctx)
     all_stmts.extend(_write_elements_back(tiles, elements, ctx))
 
     # Regular field-value tunnels: inner → outer (output direction only).
     _bind_output_tunnels(node, tunnels, ctx, all_bindings)
 
     # The data comes back out of the structure on its output ports.
-    producers = [*(t.op for t in tiles), *inner_nodes]
+    producers = [*(t.op for t in tiles), *whole_tiles, *inner_nodes]
     _bind_data_outputs(node, producers, data_var, tunnel_uids, all_bindings, ctx)
 
     return CodeFragment(
@@ -179,6 +194,16 @@ def _own_data_inputs(
         owned = owned_input(ctx, port, node, statements)
         if owned is not None and owned != value:
             ctx.bind(port.id, owned)
+        elif (
+            value is not None
+            and not value.isidentifier()
+            and is_anonymous_cluster(port.lv_type)
+        ):
+            # A tuple written into is rebuilt and stored back, so the cluster
+            # needs a variable to hold the changed one.
+            var = ctx.make_output_var("cluster", node.id, port.id)
+            statements.append(build_assign(var, parse_expr(value)))
+            ctx.bind(port.id, var)
 
 
 def _bind_tile_inputs(
@@ -202,6 +227,31 @@ def _bind_tile_inputs(
                     if value is not None:
                         ctx.bind(term.id, value)
                     break
+
+
+def _pass_whole_values(
+    node: InPlaceNode, whole_tiles: list[PrimitiveNode], ctx: CodeGenContext
+) -> None:
+    """Bind the output of each whole-value tile to the value on its input: that
+    of the wire feeding it, else of the structure input port that carries the same
+    data (same ``dco_uid``). A tile whose input has no value yet is left for the
+    next call, once the body has produced it."""
+    ports = [t for t in node.terminals if t.direction == "input"]
+    for op in whole_tiles:
+        source = next((t for t in op.terminals if t.direction == "input"), None)
+        target = next((t for t in op.terminals if t.direction == "output"), None)
+        if source is None or target is None:
+            continue
+        if ctx.resolve(target.id, allow_none=True) is not None:
+            continue
+        value = ctx.resolve(source.id, allow_none=True)
+        if value is None and source.dco_uid is not None:
+            for port in ports:
+                if port.dco_uid == source.dco_uid:
+                    value = ctx.resolve(port.id, allow_none=True)
+                    break
+        if value is not None:
+            ctx.bind(target.id, value)
 
 
 def _take_elements_out(
@@ -245,38 +295,24 @@ def _take_element_out(
         whole = (ctx.wired_input(agg.id, op) if agg is not None else None) or data_var
         if agg is None or whole is None:
             return None
-        class_fields = _get_class_fields(agg, ctx)
+        shape = _cluster_shape(agg, ctx)
+        flavor = agg.lv_type.measure_flavor if agg.lv_type else None
         for t in _field_terminals(op, "output"):
-            ctx.bind(t.id, _field_expr(t, whole, class_fields, _class_attrs(agg, ctx)))
+            if flavor:
+                if ctx.is_wired(t.id):
+                    ctx.bind(
+                        t.id, waveform_bundle.component_read(op, t, whole, flavor, ctx)
+                    )
+                continue
+            read = element_read(op, t, whole, shape, ctx)
+            if read is not None:
+                ctx.bind(t.id, read)
         return _Element(whole)
     if tile.kind == _ARRAY:
-        array_in = _role_terminal(op, None, "input")
-        index_in = _role_terminal(op, "list", "input")
-        element_out = _role_terminal(op, "agg", "output")
-        if array_in is None or index_in is None or element_out is None:
-            return None
-        # NI: the border node "gains an additional index parameter for each
-        # additional dimension of the array"; only one index is generated.
-        indexes = [
-            t
-            for t in _field_terminals(op, "input")
-            if ctx.wired_input(t.id, op) is not None
-        ]
-        if len(indexes) > 1:
-            raise ConversionGap(
-                "An In Place Element array tile with an index for each of "
-                f"{len(indexes)} dimensions has no code generation yet",
-                op,
-            )
-        whole = ctx.wired_input(array_in.id, op)
-        index = ctx.wired_input(index_in.id, op)
-        if whole is None or index is None:
-            return None
-        # An index outside the array reads the element type's default, as Index
-        # Array does, and its write leaves the array as it is.
-        default = ast.unparse(type_default(ctx, element_out.lv_type))
-        ctx.bind(element_out.id, guarded_index(whole, index, default))
-        return _Element(whole, index)
+        return _take_array_elements_out(op, ctx)
+    if tile.kind == _MAP:
+        access = in_place_map.read_tile(op, ctx)
+        return _Element(access[0], [[access[1]]]) if access is not None else None
     dvr_in = next(
         (t for t in op.terminals if t.direction == "input"),
         None,
@@ -308,10 +344,17 @@ def _write_elements_back(
             continue
         op = tile.op
         if tile.kind == _CLUSTER:
-            stmts.extend(_write_fields_back(op, element, ctx))
+            stmts.extend(_write_fields_back(tile, element, ctx))
             continue
         if tile.kind == _ARRAY:
             stmts.extend(_write_array_element_back(tile, element, ctx))
+            continue
+        if tile.kind == _MAP:
+            stmts.extend(
+                in_place_map.write_tile(
+                    op, element.whole, element.index_sets[0][0], ctx
+                )
+            )
             continue
         source = next(
             (t for t in op.terminals if t.direction == "input"),
@@ -326,45 +369,139 @@ def _write_elements_back(
     return stmts
 
 
+def _take_array_elements_out(op: PrimitiveNode, ctx: CodeGenContext) -> _Element | None:
+    """Bind each element output of an Index tile to the array element its indexes
+    pick. NI ("Array Index / Replace Elements"): the border node "gains an
+    additional index parameter for each additional dimension of the array", and
+    its left half "is similar to the Index Array function": an element is
+    whole[i][j]..., one index per dimension in terminal order, and a tile can
+    take several elements, each with its own set of indexes. Fewer wired indexes
+    than dimensions read the sub-array they select (one index of two dimensions,
+    a row). An index outside its dimension reads the element type's default."""
+    array_in = _role_terminal(op, None, "input")
+    outputs = sorted(
+        (
+            t
+            for t in op.terminals
+            if t.nmux_role in ("agg", "list") and t.direction == "output"
+        ),
+        key=lambda t: t.index,
+    )
+    index_terms = _field_terminals(op, "input")
+    if array_in is None or not outputs or not index_terms:
+        return None
+    whole = ctx.wired_input(array_in.id, op)
+    if whole is None:
+        return None
+    rank = (array_in.lv_type.dimensions if array_in.lv_type else None) or 1
+    if len(index_terms) != rank * len(outputs):
+        raise ConversionGap(
+            f"An In Place Element array tile with {len(index_terms)} indexes and "
+            f"{len(outputs)} elements of a {rank}-dimensional array has no code "
+            "generation yet",
+            op,
+        )
+    sets: list[list[str]] = []
+    for position, out in enumerate(outputs):
+        indexes: list[str] = []
+        unwired_before = False
+        for term in index_terms[position * rank : (position + 1) * rank]:
+            value = ctx.wired_input(term.id, op)
+            if value is None:
+                unwired_before = True
+            elif unwired_before:
+                raise ConversionGap(
+                    "An In Place Element array tile with an index wired after one "
+                    "that is not has no code generation yet",
+                    op,
+                )
+            else:
+                indexes.append(value)
+        sets.append(indexes)
+        if indexes:
+            default = ast.unparse(type_default(ctx, out.lv_type))
+            ctx.bind(out.id, guarded_indexes(whole, indexes, default))
+        elif ctx.is_wired(out.id):
+            raise ConversionGap(
+                "An In Place Element array tile element whose output is wired and "
+                "whose indexes are not has no code generation yet",
+                op,
+            )
+    if not any(sets):
+        return None
+    return _Element(whole, sets)
+
+
 def _write_array_element_back(
     tile: _Tile, element: _Element, ctx: CodeGenContext
 ) -> list[ast.stmt]:
-    """Bind the tile's array output to a new array holding the element the body
-    produced. The array that came in is not changed, so any other reader of its
-    wire keeps its own value."""
+    """Bind the tile's array output to a new array holding the elements the body
+    produced, one replacement per element in order. The array that came in is not
+    changed, so any other reader of its wire keeps its own value."""
     op = tile.op
-    source = _role_terminal(op, "agg", "input")
-    value = ctx.wired_input(source.id, op) if source is not None else None
+    sources = sorted(
+        (
+            t
+            for t in op.terminals
+            if t.nmux_role in ("agg", "list") and t.direction == "input"
+        ),
+        key=lambda t: t.index,
+    )
     outputs = _carried_outputs(tile)
-    if value is None or element.index is None:
-        return []
     out = outputs[0] if outputs else None
-    name = ctx.make_output_var("array", op.id, out.id if out else None)
+    stmts: list[ast.stmt] = []
+    current = element.whole
+    for source, indexes in zip(sources, element.index_sets):
+        value = ctx.wired_input(source.id, op)
+        if value is None or not indexes:
+            continue
+        name = ctx.make_output_var("array", op.id, out.id if out else None)
+        stmts.append(
+            _assign(
+                ast.Name(id=name, ctx=ast.Store()),
+                replaced_elements(current, indexes, value),
+            )
+        )
+        current = name
+    if not stmts:
+        return []
     for carried in outputs:
-        ctx.bind(carried.id, name)
-    new_array = replaced_element(element.whole, element.index, value)
-    return [_assign(ast.Name(id=name, ctx=ast.Store()), new_array)]
+        ctx.bind(carried.id, current)
+    return stmts
 
 
 def _write_fields_back(
-    op: PrimitiveNode, element: _Element, ctx: CodeGenContext
+    tile: _Tile, element: _Element, ctx: CodeGenContext
 ) -> list[ast.stmt]:
-    """Emit data.field = modified_value for each field the WRITE tile takes."""
+    """Put each element the body produced back into the data: a field of a
+    cluster is set where it is; a waveform is rebuilt with the components."""
+    op = tile.op
     agg_out = _role_terminal(op, "agg", "output")
-    class_fields = _get_class_fields(agg_out, ctx) if agg_out else None
-    stmts: list[ast.stmt] = []
-    for t in _field_terminals(op, "input"):
-        val = ctx.wired_input(t.id, op)
-        if val is None:
-            continue
-        path = _field_path(t, class_fields, _class_attrs(agg_out, ctx))
-        if path is None:
-            continue
-        if len(path) > 1:
-            ctx.add_import(COPY_IMPORT)
-            stmts.extend(own_path(element.whole, path))
-        stmts.append(_assign(_attribute_target(element.whole, path), val))
-    return stmts
+    fields = _field_terminals(op, "input")
+    flavor = agg_out.lv_type.measure_flavor if agg_out and agg_out.lv_type else None
+    if flavor and agg_out is not None:
+        fragment = waveform_bundle.bundle(
+            op, fields, [agg_out], element.whole, flavor, ctx
+        )
+        for statement_import in fragment.imports:
+            ctx.add_import(statement_import)
+        for carried in _carried_outputs(tile):
+            ctx.bind(carried.id, fragment.bindings[agg_out.id])
+        return fragment.statements
+    statements: list[ast.stmt] = []
+    imports: set[str] = set()
+    _write_elements(
+        op,
+        fields,
+        element.whole,
+        _cluster_shape(agg_out, ctx),
+        ctx,
+        statements,
+        imports,
+    )
+    for statement_import in imports:
+        ctx.add_import(statement_import)
+    return statements
 
 
 def _assign(target: ast.expr, value: str) -> ast.stmt:
@@ -478,6 +615,9 @@ def _carried_outputs(tile: _Tile) -> list[Terminal]:
             for t in tile.op.terminals
             if t.nmux_role is None and t.direction == "output"
         ]
+    if tile.kind == _MAP:
+        out = in_place_map.map_terminal(tile.op, "output")
+        return [out] if out is not None else []
     return _data_terminals(tile.op, "output")
 
 
@@ -505,6 +645,16 @@ def _class_attrs(
     if term is None or ctx.graph is None:
         return None
     return type_attributes(ctx.graph, term.lv_type, ctx.vi_name, "In Place Element")
+
+
+def _cluster_shape(term: Terminal | None, ctx: CodeGenContext) -> ClusterShape:
+    """The type, fields and class attributes of the cluster an aggregate terminal
+    carries."""
+    return ClusterShape(
+        term.lv_type if term else None,
+        _get_class_fields(term, ctx),
+        _class_attrs(term, ctx),
+    )
 
 
 def _get_class_fields(

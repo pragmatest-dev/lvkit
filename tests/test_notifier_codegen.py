@@ -145,7 +145,9 @@ def test_an_unnamed_notifier_sent_to_and_waited_on(project: Project) -> None:  #
     result = package.function(value=7)
     assert (result.result, result.timed_out, result.created) == (7, False, True)
     assert result.error_out is None
-    assert (package.root / "notifiers.py").read_text() == NOTIFIERS_MODULE_SOURCE
+    assert (package.root / "notifiers.py").read_text(
+        encoding="utf-8"
+    ) == NOTIFIERS_MODULE_SOURCE
 
 
 def test_a_wait_that_times_out_gives_the_default_and_no_error(

@@ -22,7 +22,9 @@ from lvkit.vilib_resolver import VIEntry, VILibResolver
 from tests.helpers import build_graph, exec_generated, generated_variants
 
 _CATALOG = Path(__file__).parent.parent / "src/lvkit/data/openg/variant.json"
-_ENTRY = VIEntry.model_validate(json.loads(_CATALOG.read_text())["entries"][0])
+_ENTRY = VIEntry.model_validate(
+    json.loads(_CATALOG.read_text(encoding="utf-8"))["entries"][0]
+)
 _FILE = "Get TDEnum from Data__ogtk.vi"
 _KEY = f"/userlib/{_FILE}"
 _U8 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="UnitUInt8")

@@ -182,3 +182,28 @@ def test_a_pane_without_the_unmodified_extension_still_lowercases_it(
         arguments={"file": Path("/data/dir/Report.TXT")},
     )
     assert result.lowercase == "txt"
+
+
+def _default_data_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[str, Any]:
+    return run_catalog_call(
+        tmp_path,
+        monkeypatch,
+        [*FILE_LLB, "Dflt Data Dir.vi"],
+        pane=[(0, "output", PATH)],
+        inputs={},
+        outputs={"directory": (0, PATH)},
+        arguments={},
+    )
+
+
+def test_default_data_directory_is_labview_data_in_the_documents_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    source, result = _default_data_directory(tmp_path, monkeypatch)
+    assert result.directory == home / "Documents" / "LabVIEW Data"
+    assert not result.directory.exists()
+    assert "lvkit" not in source

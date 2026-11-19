@@ -100,6 +100,23 @@ class NativeError(BaseModel):
     # class that carries its own code (pyvisa's ``VisaIOError.error_code``, the
     # VISA error code LabVIEW reports unchanged); ``code`` is then None.
     code_attribute: str | None = None
+    # Python expressions of the LabVIEW error code and of the message, for a
+    # class whose code is computed from the exception (``{exception}`` stands
+    # for it; ``code`` is then None); the message is its text when absent.
+    code_expression: str | None = None
+    message_expression: str | None = None
+    # The failure is listed only for a node whose terminals hold a class object
+    # (the failure of reading class data).
+    only_with_class: bool = False
+
+
+class LiveIOWhenInput(BaseModel):
+    """The node's Python calls ``live_io`` only when the input of connector-pane
+    index ``index`` is the value ``value``: a node that holds that constant, or
+    an input wired from a value only known when the code runs, needs it."""
+
+    index: int
+    value: int
 
 
 class PrimitiveEntry(BaseModel):
@@ -129,6 +146,13 @@ class PrimitiveEntry(BaseModel):
     icon: NodeIcon | None = None
     # NI's page says the node runs even when an error comes in on its error in.
     runs_on_error: bool = False
+    # The node's Python calls ``live_io`` (a dialog box): a VI that holds the
+    # node takes the ``live_io`` parameter (``codegen/panel_hooks.py``).
+    live_io: bool = False
+    # The node's Python calls ``live_io`` only for one value of an input
+    # (``LiveIOWhenInput``), so a VI takes the parameter only when a node of it
+    # can have that value.
+    live_io_when_input: LiveIOWhenInput | None = None
     # The failures of the node's Python operation that are its error out, in
     # the order they are caught (``codegen/native_failure.py``).
     errors: list[NativeError] = Field(default_factory=list)
@@ -170,6 +194,10 @@ class ResolvedPrimitive(BaseModel):
     # NI's page says the node runs even when an error comes in on its error in
     # (``CodeFragment.runs_on_error``).
     runs_on_error: bool = False
+    # See ``PrimitiveEntry.live_io``.
+    live_io: bool = False
+    # See ``PrimitiveEntry.live_io_when_input``.
+    live_io_when_input: LiveIOWhenInput | None = None
     # NI's page says every input of the node takes only the status of an error
     # cluster wired to it: a node whose inputs grow with it and have no catalog
     # terminals (Compound Arithmetic). A fixed input says it on its own terminal

@@ -7,7 +7,7 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/one-button-dialog.html",
       "category": "Dialog & User Interface",
       "description": "Displays a dialog box that contains a message and a single button.",
-      "vi_path": "vi.lib/dialog/One Button Dialog.vi",
+      "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "docs_enriched",
@@ -50,7 +50,7 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/two-button-dialog.html",
       "category": "Dialog & User Interface",
       "description": "Displays a dialog box that contains a message and two buttons.",
-      "vi_path": "vi.lib/dialog/Two Button Dialog.vi",
+      "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "docs_enriched",
@@ -99,14 +99,14 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/error-llb/three-button-dialog-vi.html",
       "category": "Dialog & User Interface",
       "description": "Displays a dialog box that contains a message and three buttons.",
-      "vi_path": "vi.lib/dialog/Three Button Dialog.vi",
+      "vi_path": "vi.lib/Utility/error.llb/Three Button Dialog.vi",
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
           "name": "Justify Message (Left)",
-          "index": null,
+          "index": 5,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -125,7 +125,7 @@
         },
         {
           "name": "message",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -164,7 +164,7 @@
         },
         {
           "name": "Keyboard Shortcuts (Left is <Enter>)",
-          "index": null,
+          "index": 6,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -255,7 +255,7 @@
         },
         {
           "name": "Which Button?",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -263,7 +263,11 @@
           "description": "Which Button? indicates which button the user clicked."
         }
       ],
-      "python": "three_button_dialog(message, btn1, btn2, btn3)"
+      "python": "three_button_dialog(message, btn1, btn2, btn3)",
+      "python_code": "{which_button} = live_io.prompt({message}, [{left_button_text}, {center_button_text}, {right_button_text}], {window_title})",
+      "inline": true,
+      "live_io": true,
+      "note": "The dialog is live_io.prompt (D5): the buttons are the left, center and right texts, an empty text hides its button. Which Button? is the position of the button chosen in the caller's own enum (0 Left Button, 1 Center Button, 2 Right Button, 3 Window Close): a live_io that shows a window answers 3 when the window is closed. Justify Message, Keyboard Shortcuts and Allow user to close window? shape a window and are not read."
     },
     {
       "name": "Simple Error Handler",
@@ -366,7 +370,7 @@
       "terminals": [
         {
           "name": "[user-defined descriptions]",
-          "index": null,
+          "index": 2,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -375,7 +379,7 @@
         },
         {
           "name": "[user-defined codes]",
-          "index": null,
+          "index": 1,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -414,7 +418,7 @@
         },
         {
           "name": "type of dialog (OK msg:1)",
-          "index": null,
+          "index": 9,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -424,7 +428,7 @@
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -463,7 +467,7 @@
         },
         {
           "name": "error?",
-          "index": null,
+          "index": 4,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -472,7 +476,7 @@
         },
         {
           "name": "code out",
-          "index": null,
+          "index": 6,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -481,7 +485,7 @@
         },
         {
           "name": "source out",
-          "index": null,
+          "index": 8,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -490,7 +494,7 @@
         },
         {
           "name": "message",
-          "index": null,
+          "index": 10,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -499,7 +503,7 @@
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 15,
           "direction": "output",
           "type": null,
           "enum_values": null,

@@ -36,7 +36,17 @@ from lvkit.codegen.errors_module import (
     LABVIEW_ERROR_NAME,
 )
 from lvkit.codegen.gaps import Gap, GapLog, gap_problem
+from lvkit.codegen.grpc_server_module import (
+    GRPC_SERVER_MODULE_NAME,
+    GRPC_SERVER_MODULE_SOURCE,
+)
 from lvkit.codegen.import_resolver import ImportResolver, ModuleImport, NameImport
+from lvkit.codegen.ini_module import (
+    INI_CLASS_NAME,
+    INI_MODULE_NAME,
+    INI_MODULE_SOURCE,
+    ini_import,
+)
 from lvkit.codegen.live_io_module import (
     LIVE_IO_MODULE_NAME,
     LIVE_IO_MODULE_SOURCE,
@@ -51,6 +61,12 @@ from lvkit.codegen.notifiers_module import (
 from lvkit.codegen.package_modules import PackageModules
 from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
+from lvkit.codegen.scan_module import (
+    SCAN_FUNCTION_NAME,
+    SCAN_MODULE_NAME,
+    SCAN_MODULE_SOURCE,
+    scan_import,
+)
 from lvkit.codegen.type_constants import share_type_constants
 from lvkit.codegen.type_module import build_type_module
 from lvkit.codegen.variants_module import (
@@ -320,7 +336,8 @@ def create_import_resolver(
 
     def module_import(global_vi_name: str) -> ModuleImport:
         dots, package, module = relative(locate_by_name(global_vi_name))
-        alias = f"{module}_global"
+        is_typedef = graph is not None and graph.is_typedef(global_vi_name)
+        alias = f"{module}_typedef" if is_typedef else f"{module}_global"
         return ModuleImport(f"from {dots}{package} import {module} as {alias}", alias)
 
     def node_import(key: str) -> NameImport:
@@ -391,6 +408,18 @@ def create_import_resolver(
         dots, package, module = relative(output_dir / f"{PANELS_MODULE_NAME}.py")
         return f"from {dots}{module} import {names}"
 
+    def scan_import_statement() -> str:
+        dots, package, module = relative(output_dir / f"{SCAN_MODULE_NAME}.py")
+        return scan_import(dots)
+
+    def ini_import_statement() -> str:
+        dots, package, module = relative(output_dir / f"{INI_MODULE_NAME}.py")
+        return ini_import(dots)
+
+    def grpc_server_import(names: str) -> str:
+        dots, package, module = relative(output_dir / f"{GRPC_SERVER_MODULE_NAME}.py")
+        return f"from {dots}{module} import {names}"
+
     def root_module_import(stem: str, alias: str) -> ModuleImport:
         depth = len(caller_dir.relative_to(output_dir).parts)
         return ModuleImport(f"from {'.' * (depth + 1)} import {stem} as {alias}", alias)
@@ -415,6 +444,9 @@ def create_import_resolver(
         live_io_import,
         panels_import,
         variant_import,
+        grpc_server_import,
+        scan_import_statement,
+        ini_import_statement,
     )
 
 
@@ -455,6 +487,17 @@ def _write_notifiers_module(package_root: Path) -> None:
     )
 
 
+def _write_grpc_server_module(package_root: Path) -> None:
+    """Write ``grpc_server.py`` at the package root when a generated module imports
+    from it."""
+    _write_support_module(
+        package_root,
+        f".{GRPC_SERVER_MODULE_NAME} import",
+        GRPC_SERVER_MODULE_NAME,
+        GRPC_SERVER_MODULE_SOURCE,
+    )
+
+
 def _write_panels_module(package_root: Path) -> None:
     """Write ``panels.py`` at the package root when a generated module imports
     from it."""
@@ -486,6 +529,28 @@ def _write_errors_module(package_root: Path) -> None:
         f"import {LABVIEW_ERROR_NAME}",
         ERRORS_MODULE_NAME,
         ERRORS_MODULE_SOURCE,
+    )
+
+
+def _write_scan_module(package_root: Path) -> None:
+    """Write ``scan.py`` at the package root when a generated module imports from
+    it."""
+    _write_support_module(
+        package_root,
+        f".{SCAN_MODULE_NAME} import {SCAN_FUNCTION_NAME}",
+        SCAN_MODULE_NAME,
+        SCAN_MODULE_SOURCE,
+    )
+
+
+def _write_ini_module(package_root: Path) -> None:
+    """Write ``ini.py`` at the package root when a generated module imports from
+    it."""
+    _write_support_module(
+        package_root,
+        f".{INI_MODULE_NAME} import {INI_CLASS_NAME}",
+        INI_MODULE_NAME,
+        INI_MODULE_SOURCE,
     )
 
 
@@ -936,7 +1001,10 @@ def generate_python(
             VARIANTS_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
+            GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
+            SCAN_MODULE_NAME,
+            INI_MODULE_NAME,
         ],
     )
     package_modules = PackageModules.from_graph(
@@ -948,7 +1016,10 @@ def generate_python(
             VARIANTS_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
+            GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
+            SCAN_MODULE_NAME,
+            INI_MODULE_NAME,
         },
     )
     copies = PackageCopies(graph, layout, output_dir_resolved)
@@ -1227,9 +1298,12 @@ def generate_python(
     # What every written module needs, whether the run ended or stopped: the
     # errors module, the shared modules and the files copied beside its VIs.
     _write_notifiers_module(output_dir_resolved)
+    _write_grpc_server_module(output_dir_resolved)
     _write_panels_module(output_dir_resolved)
     _write_errors_module(output_dir_resolved)
     _write_variants_module(output_dir_resolved)
+    _write_scan_module(output_dir_resolved)
+    _write_ini_module(output_dir_resolved)
     _write_live_io_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):
         print(f"\nGenerated shared module: {written.name}")

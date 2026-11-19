@@ -67,7 +67,7 @@ def _loaded(
 ) -> str:
     key = str(file)
     file.parent.mkdir(parents=True, exist_ok=True)
-    file.write_text("")
+    file.write_text("", encoding="utf-8")
     graph._source_paths[key] = file  # noqa: SLF001
     graph._dep_graph.add_node(key, qname=file.name, node_type=NodeType.VI)  # noqa: SLF001
     graph._dep_graph.add_edge(caller, key)  # noqa: SLF001

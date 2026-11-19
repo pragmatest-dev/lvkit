@@ -203,7 +203,7 @@ _VCTP = """<LVSR><VCTP>
 
 def _types(tmp_path: Path, descs: str) -> dict[int, LVType]:
     path = tmp_path / "vi.xml"
-    path.write_text(_VCTP.format(descs=descs))
+    path.write_text(_VCTP.format(descs=descs), encoding="utf-8")
     return parse_vctp_types(path)
 
 
@@ -343,10 +343,14 @@ def test_corpus_typedef_array_control_shows_its_element_type_and_default():
     )
     assert ctrl.lv_type is not None
     assert ctrl.lv_type.type_descriptor() != "[?]"
+    drawing = (
+        "<Picture, 272 bytes: "
+        + ", ".join(["31 (20 bytes)", "18 text box (36 bytes)"] * 4)
+        + ">"
+    )
     assert ctrl.default_value == (
-        "[{'Install': False, 'Current': <Picture, 272 bytes of drawing not "
-        "decoded>, 'Icon Library': <Picture, 272 bytes of drawing not decoded>, "
-        "'Subfolder': '', 'Name': ''}]"
+        f"[{{'Install': False, 'Current': {drawing}, "
+        f"'Icon Library': {drawing}, 'Subfolder': '', 'Name': ''}}]"
     )
 
 

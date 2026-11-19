@@ -29,6 +29,7 @@ class Recorder(LiveIO):
         self.calls: list[tuple[Enum, Any]] = []
         self.reads: list[tuple[Enum, Any]] = []
         self.properties: list[tuple[Enum, Enum, Any]] = []
+        self.property_reads: list[tuple[Enum, Enum, Any]] = []
         self.log: list[tuple[Any, ...]] = []
 
     def write(self, name: Enum, value: Any) -> None:
@@ -46,3 +47,37 @@ class Recorder(LiveIO):
         self.properties.append((name, prop, value))
         self.log.append(("property", name, prop, value))
         return None
+
+    def get_property(self, name: Enum, prop: Enum, value: Any) -> Any:
+        self.property_reads.append((name, prop, value))
+        self.log.append(("get_property", name, prop, value))
+        return value
+
+    def open_panel(self, activate: bool = False, state: int = 1) -> None:
+        self.log.append(("open_panel", activate, state))
+
+    def close_panel(self) -> None:
+        self.log.append(("close_panel",))
+
+    def set_window_title(self, title: str) -> None:
+        self.log.append(("window_title", title))
+
+    def set_window_bounds(self, bounds: tuple[int, int, int, int]) -> None:
+        self.log.append(("window_bounds", bounds))
+
+    def center_panel(self) -> None:
+        self.log.append(("center_panel",))
+
+
+class PromptRecorder(LiveIO):
+    """A ``LiveIO`` that records every dialog a function shows, ``(message,
+    buttons, title)``, and answers each with the next of ``answers`` (the first
+    button, 0, once they run out)."""
+
+    def __init__(self, *answers: int) -> None:
+        self.answers = list(answers)
+        self.dialogs: list[tuple[str, list[str], str]] = []
+
+    def prompt(self, message: str, buttons: Any = ("OK",), title: str = "") -> int:
+        self.dialogs.append((message, list(buttons), title))
+        return self.answers.pop(0) if self.answers else 0

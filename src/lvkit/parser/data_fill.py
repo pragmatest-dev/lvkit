@@ -19,6 +19,8 @@ import re
 import struct
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
+from fractions import Fraction
 from typing import NamedTuple
 
 from ..lv_type_codes import (
@@ -29,12 +31,22 @@ from ..lv_type_codes import (
 from ..models import LVType, LVTypeKind
 from ..text_encoding import xml_text_encoding
 from .refnum_value import holds_handle
+from .utils import saved_version
 
 # The TM80 flag that marks a type whose value is its default (no DataFill).
 _DEFAULT_VALUE_FLAG = "TMFBit11"
 
 # How pylabview writes a NaN, with its bits: ``nan (0x7FFFFFFFFFFFFFFF)``.
 _NAN_BITS = re.compile(r"nan \(0x([0-9A-Fa-f]+)\)")
+
+# The bits pylabview writes in brackets after a float whose text cannot say them.
+_HEX_BITS = re.compile(r"\((0x[0-9A-Fa-f]+)\)\s*$")
+
+# IEEE 754 binary128 (an extended-precision number's flattened form).
+_EXTENDED_FRACTION_BITS = 112
+_EXTENDED_BIAS = 16383
+_EXTENDED_MAX_EXPONENT = 16383
+_EXTENDED_MIN_EXPONENT = -16382
 
 # The first LabVIEW version whose VIs keep their types in one shared pool (VCTP).
 # An older VI keeps them inline, and a front-panel control's ``tdOffset`` there
@@ -181,14 +193,8 @@ def read_index_shift(root: ET.Element) -> int | None:
 def _types_pooled(root: ET.Element) -> bool:
     """Whether the VI was saved by LabVIEW 8.6 or later (its ``vers`` version);
     True when the VI records none."""
-    version = root.find(".//vers/Section/Version")
-    if version is None:
-        return True
-    try:
-        saved = (int(version.get("Major", "")), int(version.get("Minor", "")))
-    except ValueError:
-        return True
-    return saved >= _POOLED_TYPES_SINCE
+    saved = saved_version(root)
+    return saved is None or saved >= _POOLED_TYPES_SINCE
 
 
 def read_default_data_space(root: ET.Element) -> DefaultDataSpace:
@@ -240,6 +246,8 @@ def _flatten(el: ET.Element, encoding: str) -> bytes:
             return struct.pack(scalar, int(text or "0"))
         except (ValueError, struct.error):
             raise _UnsupportedTag(tag) from None
+    if tag == "EXT":
+        return _extended_bytes(text)
     if tag == "Boolean":
         return b"\x01" if text not in ("", "0") else b"\x00"
     if tag == "String":
@@ -257,8 +265,8 @@ def _flatten(el: ET.Element, encoding: str) -> bytes:
         return b"".join(_flatten(child, encoding) for child in el)
     if tag == "Array":
         dims = el.findall("dim")
-        if len(dims) != 1:
-            raise _UnsupportedTag(f"Array of {len(dims)} dimensions")
+        if not dims:
+            raise _UnsupportedTag("Array of no dimensions")
         out = b""
         for dim in dims:
             out += struct.pack(">I", int((dim.text or "0").strip() or "0"))
@@ -267,6 +275,46 @@ def _flatten(el: ET.Element, encoding: str) -> bytes:
                 out += _flatten(child, encoding)
         return out
     raise _UnsupportedTag(tag)
+
+
+def _extended_bytes(text: str) -> bytes:
+    """An extended-precision number as the 16 bytes it flattens to (IEEE 754
+    binary128, big-endian; NI's "Flattened Data" page). The DataFill text is the
+    value to 39 significant digits, which is more than binary128 holds, so the
+    nearest binary128 to the text is the stored value; a NaN is written with its
+    bits (``nan (0x...)``) and is taken from them."""
+    bits_text = _HEX_BITS.search(text)
+    if bits_text is not None:
+        return int(bits_text.group(1), 16).to_bytes(16, "big")
+    try:
+        value = Decimal(text)
+    except InvalidOperation:
+        raise _UnsupportedTag("EXT") from None
+    sign = 1 if value.is_signed() else 0
+    if value.is_nan():
+        return ((0x7FFF << 112) | (1 << 111)).to_bytes(16, "big")
+    if value.is_infinite():
+        return ((sign << 127) | (0x7FFF << 112)).to_bytes(16, "big")
+    if value == 0:
+        return (sign << 127).to_bytes(16, "big")
+    exact = abs(Fraction(value))
+    exponent = exact.numerator.bit_length() - exact.denominator.bit_length()
+    if exact < Fraction(2) ** exponent:
+        exponent -= 1
+    exponent = max(exponent, _EXTENDED_MIN_EXPONENT)
+    scaled = exact / Fraction(2) ** (exponent - _EXTENDED_FRACTION_BITS)
+    significand = round(scaled)
+    if significand >= 1 << (_EXTENDED_FRACTION_BITS + 1):
+        significand >>= 1
+        exponent += 1
+    if exponent > _EXTENDED_MAX_EXPONENT:
+        return ((sign << 127) | (0x7FFF << 112)).to_bytes(16, "big")
+    if significand < 1 << _EXTENDED_FRACTION_BITS:
+        biased = 0
+    else:
+        biased = exponent + _EXTENDED_BIAS
+    fraction = significand & ((1 << _EXTENDED_FRACTION_BITS) - 1)
+    return ((sign << 127) | (biased << 112) | fraction).to_bytes(16, "big")
 
 
 def _pack_enum(el: ET.Element, fmt: str) -> bytes:

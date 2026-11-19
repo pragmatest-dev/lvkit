@@ -60,6 +60,10 @@ _PRIMITIVE_TYPES = frozenset(
     }
 )
 
+# The types whose descriptor the descriptor pool decodes (a refnum, with a class
+# refnum's class name; a type definition, with the type it wraps).
+_POOL_TYPES = frozenset({TD_FULL_TYPE.Refnum, TD_FULL_TYPE.TypeDef})
+
 
 @dataclass(frozen=True)
 class FlatTD:
@@ -70,13 +74,19 @@ class FlatTD:
     type_code: int
     body: bytes
     label: str | None = None
+    # The type the descriptor pool (``td_pool``) decodes for it, None when it does
+    # not decode. Used for the types this module does not build itself (a refnum,
+    # a type definition).
+    pool_type: LVType | None = None
 
 
 def read_descriptors(
-    data: bytes | memoryview, pos: int, count: int
+    data: bytes | memoryview, pos: int, count: int, old_class_field: bool = False
 ) -> tuple[list[FlatTD], int] | None:
     """``count`` consecutive descriptors starting at ``pos``; the list and the
-    position after the last one, or None when the data ends first."""
+    position after the last one, or None when the data ends first.
+    ``old_class_field`` says a class refnum carries the field of files older than
+    LabVIEW 8.6.1 (see ``TdPool``)."""
     raw: list[RawTD] = []
     for _ in range(count):
         size_field = read_var_size(data, pos)
@@ -95,9 +105,15 @@ def read_descriptors(
             )
         )
         pos = end
-    names = TdPool(raw).names
+    pool = TdPool(raw, old_class_field)
     return [
-        FlatTD(td.type_code, td.body, label) for td, label in zip(raw, names)
+        FlatTD(
+            td.type_code,
+            td.body,
+            label,
+            None if index in pool.failures else pool.lvtypes[index],
+        )
+        for index, (td, label) in enumerate(zip(raw, pool.names))
     ], pos
 
 
@@ -130,6 +146,8 @@ def _build(
         return _array(descriptors, td, active)
     if full_type == TD_FULL_TYPE.Cluster:
         return _cluster(descriptors, td, active)
+    if full_type in _POOL_TYPES:
+        return td.pool_type
     return None
 
 
@@ -170,7 +188,13 @@ def _cluster(
         if member_type is None:
             return None
         label = descriptors[member[0]].label
-        fields.append(ClusterField(name=label or f"field_{number}", type=member_type))
+        fields.append(
+            ClusterField(
+                name=label or f"field_{number}",
+                type=member_type,
+                labelled=bool(label),
+            )
+        )
     return LVType(
         kind=LVTypeKind.CLUSTER,
         underlying_type="Cluster",

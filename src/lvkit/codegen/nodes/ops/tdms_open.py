@@ -137,6 +137,7 @@ def _writer_lines(
     index = _index_file(ctx, node, pane)
     writer = ctx.make_output_var("writer", node.id)
     lines: list[str] = []
+    known = "set()"
     if operation in (OPEN_OR_CREATE, CREATE_OR_REPLACE, CREATE):
         # The extension is added to a file the function creates; an existing
         # file opened or created keeps its own name.
@@ -166,11 +167,19 @@ def _writer_lines(
             f"{writer} = nptdms.TdmsWriter(str({path}), 'a', "
             f"version={number}, index_file={index_file})",
         ]
+        # The channels the file already holds: TDMS Write of a waveform writes
+        # its timing only to a new channel.
+        known = ctx.make_output_var("known_channels", node.id)
+        lines.append(
+            f"{known} = {{(g.name, c.name) for g in "
+            f"nptdms.TdmsFile.read_metadata(str({path})).groups() "
+            f"for c in g.channels()}} if {existed} else set()"
+        )
     else:
         mode = "w" if operation == CREATE_OR_REPLACE else "x"
         lines.append(
             f"{writer} = nptdms.TdmsWriter(str({path}), '{mode}', "
             f"version={version}, index_file={index})"
         )
-    lines += [f"{writer}.open()", f"{ref} = ({writer}, {path})"]
+    lines += [f"{writer}.open()", f"{ref} = ({writer}, {path}, {known})"]
     return lines

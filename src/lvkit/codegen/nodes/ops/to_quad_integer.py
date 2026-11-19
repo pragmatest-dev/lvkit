@@ -6,7 +6,8 @@ function rounds all floating-point and fixed-point numeric values to the nearest
 integer. If the fractional part of the value is .5, the function rounds the value
 to the nearest even integer. For example, the function rounds 13.5 to 14 and
 rounds 14.5 to 14." ``round`` rounds halves to even; a value outside the range is
-the nearest end of it, as To Long Integer's is. A time stamp or complex number has
+the nearest end of it, as To Long Integer's is. A time stamp is converted by the
+shared timestamp template (``codegen/timestamp_templates.py``); a complex number has
 no code generation yet.
 
 Terminals (from the primitives entry): in 1 = number; out 0 = 64bit integer.
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit.codegen.timestamp_templates import timestamp_template
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
@@ -34,7 +36,13 @@ _QUAD = (
 
 
 @register_op("TO_QUAD_INTEGER")
-def to_quad_integer(node: PrimitiveNode, resolved: ResolvedPrimitive) -> str:
+def to_quad_integer(
+    node: PrimitiveNode, resolved: ResolvedPrimitive
+) -> str | dict[str, str]:
+    if timestamp_template(node) is not None:
+        # primitive.py replaces the expression with the shared timestamp
+        # template; a dict keeps it out of the string form's "=" stripping.
+        return {"quad_integer": _QUAD}
     if not node.terminals or not all(is_real(t.lv_type) for t in node.terminals):
         raise ConversionGap(
             "To Quad Integer supports real numbers and arrays of them only", node

@@ -32,6 +32,7 @@ from lvkit.graph.models import (
 from lvkit.graph.operations import OperationsMixin, frame_key
 from lvkit.lv_type_codes import is_boolean_type_name
 from lvkit.models import (
+    ClusterField,
     Frame,
     LVType,
     LVTypeKind,
@@ -47,6 +48,7 @@ from lvkit.models import (
 )
 from lvkit.parser.refnum_value import NULL_REFNUM, holds_handle
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
+from lvkit.picture_records import PictureData
 from lvkit.primitive_resolver import PrimitiveResolver
 from lvkit.string_literal import quote_string
 from lvkit.vilib_resolver import VILibResolver
@@ -64,7 +66,9 @@ from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_who
 from .errors import CodeGenError, unwritable_value_error
 from .errors_module import ERRORS_MODULE_NAME, LABVIEW_ERROR_NAME
 from .gaps import Gap, catch_entry_gap
+from .grpc_server_module import GRPC_SERVER_MODULE_NAME
 from .import_resolver import ImportResolver, NameImport
+from .ini_module import ini_import
 from .label_names import python_label
 from .live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_NAME, NO_LIVE_IO_NAME
 from .local_indicators import LocalIndicators
@@ -73,6 +77,7 @@ from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
 from .panel_hooks import PanelHooks
 from .panels_module import PANELS_MODULE_NAME
 from .references import REFERENCE_KINDS, generated_nodes
+from .scan_module import scan_import
 from .variant_values import wrap_if_coerced
 from .variants_module import VARIANT_NAME, variants_import
 
@@ -205,6 +210,13 @@ class CodeGenContext:
     # (``panel_hooks.entry_events``), set when its function starts; one per
     # function, copied to child contexts.
     events_var: str | None = None
+    # The module variable that holds the Visible or Disabled state of a control
+    # the VI reads, by (terminal id, property member)
+    # (``control_property_state.entry_property_states``). One per function,
+    # shared by child contexts.
+    property_states: dict[tuple[str, str], str] = field(
+        default_factory=dict, repr=False
+    )
     # The variable that holds the message an Event Structure handles, by the id of
     # the structure. One per function, shared by child contexts.
     event_messages: dict[str, str] = field(default_factory=dict, repr=False)
@@ -644,6 +656,7 @@ class CodeGenContext:
             local_indicators=self.local_indicators,
             panel_hooks=self.panel_hooks,
             events_var=self.events_var,
+            property_states=self.property_states,
             event_messages=self.event_messages,
             circular_nodes=self.circular_nodes,  # Shared — one dict per module
             learned_vilib=self.learned_vilib,  # Shared — one per module
@@ -715,6 +728,28 @@ class CodeGenContext:
         self.add_import(
             statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
         )
+
+    def import_scan(self) -> None:
+        """Import ``scan_text`` from the package's ``scan`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.scan_import()
+        self.add_import(statement or scan_import("."))
+
+    def import_ini(self) -> None:
+        """Import ``IniFile`` from the package's ``ini`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.ini_import()
+        self.add_import(statement or ini_import("."))
+
+    def import_grpc_server(self, names: str) -> None:
+        """Import ``names`` (``Server``, ``CallError``, comma separated) from the
+        package's ``grpc_server`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.grpc_server_import(names)
+        self.add_import(statement or f"from .{GRPC_SERVER_MODULE_NAME} import {names}")
 
     def import_panels(self, names: str, at_module_level: bool = False) -> None:
         """Import ``names`` (``Panel``, ``panel_of``, ``PanelError``, comma
@@ -823,12 +858,17 @@ class CodeGenContext:
         """The expression a reference to a VI is: its function, imported, or, for
         a VI of a class, ``Class.method`` (the class imported; for an accessor VI
         the getter or setter of its property), or, for a Global VI, its module
-        (``global_module``), whose ``panel`` holds its controls."""
+        (``global_module``), whose ``panel`` holds its controls, or, for a type
+        definition (a control's file, which holds a class and no function), its
+        module."""
         if (
             self.graph is not None
             and key is not None
             and isinstance(self.import_resolver, ImportResolver)
-            and self.graph.get_vi_properties(key).is_global_vi
+            and (
+                self.graph.is_typedef(key)
+                or self.graph.get_vi_properties(key).is_global_vi
+            )
         ):
             module = self.import_resolver.module(key)
             self.add_import(module.statement)
@@ -838,6 +878,9 @@ class CodeGenContext:
             if self.graph is not None and key is not None
             else None
         )
+        if shape is None and key is not None and key == self.vi_name:
+            # The VI being generated is already defined in its own module.
+            return self.function_name
         if shape is None or not isinstance(self.import_resolver, ImportResolver):
             return self.import_function(vi_name, key)
         assert self.graph is not None
@@ -877,6 +920,11 @@ class CodeGenContext:
         imported = class_reference(self.graph, resolver, lv_type, what)
         self.add_import(imported.statement)
         return imported.name
+
+    def typedef_instance(self, lv_type: LVType) -> LVType:
+        """``lv_type`` with the field names of the loaded typedef it is an
+        instance of (itself when generated with no graph)."""
+        return lv_type if self.graph is None else self.graph.typedef_instance(lv_type)
 
     def type_namer(self) -> TypeNamer | None:
         """The name this module spells a named class or typedef as, or None for
@@ -920,7 +968,7 @@ class CodeGenContext:
                 lv_type.underlying_type == "MeasureData"
                 and const.structured_value is not None
             )
-            or isinstance(const.structured_value, VariantData)
+            or isinstance(const.structured_value, (VariantData, PictureData))
             or (
                 const.structured_value is not None
                 and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
@@ -944,7 +992,27 @@ class CodeGenContext:
         names = self.type_namer()
         if enum_member_constant(const, names) is not None:
             self.import_types(const.lv_type, at_run_time=True)
-        return _format_constant(const, names)
+        return _format_constant(const, names, self._loaded_typedef_fields(const))
+
+    def _loaded_typedef_fields(
+        self, const: Constant | ConstantNode
+    ) -> list[ClusterField] | None:
+        """The fields of the loaded typedef a cluster constant is an instance of:
+        the constant's saved copy takes the loaded typedef's field names, each at
+        its saved position. None for a constant of no loaded typedef; a saved copy
+        with another field count is a gap."""
+        lv_type = const.lv_type
+        if (
+            self.graph is None
+            or lv_type is None
+            or lv_type.kind != LVTypeKind.CLUSTER
+            or not lv_type.typedef_name
+        ):
+            return None
+        stale = self.graph.stale_typedef_copy(lv_type)
+        if stale is not None:
+            raise ConversionGap(f"The cluster constant {const.label or ''!r}: {stale}")
+        return self.graph.get_type_fields(lv_type)
 
     def scalar_constant_expression(self, lv_type: LVType, text: str) -> str:
         """A value of the scalar type ``lv_type``, given as the text the VI's
@@ -1393,17 +1461,22 @@ def _needs_simplenamespace(expr: str) -> bool:
     return "SimpleNamespace(" in expr
 
 
-def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
+def _format_cluster_constant(
+    const: Constant | ConstantNode, loaded: list[ClusterField] | None = None
+) -> str | None:
     """Format a CLUSTER constant as a Python object: a named/typedef cluster as
     ``SimpleNamespace(field=value, ...)`` (attribute access, and mutable so
     Bundle By Name can assign fields), an anonymous cluster as a positional
     tuple, from the value's display text (a cluster with no decoded value, such as
     a global variable's saved default). Returns None if that text is not a
-    literal dict or the fields can't be resolved."""
+    literal dict or the fields can't be resolved. ``loaded`` is the loaded
+    typedef's fields when the constant is an instance of one: the saved value of
+    each position is written under that position's loaded name."""
     lv_type = const.lv_type
     if lv_type is None or not lv_type.fields:
         return None
-    fields = lv_type.fields
+    saved = lv_type.fields
+    fields = loaded if loaded and len(loaded) == len(saved) else saved
     anon = not lv_type.typedef_name and not lv_type.classname
     value = const.value
     if isinstance(value, str):
@@ -1415,7 +1488,7 @@ def _format_cluster_constant(const: Constant | ConstantNode) -> str | None:
         return None
     # Values in field order; a field absent from the parsed dict falls back to
     # None (LabVIEW's cluster default fills every field, so this is defensive).
-    keys = unique_names(f.name for f in fields)
+    keys = unique_names(f.name for f in saved)
     ordered = [
         (f.name, _python_literal(value.get(key))) for f, key in zip(fields, keys)
     ]
@@ -1486,7 +1559,9 @@ def terminal_default_expression(default: ScalarValue, type_name: str | None) -> 
 
 
 def _format_constant(
-    const: Constant | ConstantNode, names: TypeNamer | None = None
+    const: Constant | ConstantNode,
+    names: TypeNamer | None = None,
+    loaded: list[ClusterField] | None = None,
 ) -> str:
     """Format a constant value as a Python expression.
 
@@ -1515,7 +1590,7 @@ def _format_constant(
     # (no field names) is a positional tuple, the representation nmux uses for
     # anonymous clusters.
     if const.lv_type and const.lv_type.kind == LVTypeKind.CLUSTER:
-        cluster_expr = _format_cluster_constant(const)
+        cluster_expr = _format_cluster_constant(const, loaded)
         if cluster_expr is not None:
             return cluster_expr
         if const.lv_type.fields:
@@ -1565,11 +1640,11 @@ def _format_constant(
         return f"Path('{value}')"
     if underlying and underlying.startswith("Num") and isinstance(value, str):
         return _decode_numeric_constant(value, underlying)
-    if underlying == "String" and isinstance(value, str):
-        # The decoders hand back a QUOTED, escaped string literal — double-quoted
-        # from _decode_string_default, single-quoted from _decode_element — so we
-        # must recover the RAW text and re-emit it once. repr'ing the quoted form
-        # directly double-wraps it (a space -> "' '").
+    if underlying in ("String", "Tag") and isinstance(value, str):
+        # A Tag is string-encoded. The decoders hand back a QUOTED, escaped string
+        # literal — double-quoted from _decode_string_default, single-quoted from
+        # _decode_element — so we must recover the RAW text and re-emit it once.
+        # repr'ing the quoted form directly double-wraps it (a space -> "' '").
         try:
             # A fully-escaped literal round-trips through literal_eval.
             return repr(ast.literal_eval(value))

@@ -19,7 +19,15 @@ from lvkit.graph.lvnet_parse import _parse_case_frame_header
 from lvkit.graph.models import CaseStructureNode
 from lvkit.graph.op_walk import _selector_label, selector_frame_values
 from lvkit.graph.render_lvnet import _lvnet_case_header
-from lvkit.models import CaseFrame, LVType, LVTypeKind, SelectorRange, Terminal
+from lvkit.graph.selector_text import StringRangeText
+from lvkit.models import (
+    CaseFrame,
+    LVType,
+    LVTypeKind,
+    SelectorRange,
+    StringRange,
+    Terminal,
+)
 from lvkit.parser.nodes.case import extract_case_structures
 from tests.helpers import make_ctx
 from tests.test_case_parser import (
@@ -378,3 +386,25 @@ def test_a_boolean_case_writes_its_if_else_from_the_frames_boolean_values() -> N
     )
     fragment = generate(node, make_ctx("sel"))
     assert [type(s) for s in fragment.statements] == [ast.If]
+
+
+def test_string_range_header_and_label_quote_each_end() -> None:
+    values = ("/", StringRangeText("0", "9"), StringRangeText("m", None))
+    text = _lvnet_case_header(values, True)
+    assert text == '"/", "0".."9", "m".., default'
+    _label, parsed, is_default = _parse_case_frame_header(text, 1, text)
+    assert is_default
+    assert parsed == ("/", "0..9", "m..")
+    assert [type(v) for v in parsed] == [str, StringRangeText, StringRangeText]
+    assert (parsed[1].start, parsed[1].end) == ("0", "9")
+    assert (parsed[2].start, parsed[2].end) == ("m", None)
+    open_start = _lvnet_case_header((StringRangeText(None, "c"),), False)
+    assert open_start == '.."c"'
+    assert _parse_case_frame_header(open_start, 1, open_start)[1][0].end == "c"
+    string_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    frame = CaseFrame(
+        selector_value="0..9",
+        selector_strings=["/"],
+        selector_string_ranges=[StringRange(start="0", end="9")],
+    )
+    assert _selector_label(frame, string_type, False) == '"/", "0".."9"'

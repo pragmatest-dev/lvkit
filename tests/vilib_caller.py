@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import importlib
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -15,11 +15,18 @@ import pytest
 from lvkit.codegen.builder import build_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
+from lvkit.codegen.grpc_server_module import (
+    GRPC_SERVER_MODULE_NAME,
+    GRPC_SERVER_MODULE_SOURCE,
+)
+from lvkit.codegen.ini_module import INI_MODULE_NAME, INI_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
+from lvkit.codegen.scan_module import SCAN_MODULE_NAME, SCAN_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
-from lvkit.graph.models import VIContext, VINode, Wire
+from lvkit.graph.models import Constant, VIContext, VINode, Wire
+from lvkit.graph.node_kinds import NodeType
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.pipeline import create_import_resolver
 from tests.helpers import build_graph
@@ -51,6 +58,11 @@ def run_catalog_call(
     arguments: Mapping[str, Any],
     gaps: list[Gap] | None = None,
     runtime_not_implemented: bool = False,
+    constants: Mapping[int, tuple[str, LVType]] | None = None,
+    calls: Sequence[Mapping[str, Any]] | None = None,
+    instance_defaults: dict[int, str | None] | None = None,
+    classes: Mapping[str, str] | None = None,
+    typedefs: Mapping[str, str] | None = None,
 ) -> tuple[str, Any]:
     """The generated caller's source and the result of running it.
 
@@ -61,7 +73,16 @@ def run_catalog_call(
     ``runtime_not_implemented`` allows the VI's Python to raise
     ``NotImplementedError`` for a case it finds only when it runs (an LLB, a
     dialog): the generation itself still has no gap. A ``gaps`` list collects
-    the gaps the generation finds, for a test that expects one.
+    the gaps the generation finds, for a test that expects one. ``constants``
+    wires a constant of the diagram, ``(value, type)``, to each call input
+    index it names. ``calls`` runs the caller once per mapping of arguments, in order,
+    and the result is the list of their results (a VI that keeps state between calls).
+    ``instance_defaults`` makes the call one of an embedded instance (an Express VI):
+    what each input control of the instance holds when unwired, by slot.
+    ``classes`` adds classes to the project: each class file name (``A.lvclass``)
+    with the source of the module generated for it, written beside the caller.
+    ``typedefs`` does the same for typedef controls (``Animal.ctl``); a type whose
+    ``file_key`` is ``/Animal.ctl`` is that file's class.
     """
     key = "/" + "/".join(recorded)
     file_name = recorded[-1]
@@ -70,10 +91,29 @@ def run_catalog_call(
     graph._recorded.record(key, None, recorded)  # noqa: SLF001
     package = tmp_path / "pkg"
     package.mkdir(parents=True, exist_ok=True)
+    class_files = {}
+    for class_file, class_source in (classes or {}).items():
+        graph._dep_graph.add_node(  # noqa: SLF001
+            f"/{class_file}", node_type=NodeType.CLASS
+        )
+        module_file = package / f"{Path(class_file).stem.lower()}.py"
+        module_file.write_text(class_source, encoding="utf-8")
+        class_files[f"/{class_file}"] = module_file
+    for typedef_file, typedef_source in (typedefs or {}).items():
+        graph._dep_graph.add_node(  # noqa: SLF001
+            f"/{typedef_file}", node_type=NodeType.TYPEDEF
+        )
+        module_file = package / f"{Path(typedef_file).stem.lower()}.py"
+        module_file.write_text(typedef_source, encoding="utf-8")
+        class_files[f"/{typedef_file}"] = module_file
     resolver = create_import_resolver(
         "pkg",
         package,
-        {key: package / "callee.py", "caller.vi": package / "caller.py"},
+        {
+            key: package / "callee.py",
+            "caller.vi": package / "caller.py",
+            **class_files,
+        },
         package / "caller.py",
         caller_key="caller.vi",
         graph=graph,
@@ -84,6 +124,7 @@ def run_catalog_call(
         name=file_name,
         node_type="iUse",
         callee_key=key,
+        instance_defaults=instance_defaults,
         terminals=[
             FPTerminal(
                 id=f"k:{direction}{index}",
@@ -121,8 +162,19 @@ def run_catalog_call(
     context = VIContext(
         name="caller.vi",
         inputs=controls,
+        constants=[
+            Constant(id=f"const{index}", value=value, lv_type=lv_type)
+            for index, (value, lv_type) in (constants or {}).items()
+        ],
         outputs=indicators,
         data_flow=[
+            *(
+                Wire.from_terminals(
+                    from_terminal_id=f"const{index}",
+                    to_terminal_id=f"k:input{index}",
+                )
+                for index in (constants or {})
+            ),
             *(
                 Wire.from_terminals(
                     from_terminal_id=f"fp:{name}",
@@ -154,16 +206,24 @@ def run_catalog_call(
         (VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+        (SCAN_MODULE_NAME, SCAN_MODULE_SOURCE),
+        (INI_MODULE_NAME, INI_MODULE_SOURCE),
+        (GRPC_SERVER_MODULE_NAME, GRPC_SERVER_MODULE_SOURCE),
     ):
         (package / f"{module}.py").write_text(text, encoding="utf-8")
     monkeypatch.syspath_prepend(str(tmp_path))
     try:
         caller = importlib.import_module("pkg.caller")
-        result = caller.caller(**arguments)
+        if calls is None:
+            result = caller.caller(**arguments)
+        else:
+            result = [caller.caller(**each) for each in calls]
     finally:
         for name in (
             "pkg.caller",
+            *(f"pkg.{Path(c).stem.lower()}" for c in (classes or {})),
             "pkg.panels",
+            "pkg.grpc_server",
             "pkg.live_io",
             "pkg.variants",
             "pkg.errors",

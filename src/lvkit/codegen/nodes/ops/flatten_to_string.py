@@ -80,7 +80,7 @@ def flatten_to_string(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment 
     prefix = bool(constant_input(ctx, node, 10, True))
     order = BYTE_ORDER_PREFIX[int(constant_input(ctx, node, 9, 0))]
     try:
-        layout = layout_of(source.lv_type if source else None)
+        layout = layout_of(source.lv_type if source else None, ctx)
     except UnsupportedLayout as error:
         raise unsupported_layout_error(node, error) from error
     fns = Functions(ctx, order)

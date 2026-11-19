@@ -29,9 +29,16 @@
           "type": "Path"
         }
       ],
+      "imports": [
+        "from pathlib import Path"
+      ],
+      "python_code": {
+        "path": "Path.home()"
+      },
+      "inline": true,
       "verified": false,
       "source": "vi-scripting-nodes-lv2025",
-      "gap_reason": "What Python calls LabVIEW's default directory (the Options dialog's Default Directory, where LabVIEW stores files unless a path says otherwise) is a decision: the current directory, or a user data folder."
+      "note": "NI: 'Returns the path to the default directory. The default directory is the directory in which LabVIEW automatically stores information unless you specify otherwise.' labviewwiki 'LabVIEW configuration file/Paths' (https://labviewwiki.org/wiki/LabVIEW_configuration_file/Paths), key defaultdir, 'Default Directory': default is the installed LabVIEW folder on Windows/Mac and the user home folder on Linux. A port has no LabVIEW install folder, so the maintainer chose LabVIEW's Linux default (the user home folder) on every OS (decision 2026-11-18)."
     },
     "1435": {
       "name": "Temporary Directory",

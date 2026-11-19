@@ -352,27 +352,28 @@
       ]
     },
     {
-      "name": "DWDT Analog to Digital VI",
+      "name": "DWDT Analog to Digital",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-analog-to-digital-vi.html",
       "category": "Waveform",
       "description": "Converts analog waveform to a digital waveform or digital data. You must manually select the polymorphic instance you want to use. Functions 806 ni.com",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "compress digital (T)",
-          "index": null,
+          "index": 7,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "compress_digital",
-          "description": "compress digital specifies whether to compress the digital waveform or digital data. The default is TRUE."
+          "description": "compress digital specifies whether to compress the digital waveform or digital data. The default is TRUE.",
+          "default": true
         },
         {
           "name": "analog waveform",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -381,43 +382,46 @@
         },
         {
           "name": "resolution (16 bit)",
-          "index": null,
+          "index": 10,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "resolution",
-          "description": "resolution specifies the number of bits represented in the digital waveform or digital data."
+          "description": "resolution specifies the number of bits represented in the digital waveform or digital data.",
+          "default": 16
         },
         {
           "name": "full-scale range (pk-pk)",
-          "index": null,
+          "index": 9,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "full_scale_range",
-          "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is –1, the full-scale range for the waveform is 2. The default is 2."
+          "description": "full-scale range (pk-pk) specifies the total peak-to-peak range, or the difference between the minimum and maximum, for the digital waveform or digital data. For example, if the maximum range of a waveform is 1 and the minimum is –1, the full-scale range for the waveform is 2. The default is 2.",
+          "default": 2
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "error_in",
+          "python_param": "error_in_no_error",
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurred before this node runs, this node outputs an empty waveform."
         },
         {
           "name": "data format (offset binary)",
-          "index": null,
+          "index": 6,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "data_format",
-          "description": "data format specifies which binary representation you want to use for the digital waveform or digital data."
+          "description": "data format specifies which binary representation you want to use for the digital waveform or digital data.",
+          "default": 1
         },
         {
           "name": "digital waveform",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -426,32 +430,38 @@
         },
         {
           "name": "resolution (out)",
-          "index": null,
+          "index": 2,
           "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "resolution",
+          "python_param": "resolution_out",
           "description": "resolution (out) returns the number of bits represented in the digital waveform or digital data."
         },
         {
           "name": "full-scale range (out)",
-          "index": null,
+          "index": 1,
           "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "full_scale_range",
+          "python_param": "full_scale_range_out",
           "description": "full-scale range (out) returns the total peak-to-peak range for the digital waveform or digital data."
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
           "description": "error out contains error information. This output provides standard error out functionality."
         }
-      ]
+      ],
+      "imports": [
+        "import nitypes.waveform",
+        "import numpy"
+      ],
+      "python_code": "_bits = int({resolution})\n_step = {full_scale_range} / 2 ** _bits\nif {data_format} == 0:\n    raise NotImplementedError(f'DWDT Analog to Digital with the data format {{data_format}} (unsigned binary): NI does not say which code a value of the range maps to')\n_codes = [min(max(round((_v + {full_scale_range} / 2) / _step), 0), 2 ** _bits - 1) for _v in {analog_waveform}.raw_data.tolist()]\nif {data_format} == 2:\n    _codes = [_c ^ (1 << (_bits - 1)) for _c in _codes]\n{digital_waveform} = nitypes.waveform.DigitalWaveform.from_lines(numpy.array([[(_c >> _b) & 1 for _b in range(_bits - 1, -1, -1)] for _c in _codes], dtype=numpy.uint8).reshape(len(_codes), _bits), numpy.uint8, timing={analog_waveform}.timing)\n{resolution_out} = _bits\n{full_scale_range_out} = {full_scale_range}",
+      "inline": true
     },
     {
       "name": "DTbl Analog to Digital VI",
@@ -897,7 +907,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "sample_rate",
-          "description": "sample rate specifies the frequency in samples per second of the output digital waveform."
+          "description": "sample rate specifies the frequency in samples per second of the output digital waveform. NI states no default; 1000.0 (1 kHz) when unwired is assumed (maintainer 2026-11-16): the sibling Digital Pattern Generator (Ramp) in dwdtops.llb documents \"The default is 1 kHz\".",
+          "default": 1000.0
         },
         {
           "name": "mode",

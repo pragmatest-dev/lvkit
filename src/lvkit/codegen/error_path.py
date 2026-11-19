@@ -14,6 +14,7 @@ from lvkit.models import _is_error_cluster
 from lvkit.parser.constants import (
     VI_NAME_CLEAR_ERRORS,
     VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE,
+    VI_NAME_GENERAL_ERROR_HANDLER,
     VI_NAME_MERGE_ERRORS,
     VI_NAME_SIMPLE_ERROR_HANDLER,
 )
@@ -32,6 +33,7 @@ ERROR_WIRE_VI_NAMES = frozenset(
         VI_NAME_CLEAR_ERRORS,
         VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE,
         VI_NAME_SIMPLE_ERROR_HANDLER,
+        VI_NAME_GENERAL_ERROR_HANDLER,
     }
 )
 

@@ -1,0 +1,138 @@
+{
+  "class_id_doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/classid.html",
+  "class_hierarchy_doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/class-hierarchy.html",
+  "class_ids": {
+    "Generic": 3,
+    "Decoration": 4,
+    "Text": 5,
+    "Control": 6,
+    "ColorBox": 7,
+    "Boolean": 8,
+    "RefNum": 9,
+    "Variant": 10,
+    "Path": 11,
+    "ListBox": 12,
+    "Table": 13,
+    "Array": 14,
+    "Picture": 15,
+    "ActiveXContainer": 16,
+    "Numeric": 17,
+    "Digital": 18,
+    "NamedNumeric": 19,
+    "ColorRamp": 20,
+    "Slide": 21,
+    "GraphOrChart": 22,
+    "WaveformChart": 23,
+    "WaveformGraph": 24,
+    "IntensityChart": 25,
+    "IntensityGraph": 26,
+    "String": 27,
+    "IOName": 28,
+    "ComboBox": 29,
+    "Cluster": 30,
+    "Panel": 31,
+    "Knob": 32,
+    "NumWithScale": 33,
+    "Ring": 34,
+    "Enum": 35,
+    "GObject": 36,
+    "Plot": 37,
+    "Cursor": 38,
+    "NumericText": 39,
+    "Scale": 40,
+    "ColorScale": 41,
+    "GraphScale": 42,
+    "ColorGraphScale": 43,
+    "TypedRefNum": 44,
+    "OldKnobScale": 45,
+    "MCListbox": 46,
+    "MeasureData": 47,
+    "BVTag": 48,
+    "DAQName": 49,
+    "VISAName": 50,
+    "IVIName": 51,
+    "SlideScale": 52,
+    "Page": 54,
+    "TabControl": 55,
+    "ConPane": 56
+  },
+  "front_panel_classes": [
+    {
+      "fp_class": "stdNum",
+      "class": "Digital",
+      "evidence": "A plain numeric control: NI's hierarchy lists Digital beside NamedNumeric and NumericWithScale (Slide, Knob), which are the front-panel classes stdRing, stdSlide and stdKnob; no other class is left for stdNum."
+    },
+    {
+      "fp_class": "stdRing",
+      "type_kind": "ring",
+      "class": "Ring",
+      "evidence": "A ring control: NI's hierarchy lists Ring under NamedNumeric; the type is a ring (no enum labels in the type)."
+    },
+    {
+      "fp_class": "stdRing",
+      "type_kind": "enum",
+      "class": "Enum",
+      "evidence": "An enum control is stored as stdRing with an enum type; the corpus VI Is Enum Control.vi (measurement-plugin-labview) reads ClassID and takes case 35 to cast the reference to an enum control, and NI's ClassID table gives 35 as Enum."
+    },
+    {
+      "fp_class": "stdBool",
+      "class": "Boolean",
+      "evidence": "NI's hierarchy lists Boolean under Control."
+    },
+    {
+      "fp_class": "stdString",
+      "class": "String",
+      "evidence": "NI's hierarchy lists String under Control."
+    },
+    {
+      "fp_class": "stdPath",
+      "class": "Path",
+      "evidence": "NI's hierarchy lists Path under Control."
+    },
+    {
+      "fp_class": "stdClust",
+      "class": "Cluster",
+      "evidence": "NI's hierarchy lists Cluster under Control; an error cluster is a cluster."
+    },
+    {
+      "fp_class": "indArr",
+      "class": "Array",
+      "evidence": "NI's hierarchy lists Array under Control."
+    },
+    {
+      "fp_class": "stdComboBox",
+      "class": "ComboBox",
+      "evidence": "NI's hierarchy lists ComboBox under String."
+    },
+    {
+      "fp_class": "stdPict",
+      "class": "Picture",
+      "evidence": "NI's hierarchy lists Picture under Control."
+    },
+    {
+      "fp_class": "listbox",
+      "class": "ListBox",
+      "evidence": "NI's hierarchy lists ListBox under Control."
+    },
+    {
+      "fp_class": "tableControl",
+      "class": "Table",
+      "evidence": "NI's hierarchy lists Table under Control."
+    },
+    {
+      "fp_class": "tabControl",
+      "class": "TabControl",
+      "evidence": "NI's hierarchy lists TabControl under PageSelector."
+    },
+    {
+      "fp_class": "stdSlide",
+      "class": "Slide",
+      "evidence": "NI's hierarchy lists Slide under NumericWithScale."
+    },
+    {
+      "fp_class": "stdKnob",
+      "class": "Knob",
+      "evidence": "NI's hierarchy lists Knob under NumericWithScale."
+    }
+  ]
+}

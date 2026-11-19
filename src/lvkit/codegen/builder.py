@@ -29,6 +29,7 @@ from .ast_utils import (
     with_statements_after_docstring,
 )
 from .context import CodeGenContext
+from .control_property_state import entry_property_states
 from .elementwise import arrayify_module
 from .error_flow import share_guards
 from .errors import CodeGenError
@@ -40,7 +41,11 @@ from .import_resolver import ImportResolver
 from .input_default import build_input_defaults, is_none_defaulted
 from .local_indicators import LocalIndicators
 from .nodes import generate as generate_node
+from .nodes.call_chain import vi_name_statement
 from .nodes.feedback import feedback_master_of
+from .nodes.front_panel_bounds import window_bounds_statement
+from .nodes.front_panel_title import window_title_statement
+from .nodes.tag_methods import tags_statements
 from .panel_description import function_panel_statements
 from .panel_hooks import (
     PanelHooks,
@@ -196,6 +201,9 @@ def function_body(
     body.extend(entry_reads(ctx, vi_context.off_pane_inputs))
     # A VI with an Event Structure reads the queue of events from ``live_io``.
     body.extend(entry_events(ctx))
+    # A VI that reads Visible or Disabled of its own controls keeps each in a
+    # module variable seeded to the state the file stores.
+    body.extend(entry_property_states(ctx))
 
     # An unwired input holds its control's default: its ``def`` default is None
     # when the type's default is an object (array, cluster, path, class).
@@ -491,6 +499,10 @@ def build_module_ast(
         vi_context, vi_name, body, spell, hooks=ctx.panel_hooks
     )
     module_body.append(func_def)
+    module_body.append(window_title_statement(ctx, vi_name, func_def.name))
+    module_body.append(window_bounds_statement(ctx, vi_name, func_def.name))
+    module_body.append(vi_name_statement(ctx, vi_name, func_def.name))
+    module_body.extend(tags_statements(ctx, vi_name, func_def.name))
     module_body.extend(
         function_panel_statements(
             vi_context,

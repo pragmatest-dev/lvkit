@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import ast
 
+import pytest
+
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes.frame_structure import pre_declare_outputs
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import CaseStructureNode
 from lvkit.models import Terminal, Tunnel
 from tests.helpers import make_ctx, make_graph_with_edge, tunnel_terminals
@@ -253,7 +256,7 @@ class TestPreDeclareSkipsInvalidTargets:
 # ---------------------------------------------------------------------------
 
 from lvkit.codegen.nodes.case import _build_frame_pattern  # noqa: E402
-from lvkit.models import CaseFrame, SelectorRange  # noqa: E402
+from lvkit.models import CaseFrame, SelectorRange, StringRange  # noqa: E402
 
 
 def _pattern_src(
@@ -374,3 +377,137 @@ class TestPreDeclareOutputsTypeDefault:
 
     def test_string_tunnel_predeclared_empty(self):
         assert self._pre("String") == "result = ''"
+
+
+def _string_node(frames: list[CaseFrame], insensitive: bool) -> CaseStructureNode:
+    return CaseStructureNode(
+        id="case1",
+        vi_path="test.vi",
+        name="Case",
+        node_type="caseStruct",
+        frames=frames,
+        case_insensitive=insensitive,
+    )
+
+
+def _run_string_case(
+    frames: list[CaseFrame], value: str, insensitive: bool = False
+) -> str:
+    """Generate the match statement the case codegen builds for ``frames`` (the
+    last is the Default frame, as the codegen places it) and run it."""
+    cases = []
+    for i, frame in enumerate(frames):
+        if frame.is_default:
+            pattern, guard = ast.MatchAs(pattern=None, name=None), None
+        else:
+            pattern, guard = _build_frame_pattern(
+                frame, "sel", True, _string_node(frames, insensitive)
+            )
+        body = ast.parse(f"out = 'frame{i}'").body
+        cases.append(ast.match_case(pattern=pattern, guard=guard, body=body))
+    cases.sort(key=lambda c: isinstance(c.pattern, ast.MatchAs) and c.guard is None)
+    mod = ast.Module(
+        body=[ast.Match(subject=ast.Name(id="sel", ctx=ast.Load()), cases=cases)],
+        type_ignores=[],
+    )
+    scope: dict[str, str] = {"sel": value, "out": "none"}
+    exec(compile(ast.fix_missing_locations(mod), "<case>", "exec"), scope)
+    return scope["out"]
+
+
+class TestStringRangeRuns:
+    """LabVIEW: "a range of a..c includes all strings beginning with a or b, but
+    not c"; compared by character code (NI help, case selector values)."""
+
+    FRAMES = [
+        CaseFrame(selector_value="/", selector_strings=["/"]),
+        CaseFrame(
+            selector_value="0..9",
+            selector_string_ranges=[StringRange(start="0", end="9")],
+        ),
+        CaseFrame(selector_value="Default", is_default=True),
+    ]
+
+    def test_a_string_inside_the_range_matches_it(self):
+        assert _run_string_case(self.FRAMES, "5") == "frame1"
+        assert _run_string_case(self.FRAMES, "0") == "frame1"
+        assert _run_string_case(self.FRAMES, "2026-11-16") == "frame1"
+
+    def test_the_end_of_the_range_is_excluded(self):
+        assert _run_string_case(self.FRAMES, "9") == "frame2"
+
+    def test_a_single_value_frame_matches_only_that_string(self):
+        assert _run_string_case(self.FRAMES, "/") == "frame0"
+
+    def test_a_string_outside_every_frame_takes_the_default(self):
+        assert _run_string_case(self.FRAMES, "x") == "frame2"
+        assert _run_string_case(self.FRAMES, "") == "frame2"
+
+    def test_comparison_is_by_character_code(self):
+        upper = [
+            CaseFrame(
+                selector_value="A..c",
+                selector_string_ranges=[StringRange(start="A", end="c")],
+            ),
+            CaseFrame(selector_value="Default", is_default=True),
+        ]
+        assert _run_string_case(upper, "Z") == "frame0"
+        assert _run_string_case(upper, "a") == "frame0"
+        assert _run_string_case(upper, "c") == "frame1"
+
+    def test_a_range_and_a_list_value_in_one_frame(self):
+        frames = [
+            CaseFrame(
+                selector_value="c",
+                selector_strings=["c"],
+                selector_string_ranges=[StringRange(start="a", end="c")],
+            ),
+            CaseFrame(selector_value="Default", is_default=True),
+        ]
+        assert _run_string_case(frames, "c") == "frame0"
+        assert _run_string_case(frames, "b") == "frame0"
+        assert _run_string_case(frames, "d") == "frame1"
+
+    def test_open_ends_compare_one_sided(self):
+        frames = [
+            CaseFrame(
+                selector_value="m..",
+                selector_string_ranges=[StringRange(start="m", end=None)],
+            ),
+            CaseFrame(selector_value="Default", is_default=True),
+        ]
+        assert _run_string_case(frames, "zebra") == "frame0"
+        assert _run_string_case(frames, "apple") == "frame1"
+
+
+class TestCaseInsensitiveMatch:
+    """NI (labviewwiki.org/wiki/Case_Structure): "a" matches "a" or "A"; a list
+    matches each value in either case; the comparison is ASCII."""
+
+    FRAMES = [
+        CaseFrame(selector_value="a", selector_strings=["a", "o"]),
+        CaseFrame(selector_value="Straße", selector_strings=["Straße"]),
+        CaseFrame(selector_value="Default", is_default=True),
+    ]
+
+    def test_either_case_matches_a_single_value_and_a_list(self):
+        for text in ("a", "A", "o", "O"):
+            assert _run_string_case(self.FRAMES, text, True) == "frame0"
+
+    def test_a_sensitive_structure_still_matches_exactly(self):
+        assert _run_string_case(self.FRAMES, "A", False) == "frame2"
+
+    def test_only_ascii_letters_fold(self):
+        assert _run_string_case(self.FRAMES, "STRAßE", True) == "frame1"
+        assert _run_string_case(self.FRAMES, "STRASSE", True) == "frame2"
+
+    def test_a_string_range_is_a_gap(self):
+        frames = [
+            CaseFrame(
+                selector_value="a..c",
+                selector_string_ranges=[StringRange(start="a", end="c")],
+            ),
+            CaseFrame(selector_value="Default", is_default=True),
+        ]
+        with pytest.raises(ConversionGap, match="Case Insensitive Match"):
+            _run_string_case(frames, "b", True)

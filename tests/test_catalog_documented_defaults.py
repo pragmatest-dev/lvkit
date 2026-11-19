@@ -43,8 +43,17 @@ PRIMITIVE_DEFAULTS = [
     ("24202", "enable LabVIEW extensions? (T)", True),
     ("24202", "strict validation? (F)", False),
     ("8073", "offset (in bytes) (0)", 0),
+    ("8073", "from (0:start)", 0),  # 2 when `offset` is unwired
+    ("8058", "start_path", DefaultBehavior("last directory viewed")),
     ("1713", "abort (F)", False),
     ("8100", "UTC format", False),
+    ("8100", "seconds (now)", DefaultBehavior("current date and time")),
+    ("8100", "time format string (%c)", "%c"),
+    ("8051", "count (1)", DefaultBehavior("one element")),
+    ("8051", "file (use dialog)", DefaultBehavior("file dialog")),
+    ("8070", "file (use dialog)", DefaultBehavior("file dialog")),
+    ("8078", "file (use dialog)", DefaultBehavior("file dialog")),
+    ("8080", "file (use dialog)", DefaultBehavior("file dialog")),
     ("8101", "allow empty tokens? (F)", False),
     ("8101", "use cached delim/oper data? (F)", False),
     ("2308", "access mode", 0),
@@ -113,6 +122,7 @@ VILIB_DEFAULTS = [
     ("Generate Temporary File Path", "Temporary File Extension (tmp)", "tmp"),
     ("Write to System Log", "severity", 0),
     ("Picture to Pixmap", "depth", 24),
+    ("Picture to Pixmap", "Background Color", 0),
     ("General Error Handler", "[error code] (0)", 0),
     ("General Error Handler", '[error source] (" ")', " "),
     ("General Error Handler", "[exception action] (none:0)", 0),
@@ -145,10 +155,7 @@ VILIB_DEFAULTS = [
 # they stay the bare `default`.
 STAYS_BARE = [
     ("8070", "count"),  # one line or the whole file, by a menu setting
-    ("8073", "from (0:start)"),  # depends on whether `offset` is wired
-    ("8051", "count (1)"),  # NI describes a single element
     ("2135", "include static events? (T)"),  # depends on the event case
-    ("8058", "start_path"),  # the last directory viewed
     ("8058", "prompt"),  # the dialog title differs between Windows/Linux and macOS
     # the enum is not an item value on the calls in the corpus
     ("8051", "byte order (0:big-endian, network order)"),
@@ -216,6 +223,17 @@ def test_move_shows_overwrite_and_prompt(tmp_path: Path) -> None:
 def test_obtain_queue_shows_the_unnamed_queue(tmp_path: Path) -> None:
     views = _views(tmp_path, primitive(10, 9108, [(0, STR)], out_type=I32))
     assert '      in   0 : String default ""\n' in views.lvnet
+
+
+def test_set_file_position_shows_from_as_current_when_offset_is_unwired(
+    tmp_path: Path,
+) -> None:
+    views = _views(
+        tmp_path, primitive(10, 8073, [(5, I32), (6, I32)], out_type=I32)
+    )
+    assert "      in   from (0:start)" in views.lvnet
+    line = next(x for x in views.lvnet.splitlines() if "from (0:start)" in x)
+    assert line.endswith("default 2")
 
 
 def test_search_split_shows_offset_zero(tmp_path: Path) -> None:
@@ -293,7 +311,7 @@ def test_the_pen_style_is_inside_the_pen_cluster_not_a_pane_input(
 )
 def test_the_dialog_prompt_input_is_named_prompt(function_name: str) -> None:
     catalog = Path(__file__).parents[1] / "src/lvkit/data/vilib/file-io.json"
-    entries = json.loads(catalog.read_text())["entries"]
+    entries = json.loads(catalog.read_text(encoding="utf-8"))["entries"]
     entry = next(e for e in entries if e["name"] == function_name)
     names = [t["name"] for t in entry["terminals"]]
     assert "prompt" in names

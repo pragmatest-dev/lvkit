@@ -16,12 +16,14 @@ import networkx as nx
 from ..build_options import BuildOptions
 from ..cache_paths import LibraryRoots
 from ..catalogs import primitive_catalog_for, vilib_catalog_for
+from ..conversion_gap import ConversionGap
 from ..library_folders import Folders, SearchEntries, folder_list, search_path_entries
 from ..load_mode import LoadMode
 from ..models import (
     ClusterField,
     LVType,
     LVTypeKind,
+    SavedTag,
     WireStyle,
     contains_class_instance,
 )
@@ -29,6 +31,7 @@ from ..parser.models import ParsedType, ParsedVI
 from ..run_report import RunSettings
 from ..type_names import ROOT_CLASS
 from .search_path import SearchPath
+from .typedef_copy import incompatible_copy_message, saved_as_loaded
 
 if TYPE_CHECKING:
     from ..extract_pool import ExtractionPool
@@ -252,6 +255,8 @@ class InMemoryVIGraph(
         self._vi_health: dict[str, VIHealth] = {}
         # The .NET assemblies each VI calls -- a sibling facet to _vi_metadata.
         self._vi_dotnet_assemblies: dict[str, VIDotNetAssemblies] = {}
+        # The tags each VI saves with its file (its ``VITS`` block), in file order.
+        self._vi_tags: dict[str, list[SavedTag]] = {}
         # The folders <vilib> / <userlib> / <instrlib> path tokens name, in order,
         # and the VI Search Path for files not at their recorded path.
         self._vilib_roots: tuple[Path, ...] = ()
@@ -370,6 +375,7 @@ class InMemoryVIGraph(
         self._vi_properties.clear()
         self._vi_health.clear()
         self._vi_dotnet_assemblies.clear()
+        self._vi_tags.clear()
         self._layouts.clear()
         self._parse_cache = None
 
@@ -438,6 +444,7 @@ class InMemoryVIGraph(
         # render.style.wire_style.
         if parsed_type.classname or parsed_type.typedef_name:
             lv_type.file_key = self.recorded_type_key(file_key, lv_type)
+            lv_type.strict_typedef = self.is_strict_typedef(lv_type)
         if parsed_type.classname:
             class_key = self.class_type_key(lv_type)
             if class_key is not None:
@@ -586,26 +593,49 @@ class InMemoryVIGraph(
         A class type's fields are the ones its class declares (a Bundle/Unbundle
         By Name on a class wire counts the wire's own class's fields only:
         private data is private to its class), read from the class file
-        ``LVType.file_key`` names. Typedef/cluster
-        types prefer inline fields from the VI's own type_map (ground truth for
-        that VI's dataflow, possibly newer than the control); else the loaded
-        control's.
+        ``LVType.file_key`` names. A typedef instance's are its saved copy's
+        fields mapped onto the loaded control's (:mod:`.typedef_copy`: by name,
+        else by position); the loaded control's when the VI saved no fields. Any
+        other cluster has the fields its wire's type records.
         """
         if lv_type.classname:
             return self._named_fields(lv_type)
 
-        if lv_type.fields:
-            # Inline fields from VI's own type_map take priority for non-class
-            # types (e.g. typedef clusters). The VI's type_map is ground truth
-            # for that specific VI's dataflow.
-            return lv_type.fields
-
         if lv_type.typedef_name:
-            # No inline fields: the loaded control's (typedef_ref types loaded
-            # from .ctl files, NI/DCAF types, etc.)
-            return self._named_fields(lv_type)
+            loaded = self._named_fields(lv_type)
+            if loaded:
+                if not lv_type.fields:
+                    return loaded
+                mapped = saved_as_loaded(lv_type.fields, loaded)
+                if mapped is not None:
+                    return mapped
 
-        return None
+        return lv_type.fields or None
+
+    def stale_typedef_copy(self, lv_type: LVType) -> str | None:
+        """Why a VI's saved copy of a loaded typedef cannot be read through the
+        loaded typedef (no saved field maps to a loaded field, rule 3 of
+        :mod:`.typedef_copy`), naming both field lists. None when the type is no
+        loaded typedef or its copy maps."""
+        if lv_type.classname or not lv_type.typedef_name or not lv_type.fields:
+            return None
+        loaded = self._named_fields(lv_type)
+        if not loaded or saved_as_loaded(lv_type.fields, loaded) is not None:
+            return None
+        return incompatible_copy_message(lv_type.typedef_name, lv_type.fields, loaded)
+
+    def typedef_instance(self, lv_type: LVType) -> LVType:
+        """``lv_type`` as an instance of its loaded typedef: the saved copy's
+        fields mapped onto the loaded typedef (``lv_type`` itself when it is no
+        loaded typedef). An incompatible copy is a ``ConversionGap``
+        (:meth:`stale_typedef_copy`)."""
+        stale = self.stale_typedef_copy(lv_type)
+        if stale is not None:
+            raise ConversionGap(stale)
+        mapped = self.get_type_fields(lv_type)
+        if not lv_type.typedef_name or not mapped or mapped is lv_type.fields:
+            return lv_type
+        return dataclasses.replace(lv_type, fields=mapped)
 
     def _named_fields(self, lv_type: LVType) -> list[ClusterField] | None:
         """The fields of the class or control file ``lv_type.file_key`` names;

@@ -56,6 +56,7 @@ ARGUMENTS: dict[PanelKind, Callable[[PanelControl], str]] = {
     PanelKind.HIDDEN: _no_arguments,
     PanelKind.BOOLEAN: _default_only,
     PanelKind.STRING: _default_only,
+    PanelKind.COMBO: _default_only,
     PanelKind.PATH: _path,
     PanelKind.ENUM: _choice,
     PanelKind.RING: _choice,

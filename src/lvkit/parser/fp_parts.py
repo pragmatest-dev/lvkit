@@ -36,6 +36,17 @@ def parse_multi_label_buf(buf_text: str) -> list[str]:
     return re.findall(r'"([^"]*)"', buf_text)
 
 
+def combo_box_saved_item_count(ddo: ET.Element) -> int:
+    """How many strings the Combo Box heap object ``ddo`` is saved with: the
+    ``elements`` count of its ``comboBoxValues`` array (0 when it stores none).
+    Every Combo Box in the corpus stores ``elements="0"``; no corpus VI has a
+    saved item, so the form of an item is not read (see
+    ``docs/_internal/design/labview-binary-format.md``)."""
+    values = ddo.find("comboBoxValues")
+    count = int_or_none(values.get("elements")) if values is not None else 0
+    return count or 0
+
+
 def _part_states(part: ET.Element) -> tuple[ParsedFPPartState, ...]:
     """A ``bigMultiCosm`` part's ``SubCosm`` states, in stored order; empty for
     every other part class."""

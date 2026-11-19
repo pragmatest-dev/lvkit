@@ -172,6 +172,68 @@ def test_a_timestamp_as_a_double_is_the_seconds_since_1904() -> None:
     assert fn(_later(86400.5)).out == 86400.5
 
 
+def _to_integer(prim_id: int, name: str, result: LVType):
+    return generate(
+        prim_id,
+        name,
+        [
+            Pin(1, "input", TIMESTAMP, source="x"),
+            Pin(0, "output", result, sink="out"),
+        ],
+        {"x": TIMESTAMP},
+        {"out": result},
+    )
+
+
+def test_a_timestamp_as_an_unsigned_long_is_the_rounded_seconds_since_1904() -> None:
+    source, fn = _to_integer(1145, "To Unsigned Long Integer", scalar("NumUInt32"))
+    assert "in_" not in source
+    assert "from fractions import Fraction" in source
+    assert fn(EPOCH_1904).out == 0
+    # 2020-01-01 00:00:00 UTC is 3660681600 s after 1904-01-01.
+    assert fn(datetime_2020()).out == 3660681600
+    # Ties go to the even integer: 0.5 -> 0, 1.5 -> 2; just over a half rounds up.
+    assert fn(_later(0.5)).out == 0
+    assert fn(_later(1.5)).out == 2
+    assert fn(_later(2.5)).out == 2
+    assert fn(_later(2.4999)).out == 2
+    assert fn(_later(2.5001)).out == 3
+    # A fraction a float of the seconds could not hold still decides the rounding.
+    just_over = EPOCH_1904 + hightime.timedelta(
+        seconds=3_000_000_000, microseconds=500_000, femtoseconds=1
+    )
+    assert fn(just_over).out == 3_000_000_001
+
+
+def test_a_timestamp_past_the_range_converts_as_a_number_does() -> None:
+    """A number past the range keeps its low bits (the catalog's To Unsigned
+    Long Integer); no source says a timestamp differs."""
+    _, to_u32 = _to_integer(1145, "To Unsigned Long Integer", scalar("NumUInt32"))
+    assert to_u32(_later(2**32 + 10)).out == 10
+    assert to_u32(_later(-1)).out == 2**32 - 1
+    _, to_u64 = _to_integer(1156, "To Unsigned Quad Integer", scalar("NumUInt64"))
+    assert to_u64(_later(3660681600)).out == 3660681600
+    assert to_u64(_later(-1)).out == 2**64 - 1
+
+
+def test_a_timestamp_as_a_quad_integer_is_the_rounded_seconds_since_1904() -> None:
+    source, fn = _to_integer(1155, "To Quad Integer", scalar("NumInt64"))
+    assert "in_" not in source
+    assert "ctypes.c_int64" in source
+    assert fn(EPOCH_1904).out == 0
+    assert fn(datetime_2020()).out == 3660681600
+    assert fn(_later(0.5)).out == 0
+    assert fn(_later(1.5)).out == 2
+    assert fn(_later(2.5)).out == 2
+    assert fn(_later(2.5001)).out == 3
+    # A date before 1904 is negative (a datetime cannot reach 2**63 seconds).
+    assert fn(_later(-1)).out == -1
+
+
+def datetime_2020() -> hightime.datetime:
+    return hightime.datetime(2020, 1, 1, tzinfo=datetime.UTC)
+
+
 def test_a_number_to_time_stamp_is_that_many_seconds_after_1904() -> None:
     _, fn = generate(
         TO_TIME_STAMP,
@@ -208,6 +270,7 @@ def test_format_date_time_string_runs_on_the_timestamp() -> None:
         FORMAT_DATE_TIME,
         "Format Date/Time String",
         [
+            Pin(1, "input", scalar("Boolean"), constant="True"),
             Pin(2, "input", TIMESTAMP, source="when"),
             Pin(3, "input", string, source="format"),
             Pin(0, "output", string, sink="out"),
@@ -221,7 +284,7 @@ def test_format_date_time_string_runs_on_the_timestamp() -> None:
 def test_the_last_modified_time_of_a_file_is_a_utc_timestamp(tmp_path: Any) -> None:
     path_type = scalar("Path")
     file = tmp_path / "f.txt"
-    file.write_text("x")
+    file.write_text("x", encoding="utf-8")
     _, fn = generate(
         FILE_INFO,
         "File Info",
@@ -254,7 +317,9 @@ def test_a_package_that_holds_a_timestamp_lists_hightime(
     vi.wire(when, out)
     project.add(vi)
     package = project.generate(name)
-    assert (package.root / "requirements.txt").read_text() == "hightime\n"
+    assert (package.root / "requirements.txt").read_text(
+        encoding="utf-8"
+    ) == "hightime\n"
     assert package.function(_later(3)).out == _later(3)
 
 

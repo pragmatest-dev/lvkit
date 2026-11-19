@@ -32,9 +32,11 @@ from pathlib import Path
 from ..cache_paths import LibraryRoots
 from ..extractor import extract_vi_xml
 from ..vi_files import is_vi_file
+from .border_dco import BORDER_DCO_KIND, GEOMETRY_ONLY_CLASSES, border_dco
 from .extfunc_bounds import extfunc_mirrored_bounds
 from .image_resources import carve_png, decode_picc_points, resources_for_heap
-from .utils import extract_caption, extract_label_strict, heap_origin
+from .utils import extract_caption, extract_label_strict, heap_origin, saved_version
+from .xml_trees import parsed_xml
 
 Point = tuple[float, float]
 Rect = tuple[float, float, float, float]  # x1, y1, x2, y2
@@ -62,23 +64,18 @@ def bundle_aggregate_columns(box: Rect, node: Rect) -> tuple[Rect, Rect]:
         interior = (ax2, ay1, ax2 + w, ay2)
     return interior, box
 
+
 # Structure border DCOs that live OUTSIDE their owning node's termList (loop
 # count/index/test terminals, case selector) — each has its own uid + bounds,
 # but the graph doesn't model them as full Terminal objects. Geometry only.
-_BORDER_DCO_TAGS = ("loopIndexDCO", "loopLimitDCO", "loopTestDCO", "caseSelDCO")
-
-# Fixed tag -> glyph-kind mapping. This is geometry-side decoration (same
-# category as the comment/free-label pass DESIGN.md already permits): the
-# DCO's on-diagram glyph meaning is a fixed function of which heap tag it
-# is, never re-derived dataflow semantics. The scene layer separately
+# A loop's border terminal is found by its CLASS (``BORDER_DCO_KIND``, the rule
+# the parser uses): the element tag differs between VIs (a While Loop's stop
+# terminal is ``loopTestDCO`` in most and ``loopEndDCO`` in others). The glyph
+# meaning is a fixed function of that class, never re-derived dataflow
+# semantics. The case selector is named by its tag. The scene layer separately
 # decides (from the graph) whether/where each kind actually needs drawing
 # -- see render/scene.py's structure-type-guaranteed border glyphs.
-_TAG_TO_GLYPH_KIND = {
-    "loopIndexDCO": "i",
-    "loopLimitDCO": "N",
-    "loopTestDCO": "cond",
-    "caseSelDCO": "selector",
-}
+_CASE_SELECTOR_TAG = "caseSelDCO"
 
 
 @dataclass(frozen=True)
@@ -214,9 +211,9 @@ class Layout:
         selector) keyed by their own raw heap uid. These aren't modeled as
         full graph Terminals, so they're kept separate from node_bounds.
     border_terminal_kind: raw border-terminal uid -> fixed glyph kind
-        ("i"/"N"/"cond"/"selector"), a pure function of which heap DCO tag
+        ("i"/"N"/"cond"/"selector"), a pure function of which heap DCO class
         produced the entry. Geometry-side decoration only — see
-        ``_TAG_TO_GLYPH_KIND``.
+        ``BORDER_DCO_KIND``.
     icon_png: the VI's extracted connector-pane icon, if present.
     """
 
@@ -859,7 +856,14 @@ def _shifted(shift: tuple[float, float]) -> Callable[[Rect], Rect]:
 
 
 class _LayoutBuilder:
-    def __init__(self, resources: dict[int, Path] | None = None) -> None:
+    def __init__(
+        self,
+        resources: dict[int, Path] | None = None,
+        absolute_coordinates: bool = False,
+    ) -> None:
+        # Every ``bounds`` and ``termBounds`` is in the one diagram frame, not
+        # relative to the enclosing structure (see ``absolute_coordinates``).
+        self.absolute_coordinates = absolute_coordinates
         # Section Index -> resource file (PICC/DSIM), for resolving a
         # decoration's ImageResID (embedded picture) — see image_resources.py.
         # Empty when the caller has no resource map (today's behavior).
@@ -1052,13 +1056,16 @@ class _LayoutBuilder:
                     # abs_rect — so the renderer can honor above/below placement.
                     lab = _fp_label_box(term)
                     if lab is not None:
+                        # In an absolute-coordinate VI the label's box is already
+                        # in the diagram frame.
+                        lx, ly = (0.0, 0.0) if self.absolute_coordinates else b[:2]
                         self.label_bounds.setdefault(
                             uid,
                             (
-                                ox + b[0] + lab[0],
-                                oy + b[1] + lab[1],
-                                ox + b[0] + lab[2],
-                                oy + b[1] + lab[3],
+                                ox + lx + lab[0],
+                                oy + ly + lab[1],
+                                ox + lx + lab[2],
+                                oy + ly + lab[3],
                             ),
                         )
                 continue
@@ -1216,7 +1223,12 @@ class _LayoutBuilder:
                         and (dco0.findtext("termBMPs") or "") == "211"
                     ):
                         hx = -hx
-                    cx, cy = cx + hx, cy + hy
+                    if self.absolute_coordinates:
+                        # The hot point is a position in the same frame as the
+                        # terminal's bounds, not an offset from their centre.
+                        cx, cy = ox + hx + off_x, oy + hy + off_y
+                    else:
+                        cx, cy = cx + hx, cy + hy
                 except ValueError:
                     pass
             for u in self._alias_uids(term, is_ext_func):
@@ -1238,17 +1250,23 @@ class _LayoutBuilder:
         oy: float,
         structure_uid: str,
     ) -> None:
-        for tag in _BORDER_DCO_TAGS:
-            dco = struct.find(tag)
-            if dco is None:
-                continue
+        found: list[tuple[ET.Element, str]] = []
+        for dco_class in GEOMETRY_ONLY_CLASSES:
+            kind = BORDER_DCO_KIND[dco_class]
+            loop_dco = border_dco(struct, dco_class)
+            if loop_dco is not None:
+                found.append((loop_dco, kind))
+        selector = struct.find(_CASE_SELECTOR_TAG)
+        if selector is not None:
+            found.append((selector, "selector"))
+        for dco, kind in found:
             uid = dco.get("uid")
             tb = _rect(dco, "termBounds")
             if not uid or tb is None:
                 continue
             abs_rect = (ox + tb[0], oy + tb[1], ox + tb[2], oy + tb[3])
             self.border_terminals.setdefault(uid, abs_rect)
-            self.border_terminal_kind.setdefault(uid, _TAG_TO_GLYPH_KIND[tag])
+            self.border_terminal_kind.setdefault(uid, kind)
             self.structure_border_uids.setdefault(structure_uid, []).append(uid)
             # A border DCO's WIREABLE terminal uid (its nested dco/term uids)
             # differs from the DCO's own uid; register the glyph center under
@@ -1484,6 +1502,8 @@ class _LayoutBuilder:
         bb = _rect(elem)
         if bb is None:
             return
+        if self.absolute_coordinates:
+            ox = oy = 0.0
         ax1, ay1 = ox + bb[0], oy + bb[1]
         ax2, ay2 = ox + bb[2], oy + bb[3]
 
@@ -1540,12 +1560,24 @@ class _LayoutBuilder:
         # invisible (#107). The SLAVE's own ``rightFeedback`` termBounds do
         # NOT have this quirk (they're genuinely node-relative, like any
         # other primitive's), so only the master needs the exemption.
+        # An absolute-coordinate VI records a node's or structure's terminals in
+        # the frame of its own ``bounds`` too (a primitive's are centred on its
+        # icon either way), so they are placed from the parent origin.
+        own_frame_is_parent = (
+            self.absolute_coordinates
+            and elem.get("class") != "prim"
+            and elem.get("class") not in ("sRN", "hiddenFBNode")
+        )
         term_ox, term_oy = (
-            (ox, oy) if elem.get("class") in ("sRN", "hiddenFBNode") else (ax1, ay1)
+            (ox, oy)
+            if own_frame_is_parent or elem.get("class") in ("sRN", "hiddenFBNode")
+            else (ax1, ay1)
         )
         self._map_terms(elem, term_ox, term_oy)
         if uid:
-            self._border_dcos(elem, ax1, ay1, uid)
+            self._border_dcos(
+                elem, *((ox, oy) if own_frame_is_parent else (ax1, ay1)), uid
+            )
 
         dlist = elem.find("diagramList")
         inner = (
@@ -1592,7 +1624,12 @@ class _LayoutBuilder:
             # (which has none) — so map them here with the frame offset.
             # Without this the structure's border tunnels get no geometry and
             # never render, and every wire through them is dropped.
-            self._map_terms(frame, ax1 + dx, ay1 + dy)
+            # An absolute-coordinate VI records the tunnels in the diagram
+            # frame already, so no frame offset is added.
+            if self.absolute_coordinates:
+                self._map_terms(frame, 0.0, 0.0)
+            else:
+                self._map_terms(frame, ax1 + dx, ay1 + dy)
             fdl = frame.find("diagramList")
             if fdl is None:
                 continue
@@ -1603,11 +1640,31 @@ class _LayoutBuilder:
             self.sequence_dividers.setdefault(uid, []).extend(dividers)
 
 
+# The first LabVIEW version that records a nested object's ``bounds`` and
+# ``termBounds`` relative to its enclosing structure; an older VI records them
+# all in the one diagram frame. Measured on the sample corpus: in every 8.2 and
+# 8.5 VI checked a loop's iteration terminal lies inside the loop's ``bounds`` as
+# stored, and in every VI saved by 17 or later it lies inside the loop's width
+# and height.
+_RELATIVE_COORDINATES_SINCE = (8, 6)
+
+
+def absolute_coordinates(main_xml: Path | str | None) -> bool:
+    """Whether the VI whose main XML is ``main_xml`` records every ``bounds`` and
+    ``termBounds`` in one diagram frame (a VI saved before LabVIEW 8.6); False
+    when the file or its version is absent."""
+    if main_xml is None or not Path(main_xml).exists():
+        return False
+    saved = saved_version(parsed_xml(main_xml))
+    return saved is not None and saved < _RELATIVE_COORDINATES_SINCE
+
+
 def build_layout_from_root(
     root_elem: ET.Element,
     *,
     icon_png: Path | None = None,
     resources: dict[int, Path] | None = None,
+    absolute_coordinates: bool = False,
 ) -> Layout:
     """Build a ``Layout`` from an ALREADY-PARSED heap root element.
 
@@ -1627,7 +1684,7 @@ def build_layout_from_root(
     if root is None:
         root = root_elem
 
-    builder = _LayoutBuilder(resources)
+    builder = _LayoutBuilder(resources, absolute_coordinates)
     builder.walk(root, 0.0, 0.0)
     # Correct the position-less Bundle input aggregate anchor BEFORE the wires
     # are decoded, so the faithful blob re-forms onto the interior column.
@@ -1682,6 +1739,10 @@ def build_layout(vi_or_bd: Path, roots: LibraryRoots) -> Layout:
     else:
         bd = vi_or_bd
     root_elem = ET.parse(bd).getroot()
+    main_xml = bd.parent / f"{bd.stem.replace('_BDHb', '')}.xml"
     return build_layout_from_root(
-        root_elem, icon_png=_icon_for_heap(bd), resources=resources_for_heap(bd)
+        root_elem,
+        icon_png=_icon_for_heap(bd),
+        resources=resources_for_heap(bd),
+        absolute_coordinates=absolute_coordinates(main_xml),
     )

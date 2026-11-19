@@ -101,13 +101,13 @@
         }
       ],
       "python_code": {
-        "call_chain": "[]"
+        "_body": "raise RuntimeError('Call Chain (1999) should be dispatched to codegen/nodes/call_chain.py by primResID -- this stub should be unreachable')"
       },
       "inline": true,
-      "verified": false,
+      "verified": true,
       "source": "vi-scripting-nodes-lv2025",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/call-chain.html",
-      "note": "No headless analogue (runtime VI call chain); emits []. verified:false = approximation."
+      "note": "Call Chain -- one string-array output: element 0 the lowest VI (the caller of this node), the last the top-level VI; each VI is named by its qualified name. Generated as panels.call_chain(), which reads Python's own stack for the vi_name every VI function carries."
     },
     "2084": {
       "name": "Static VI Reference",

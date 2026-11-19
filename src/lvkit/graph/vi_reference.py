@@ -54,8 +54,41 @@ VI_EXEC_STATE_PROPERTY_CODE = 557
 # (TestCase shortDescription.vi and TestSuite GetDescription.vi both record 502).
 VI_DESCRIPTION_PROPERTY_CODE = 502
 
+# The methods of the VI class that open and close a front panel window, by the
+# method code a file records beside the name FP.Open / FP.Close (every Invoke
+# Node of the corpus that names one records these codes). NI:
+# properties-and-methods/vi-server/vi/openfrontpanel.html and closefrontpanel.html.
+VI_FP_OPEN_METHOD_CODE = 1080
+VI_FP_CLOSE_METHOD_CODE = 1061
+
+# The Front Panel Window:Title property (FP.Title; NI:
+# properties-and-methods/vi-server/vi/fpwintitle.html), by the code a Property
+# Node records beside that name (553 in every such node of the corpus).
+VI_FP_TITLE_PROPERTY_CODE = 553
+
+# The Front Panel Window:Window Bounds property (FP.WinBounds; NI:
+# properties-and-methods/vi-server/vi/fpwinbounds.html), by the code a Property
+# Node records beside that name (536 in every such node of the corpus), and the
+# Front Panel:Center method (FP.Center; NI: .../vi/centerfrontpanel.html), by the
+# method code every Invoke Node of the corpus records beside that name.
+VI_FP_BOUNDS_PROPERTY_CODE = 536
+VI_FP_CENTER_METHOD_CODE = 1089
+
+# The methods of the VI class that act on a front panel window.
+_WINDOW_METHOD_CODES = (
+    VI_FP_OPEN_METHOD_CODE,
+    VI_FP_CLOSE_METHOD_CODE,
+    VI_FP_CENTER_METHOD_CODE,
+)
+
+# The properties of the VI's own window that ``acts_on_own_window_properties``
+# covers: Title and Window Bounds.
+_OWN_WINDOW_PROPERTY_CODES = (VI_FP_TITLE_PROPERTY_CODE, VI_FP_BOUNDS_PROPERTY_CODE)
+
 # The Property Node's VI reference input.
 _PROPERTY_REFERENCE_INDEX = 0
+# An Invoke Node's VI reference output.
+_REFERENCE_OUT_INDEX = 1
 
 
 class VIReferenceUnresolved(Exception):
@@ -120,10 +153,77 @@ class VIReferenceMixin(WireOriginMixin):
         key = self.terminal_vi(source.terminal_id)
         if is_this_vi(node) and key is not None:
             return ReferencedVI(self.vi_display_name(key), key)
+        if _is_front_panel_window_output(node, source) and key is not None:
+            assert isinstance(node, PrimitiveNode)
+            reference = _input_at(node, _PROPERTY_REFERENCE_INDEX)
+            if reference is None or not self.wire_origins(reference.id):
+                return ReferencedVI(self.vi_display_name(key), key)
+            return self.referenced_vi(reference.id)
         raise VIReferenceUnresolved(
             f"The VI reference is wired from {_describe(node)}, so which VI it "
             "holds is only known when the diagram runs."
         )
+
+    def acts_on_own_front_panel_window(self, node: AnyGraphNode, vi_name: str) -> bool:
+        """Whether ``node`` is an Invoke Node of FP.Open, FP.Close or FP.Center on
+        the front panel window of the VI ``vi_name`` that holds it: the node's
+        reference is unwired (the default VI object, the VI containing the node, as
+        NI documents for an Invoke Node of the VI class) or wired from "This VI".
+        The method on the reference of another VI, or on one only known when the
+        diagram runs, is not."""
+        return (
+            isinstance(node, PrimitiveNode)
+            and node.object_name == VI_CLASS
+            and node.method_code
+            in (
+                VI_FP_OPEN_METHOD_CODE,
+                VI_FP_CLOSE_METHOD_CODE,
+                VI_FP_CENTER_METHOD_CODE,
+            )
+            and self._reference_is_own(node, vi_name)
+        )
+
+    def acts_on_own_window_properties(self, node: AnyGraphNode, vi_name: str) -> bool:
+        """Whether ``node`` is a Property Node whose every row is Front Panel
+        Window:Title (code 553) or Front Panel Window:Window Bounds (code 536), on
+        the VI ``vi_name`` that holds it: its reference is unwired or wired from
+        "This VI". The same rows on another VI's reference, or on one only known
+        when the diagram runs, are not."""
+        return (
+            isinstance(node, PrimitiveNode)
+            and node.object_name == VI_CLASS
+            and bool(node.properties)
+            and all(
+                len(p.segments) == 1
+                and p.segments[0].code in _OWN_WINDOW_PROPERTY_CODES
+                for p in node.properties
+            )
+            and self._reference_is_own(node, vi_name)
+        )
+
+    def writes_own_window_properties(self, node: AnyGraphNode, vi_name: str) -> bool:
+        """Whether ``node`` writes the Title or the Window Bounds of the VI's own
+        window (``acts_on_own_window_properties`` with a row that takes a value
+        in)."""
+        return (
+            isinstance(node, PrimitiveNode)
+            and self.acts_on_own_window_properties(node, vi_name)
+            and any(
+                t.id in node.property_value_terminal_ids and t.direction == "input"
+                for t in node.terminals
+            )
+        )
+
+    def _reference_is_own(self, node: PrimitiveNode, vi_name: str) -> bool:
+        """Whether the node's VI reference is unwired (the default VI object) or
+        resolves to ``vi_name``."""
+        reference = _input_at(node, _PROPERTY_REFERENCE_INDEX)
+        if reference is None or not self.wire_origins(reference.id):
+            return True
+        try:
+            return self.referenced_vi(reference.id).key == vi_name
+        except VIReferenceUnresolved:
+            return False
 
     def opened_vi(self, node: PrimitiveNode) -> ReferencedVI:
         """The VI an Open VI Reference node opens, from its VI path input: a
@@ -164,8 +264,14 @@ class VIReferenceMixin(WireOriginMixin):
         if isinstance(node, PrimitiveNode) and is_on_vi_reference(node):
             code = _read_property_code(node, source.terminal_id)
             reference = _input_at(node, _PROPERTY_REFERENCE_INDEX)
-            if code in (VI_NAME_PROPERTY_CODE, VI_PATH_PROPERTY_CODE) and reference:
-                return self.referenced_vi(reference.id)
+            if code in (VI_NAME_PROPERTY_CODE, VI_PATH_PROPERTY_CODE):
+                if reference is not None and self.wire_origins(reference.id):
+                    return self.referenced_vi(reference.id)
+                # An unwired reference is the VI holding the node (NI, Invoke
+                # Node of the VI class: the default VI object).
+                own = self.terminal_vi(source.terminal_id)
+                if own is not None:
+                    return ReferencedVI(self.vi_display_name(own), own)
         try:
             text = self.origin_text(node, source)
         except PathNotConstant:
@@ -193,6 +299,20 @@ class VIReferenceMixin(WireOriginMixin):
             if owner_key is not None and self._owner_key(key, NodeType.CLASS) is None:
                 owners[owner_name] = owner_key
         return owners
+
+    def unowned_vi_files(self) -> dict[str, str]:
+        """The file of each loaded VI that no library or class owns, by its name
+        (``Name.vi``): a name that a diagram computes when it runs and that has no
+        ``<owner>:`` is one of these. A name two loaded files share is left out
+        (it names no single VI)."""
+        found: dict[str, list[str]] = {}
+        for key in sorted(self._vi_nodes):
+            display = self.vi_display_name(key)
+            if ":" in display or self.is_stub(key):
+                continue
+            if self.node_type(key) == NodeType.VI:
+                found.setdefault(display, []).append(key)
+        return {name: keys[0] for name, keys in found.items() if len(keys) == 1}
 
     def class_members(self) -> list[tuple[str, str, str]]:
         """``(qualified name, member key, class key)`` of each loaded VI a class
@@ -287,6 +407,21 @@ def _same_vi(found: list[ReferencedVI]) -> ReferencedVI:
 
 def _is_vi_reference(const: ConstantNode) -> bool:
     return const.lv_type is not None and const.lv_type.underlying_type == "VIRefnum"
+
+
+def _is_front_panel_window_output(node: AnyGraphNode, source: WireEnd) -> bool:
+    """Whether ``source`` is the reference out of an FP.Open, FP.Close or FP.Center
+    Invoke Node of the VI class: the reference it was given (the default VI
+    object, the VI holding the node, when none is wired)."""
+    return (
+        isinstance(node, PrimitiveNode)
+        and node.object_name == VI_CLASS
+        and node.method_code in _WINDOW_METHOD_CODES
+        and any(
+            t.id == source.terminal_id and t.index == _REFERENCE_OUT_INDEX
+            for t in node.terminals
+        )
+    )
 
 
 def _is_open_vi_reference_output(node: AnyGraphNode, source: WireEnd) -> bool:

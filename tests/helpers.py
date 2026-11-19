@@ -16,8 +16,10 @@ from typing import Any
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
+from lvkit.codegen.ini_module import INI_MODULE_NAME, INI_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
+from lvkit.codegen.scan_module import SCAN_MODULE_NAME, SCAN_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import PrimitiveNode, WireEnd
@@ -350,17 +352,20 @@ GENERATED_PACKAGE = "generated_package"
 
 
 _PANEL_LINE = re.compile(
-    r"^([\w.]+\.panel = Panel\(|from \.+panels import |from \.+variants import "
+    r"^([\w.]+\.panel = Panel\(|[\w.]+\.window_title = |[\w.]+\.window_bounds = "
+    r"|[\w.]+\.vi_name = |from \.+panels import |from \.+variants import "
     r"|[A-Z0-9_]+_TYPE = LVType\()"
 )
 
 
 def without_panel_attributes(source: str) -> str:
-    """``source`` without the lines that give a function its ``panel`` and import
-    ``Panel``, the type constants its ``types`` name and the ``LVType`` constants
-    it shares (``codegen/panel_description.py``, ``codegen/type_constants.py``):
-    a test that pins a function's exact source is about the function, and
-    ``tests/test_front_panel_reference.py`` pins the panel."""
+    """``source`` without the lines that give a function its ``panel`` and
+    ``window_title`` and ``window_bounds`` and import ``Panel``, the type constants
+    its ``types`` name and the ``LVType`` constants it shares
+    (``codegen/panel_description.py``, ``codegen/type_constants.py``,
+    ``codegen/nodes/front_panel_title.py``): a test that pins a function's exact
+    source is about the function, and ``tests/test_front_panel_reference.py`` pins
+    the panel."""
     return "\n".join(line for line in source.split("\n") if not _PANEL_LINE.match(line))
 
 
@@ -377,6 +382,8 @@ def install_generated_package() -> None:
         (VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+        (SCAN_MODULE_NAME, SCAN_MODULE_SOURCE),
+        (INI_MODULE_NAME, INI_MODULE_SOURCE),
     ):
         module = ModuleType(f"{GENERATED_PACKAGE}.{name}")
         sys.modules[module.__name__] = module
@@ -407,6 +414,8 @@ def write_support_modules(package_dir: Path) -> None:
         (VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE),
         (LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE),
         (PANELS_MODULE_NAME, PANELS_MODULE_SOURCE),
+        (SCAN_MODULE_NAME, SCAN_MODULE_SOURCE),
+        (INI_MODULE_NAME, INI_MODULE_SOURCE),
     ):
         module = package_dir / f"{name}.py"
         if not module.exists():

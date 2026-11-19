@@ -33,8 +33,9 @@ from lvkit.graph.error_behaviour import ErrorBehaviour
 from lvkit.graph.interface_order import is_required
 from lvkit.graph.models import GraphNode, VINode
 from lvkit.type_names import ROOT_CLASS, derive_python_name
+from lvkit.vi_files import class_stem
 
-from .ast_utils import build_result_class_name, interface_names
+from .ast_utils import build_result_class_name, interface_names, module_part
 from .class_attributes import (
     Accessor,
     AccessorPane,
@@ -45,14 +46,12 @@ from .class_attributes import (
     property_accessors,
     storage_names,
 )
-from .import_resolver import NameImport
+from .import_resolver import ImportResolver, NameImport
 from .receiver_flow import carries_receiver
 
 if TYPE_CHECKING:
     from lvkit.graph import InMemoryVIGraph
     from lvkit.models import LVType, Terminal
-
-    from .import_resolver import ImportResolver
 
 
 class MethodKind(StrEnum):
@@ -578,6 +577,18 @@ def class_import(
             f"The class {resolver.shown(class_key)} was not found; add it to the "
             "project or a --search-path"
         ) from None
+
+
+def class_module(resolver: ImportResolver | object, class_key: str) -> str:
+    """The module of the generated class at ``class_key`` as the generated module
+    being written names it for ``importlib.import_module(..., __package__)``: the
+    relative path of its package, then its file's module."""
+    spec = (
+        resolver.package_spec(class_key)
+        if isinstance(resolver, ImportResolver)
+        else "."
+    )
+    return spec + module_part(class_stem(Path(class_key).name))
 
 
 def not_a_method(graph: InMemoryVIGraph, vi_key: str) -> str | None:

@@ -24,6 +24,7 @@ from ..models import (
     Tunnel,
     TunnelMode,
     TunnelTerminal,
+    UndecodedPicture,
     UnwritableValue,
     ValueNotStored,
     bundle_unbundle_name,
@@ -55,6 +56,7 @@ from ..parser.node_types import (
     PrimitiveNode as ParserPrimitiveNode,
 )
 from ..parser.vi import _decode_element, variant_is_empty
+from ..run_report import Problem, ProblemKind, ProblemStage
 from ..text_encoding import decode_labview_text
 from ..type_defaults import get_default_for_type
 from .builders import (
@@ -247,7 +249,7 @@ def decode_constant(
                 py_type,
                 decoded,
                 display,
-                find_unwritable(structured),
+                find_unwritable(structured, writes_pictures=True),
                 underlying in ("LVVariant", "Variant") and variant_is_empty(raw_bytes),
                 structured,
             )
@@ -367,6 +369,27 @@ class ConstructionMixin:
             _caller: str,
         ) -> str | None: ...
         def with_class_levels(self, _lv_type: LVType | None) -> LVType | None: ...
+        def key_label(self, _key: str) -> str: ...
+        def record_problem(
+            self, _vi_key: str, _problem: Problem, *, may_stop: bool = ...
+        ) -> None: ...
+
+    def _record_unread_picture(
+        self, vi_key: str, unwritable: UnwritableValue | None, what: str
+    ) -> None:
+        """A load problem for a Picture of ``what`` whose stored drawing does not
+        read as records; the Picture shows as undecoded and generates a gap."""
+        if isinstance(unwritable, UndecodedPicture):
+            self.record_problem(
+                vi_key,
+                Problem(
+                    vi=self.key_label(vi_key),
+                    stage=ProblemStage.LOAD,
+                    kind=ProblemKind.VALUE_NOT_READ,
+                    reason=f"{what} holds {unwritable.reason()}",
+                ),
+                may_stop=False,
+            )
 
     @staticmethod
     def _enrich_nmux_terminals(
@@ -530,6 +553,10 @@ class ConstructionMixin:
             lv_type = _control_ring_type(lv_type, ctrl)
             lv_type = self.with_class_levels(lv_type)
 
+            if ctrl:
+                self._record_unread_picture(
+                    vi_key, ctrl.unwritable, f"the control {ctrl.name or fp_term.uid!r}"
+                )
             q_term_uid = self._qid(vi_key, fp_term.uid)
             terminal = FPTerminal(
                 id=q_term_uid,
@@ -542,12 +569,20 @@ class ConstructionMixin:
                 is_public=is_public,
                 caption=ctrl.caption if ctrl else None,
                 caption_visible=ctrl.caption_visible if ctrl else False,
+                starts_hidden=ctrl.starts_hidden if ctrl else None,
+                enable_state=ctrl.starting_enable_state if ctrl else None,
+                mechanical_action=ctrl.mechanical_action if ctrl else None,
+                element_control_type=ctrl.element_control_type if ctrl else None,
+                element_mechanical_action=(
+                    ctrl.element_mechanical_action if ctrl else None
+                ),
                 fp_dco_uid=fp_term.fp_dco_uid,
                 tab_index=fp.tab_index(fp_term.fp_dco_uid) if fp else None,
                 control_type=ctrl.control_type if ctrl else None,
                 default_value=_default_for(ctrl, lv_type),
                 unwritable=ctrl.unwritable if ctrl else None,
                 enum_values=ctrl.enum_values if ctrl else [],
+                undecoded_strings=ctrl.undecoded_strings if ctrl else 0,
             )
             vi_terminals.append(terminal)
 
@@ -625,6 +660,9 @@ class ConstructionMixin:
             lv_type = self.with_class_levels(lv_type)
 
             decoded = decode_constant(const, lv_type=lv_type)
+            self._record_unread_picture(
+                vi_key, decoded.unwritable, f"the constant (uid {const.uid})"
+            )
 
             q_const_uid = self._qid(vi_key, const.uid)
             # Single output terminal
@@ -1313,12 +1351,18 @@ class ConstructionMixin:
             is_public=False,
             caption=ctrl.caption,
             caption_visible=ctrl.caption_visible,
+            starts_hidden=ctrl.starts_hidden,
+            enable_state=ctrl.starting_enable_state,
+            mechanical_action=ctrl.mechanical_action,
+            element_control_type=ctrl.element_control_type,
+            element_mechanical_action=ctrl.element_mechanical_action,
             fp_dco_uid=ctrl.uid,
             tab_index=tab_index,
             control_type=ctrl.control_type,
             default_value=_default_for(ctrl, lv_type),
             unwritable=ctrl.unwritable,
             enum_values=ctrl.enum_values,
+            undecoded_strings=ctrl.undecoded_strings,
         )
 
     def _connect_subvi_calls(

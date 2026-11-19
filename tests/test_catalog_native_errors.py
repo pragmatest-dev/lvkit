@@ -17,6 +17,16 @@ from lvkit.primitive_resolver import NativeError
 DATA = Path(__file__).parent.parent / "src" / "lvkit" / "data"
 
 FILE_PATH_OPS = [("FileNotFoundError", 7), ("PermissionError", 8), ("OSError", 6)]
+# A read or write through a file refnum also fails when the file was opened for the
+# other direction only (error 8, File permission error: NI forum reports it for a
+# write to a file opened read-only).
+FILE_RW_OPS = [
+    ("FileNotFoundError", 7),
+    ("PermissionError", 8),
+    ("UnsupportedOperation", 8),
+    ("OSError", 6),
+]
+INI_FILE_OPS = [("PermissionError", 8), ("OSError", 6)]
 FILE_REFNUM_OPS = [("OSError", 6)]
 COPY_MOVE = [
     ("FileNotFoundError", 7),
@@ -25,6 +35,10 @@ COPY_MOVE = [
     ("OSError", 6),
 ]
 RELEASED_QUEUE = [("ShutDown", 1122)]
+# Windows Registry Access VIs: the OSError's code is computed from its Windows
+# error number (NI's "Windows Registry Access Error Codes").
+REGISTRY_REFNUM = [("RegistryRefnumError", -602), ("OSError", None)]
+REGISTRY_OPEN = [("RegistryViewError", -600), ("OSError", None)]
 DELETE = [
     ("EmptyOrRelativePathError", 1430),
     ("InvalidPathError", 1),
@@ -44,7 +58,7 @@ CREATE_FOLDER = [
 WRITE_TO_TEXT_FILE = [
     ("EmptyOrRelativePathError", 1430),
     ("InvalidPathError", 1),
-    *FILE_PATH_OPS,
+    *FILE_RW_OPS,
 ]
 
 TCP_OPEN = [
@@ -66,7 +80,42 @@ TCP_READ_WRITE = [
 
 VISA = [("VisaIOError", None)]
 
+# The gRPC library's own InvalidEnumValueException code (its exceptions.h), not
+# one of NI's listed codes: the message is the exception's text.
+GRPC_LIBRARY_CODES = {-2003}
+# A cluster element missing from the JSON: LabVIEW reports -375006, "the cluster
+# element is not found in the JSON string" (forums.ni.com/t5/LabVIEW/unflatten-jason/
+# td-p/4058219); NI's code list skips it, so the message is the exception's text.
+JSON_UNLISTED_CODES = {-375006}
+JSON_UNFLATTEN = [
+    ("JSONDecodeError", -375003),
+    ("JSONRootError", -375001),
+    ("JSONPathNotFoundError", -375004),
+    ("JSONTypeMismatchError", -375005),
+    ("JSONElementNotFoundError", -375006),
+    ("JSONExtraItemsError", -375007),
+    ("JSONDimensionsError", -375008),
+    ("JSONRaggedArrayError", -375009),
+    ("JSONNaNError", -375010),
+    ("JSONInfinityError", -375011),
+    ("JSONOutOfRangeError", -375012),
+    ("ValueError", None),
+]
+JSON_FLATTEN = [("JSONNaNError", -375010), ("JSONInfinityError", -375011)]
+XML_UNFLATTEN = [
+    ("XMLEmptyStringError", 1102),
+    ("XMLTagNotRecognizedError", 1103),
+    ("ParseError", 1104),
+    ("XMLUnexpectedTagError", 1105),
+    ("XMLTypeMismatchError", 1106),
+    ("XMLValueError", 1108),
+]
+GRPC_ENUM_VALUE = [("ValueError", -2003), ("IndexError", -2003)]
+
 PRIMITIVES = {
+    "24201:Flatten To JSON": JSON_FLATTEN,
+    "24202:Unflatten From JSON": JSON_UNFLATTEN,
+    "8401:Unflatten From XML": XML_UNFLATTEN,
     "1922:VISA Close": VISA,
     "1925:VISA Read": VISA,
     "1926:VISA Write": VISA,
@@ -81,23 +130,42 @@ PRIMITIVES = {
         ("FileExistsError", 10),
         ("OSError", 6),
     ],
-    "8050:Open/Create/Replace File": FILE_PATH_OPS,
-    "8051:Read from Binary File": FILE_REFNUM_OPS,
-    "8052:Close File": FILE_REFNUM_OPS,
+    "8050:Open/Create/Replace File": [
+        ("EmptyOrRelativePathError", 1430),
+        ("InvalidPathError", 1),
+        ("FileNotFoundError", 7),
+        ("PermissionError", 8),
+        ("FileExistsError", 10),
+        ("OSError", 6),
+        ("ReplaceCancelledError", 43),
+    ],
+    "8051:Read from Binary File": [
+        ("EmptyOrRelativePathError", 1430),
+        ("InvalidPathError", 1),
+        ("EOFError", 4),
+        ("UnsupportedOperation", 8),
+        ("ValueError", None),
+        *FILE_PATH_OPS,
+    ],
+    "8052:Close File": [("InvalidRefnumError", 1), *FILE_REFNUM_OPS],
     "8053:Copy": COPY_MOVE,
     "8062:Get File Position": FILE_REFNUM_OPS,
     "8063:Get File Size": FILE_REFNUM_OPS,
     "8065:Get Permissions": FILE_PATH_OPS,
     "8068:Move": COPY_MOVE,
-    "8070:Read from Text File": FILE_PATH_OPS,
+    "8070:Read from Text File": FILE_RW_OPS,
     "8073:Set File Position": FILE_REFNUM_OPS,
     "8074:Set File Size": FILE_REFNUM_OPS,
     "8076:Set Permissions": FILE_PATH_OPS,
-    "8078:Write to Binary File": FILE_REFNUM_OPS,
+    "8078:Write to Binary File": [
+        ("EmptyOrRelativePathError", 1430),
+        ("InvalidPathError", 1),
+        *FILE_RW_OPS,
+    ],
     "8080:Write to Text File": WRITE_TO_TEXT_FILE,
     "8082:File/Directory Info": FILE_PATH_OPS,
     "8003:Variant To Data": [("TypeError", 91)],
-    "1165:Unflatten From String": [("error", 116)],
+    "1165:Unflatten From String": [("error", 116), ("FlattenedClassError", 1403)],
     "8202:Flattened String To Variant": [("error", 116)],
     "8083:List Folder": FILE_PATH_OPS,
     "9111:Enqueue Element": RELEASED_QUEUE,
@@ -118,6 +186,30 @@ PRIMITIVES = {
     "file-io:New Zip File": FILE_PATH_OPS,
     "file-io:Add File to Zip": FILE_PATH_OPS,
     "file-io:Close Zip File": FILE_PATH_OPS,
+    "file-io:Read Characters From File": FILE_PATH_OPS,
+    "file-io:Open Config Data": FILE_PATH_OPS,
+    "file-io:Open Config Data (compatibility)": FILE_PATH_OPS,
+    "file-io:Close Config Data": INI_FILE_OPS,
+    "file-io:LV Config Read String": INI_FILE_OPS,
+    "file-io:LV Config Read Boolean": INI_FILE_OPS,
+    "file-io:LV Config Read Numeric (I32)": INI_FILE_OPS,
+    "file-io:LV Config Read Color": INI_FILE_OPS,
+    "file-io:LV Config Read Pathlist": INI_FILE_OPS,
+    "file-io:LV Config Write String": INI_FILE_OPS,
+    "file-io:LV Config Write Boolean": INI_FILE_OPS,
+    "file-io:LV Config Write Color": INI_FILE_OPS,
+    "file-io:LV Config Write Pathlist": INI_FILE_OPS,
+    "file-io:LV Config Remove": INI_FILE_OPS,
+    "file-io:Write Characters To File": FILE_PATH_OPS,
+    "file-io:Open File+": FILE_PATH_OPS,
+    "file-io:Read File+ (string)": FILE_PATH_OPS,
+    **{
+        f"graphics-sound:{verb} {fmt} File": FILE_PATH_OPS
+        for verb in ("Read", "Write")
+        for fmt in ("PNG", "BMP", "JPEG")
+    },
+    "file-io:Write File+ (string)": FILE_PATH_OPS,
+    "file-io:Close File+": [*FILE_PATH_OPS, ("ValueError", 1)],
     "synchronization:Release Semaphore_71": [("ValueError", 1111)],
     "file-io:Unzip": [
         ("ZipPasswordProtectedError", None),
@@ -126,6 +218,23 @@ PRIMITIVES = {
     ],
     "connectivity:System Exec": FILE_PATH_OPS,
     "waveform:DWDT Digital to Boolean Array": [("ValueError", None)],
+    "addons:Get LV Enum Value from Proto Value": GRPC_ENUM_VALUE,
+    "addons:Get Proto Enum Value from LV Value": GRPC_ENUM_VALUE,
+    "addons:Create Client": [("OSError", None)],
+    "addons:Client Unary Call.vim": [("RpcError", None)],
+    "cluster-class-variant:Get Array Information.vi": [("ValueError", None)],
+    "cluster-class-variant:Get Cluster Information.vi": [("ValueError", None)],
+    "cluster-class-variant:Get Numeric Information.vi": [("ValueError", None)],
+    "cluster-class-variant:Get Refnum Information.vi": [("ValueError", None)],
+    "addons:Start Server.vi": [("RpcError", None)],
+    "addons:Read Call Request.vim": [("RpcError", None)],
+    "addons:Write Call Response.vim": [("RpcError", None)],
+    "addons:Client Complete Streaming Call.vi": [("RpcError", None)],
+    "addons:UnpackFromAny.vim": [("DecodeError", None)],
+    "connectivity:Open Registry Key": REGISTRY_OPEN,
+    "connectivity:Close Registry Key": REGISTRY_REFNUM,
+    "connectivity:Query Registry Key Info": REGISTRY_REFNUM,
+    "connectivity:Enum Registry Values Simple": REGISTRY_REFNUM,
     "8016:To More Specific Class": [("TypeError", 1448)],
     "8018:Preserve Run-Time Class": [("TypeError", None)],
     "8204:Set Variant Attribute": [("EmptyAttributeNameError", 1)],
@@ -146,14 +255,14 @@ def _declared() -> dict[str, list[NativeError]]:
     found: dict[str, list[NativeError]] = {}
     for path in sorted((DATA / "primitives").glob("*.json")):
         for prim_id, entry in (
-            json.loads(path.read_text()).get("primitives") or {}
+            json.loads(path.read_text(encoding="utf-8")).get("primitives") or {}
         ).items():
             if isinstance(entry, dict) and "errors" in entry:
                 found[f"{prim_id}:{entry['name']}"] = [
                     NativeError.model_validate(e) for e in entry["errors"]
                 ]
     for path in sorted((DATA / "vilib").glob("*.json")):
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         for entry in data.get("entries", []) if isinstance(data, dict) else []:
             if "errors" in entry:
                 found[f"{path.stem}:{entry['name']}"] = [
@@ -205,5 +314,7 @@ def test_every_declared_failure_is_an_exception_caught_in_a_reachable_order() ->
 
 def test_every_declared_code_has_ni_s_description() -> None:
     codes = {f.code for failures in _declared().values() for f in failures}
-    for code in {GENERIC_ERROR_CODE, *(c for c in codes if c is not None)}:
+    unlisted = GRPC_LIBRARY_CODES | JSON_UNLISTED_CODES
+    listed = {c for c in codes if c is not None} - unlisted
+    for code in {GENERIC_ERROR_CODE, *listed}:
         assert describe_error_code(code), code

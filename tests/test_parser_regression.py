@@ -225,7 +225,7 @@ class TestResilientVCTPExport:
         return Path(main)
 
     def test_vctp_recovered_not_bin_fallback(self, main_xml):
-        text = main_xml.read_text(errors="replace")
+        text = main_xml.read_text(errors="replace", encoding="utf-8")
         # The corrupt type is stubbed (patch fired) ...
         assert "corrupt-stub" in text
         # ... yet the rest of the pool + the consolidated->flat map serialized,

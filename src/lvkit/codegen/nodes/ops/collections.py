@@ -6,8 +6,9 @@ A LabVIEW Map is a Python ``dict`` and a Set a ``set``. A collection is a value 
 LabVIEW: an insert or remove makes a new collection (``{**map, key: value}``,
 ``set | {element}``, ``set - {element}``) and leaves the one that came in as it
 was, which is what ``set out`` / ``map out`` are NI's "the set with the inserted
-element". A key or element is a number, Boolean, string or path (hashable); any
-other type has no code generation yet.
+element". A key or element that is a number, Boolean, string or path is its own
+key; a cluster or an array is made into a tuple of its values where it enters the
+collection (``collection_keys``).
 
 NI ("Look In Map Function", "Insert Into Map Function", "Insert Into Set Function",
 "Remove From Set Function", "Empty Collection? Function", "Collection Size
@@ -44,10 +45,11 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
-from lvkit.models import LVType, LVTypeKind
+from lvkit.models import LVType
 from lvkit.primitive_resolver import ResolvedPrimitive
 
 from ...ast_utils import build_assign, parse_expr
+from ...collection_keys import key_expression
 from ...context import CodeGenContext
 from ...fragment import CodeFragment
 from ...type_default import type_default
@@ -68,19 +70,6 @@ def empty_collection(
     return {"empty": "len(in_1) == 0"}
 
 
-def _hashable(node: PrimitiveNode, index: int, what: str) -> None:
-    """Raise a gap unless input ``index`` is a number, Boolean, string or path."""
-    term = terminal(node, "input", index)
-    lv_type = term.lv_type if term is not None else None
-    if lv_type is None or lv_type.kind != LVTypeKind.PRIMITIVE:
-        kind = "an unknown type" if lv_type is None else lv_type.kind.value
-        raise ConversionGap(
-            f"{node.name} with {what} of {kind} type has no code generation yet: "
-            "only a number, Boolean, string or path can be a key or element",
-            node,
-        )
-
-
 def _required(
     ctx: CodeGenContext,
     node: PrimitiveNode,
@@ -92,6 +81,22 @@ def _required(
     if text is None:
         raise ConversionGap(f"{node.name} has no {what} wired", node)
     return string_variable(ctx, node, text, statements, what.replace(" ", "_"))
+
+
+def _hashable_key(
+    ctx: CodeGenContext,
+    node: PrimitiveNode,
+    index: int,
+    what: str,
+    statements: list[ast.stmt],
+) -> str:
+    """The wired key or element at input ``index`` as a name holding what the
+    collection stores (``collection_keys``)."""
+    text = _required(ctx, node, index, what.split(" ", 1)[1], statements)
+    term = terminal(node, "input", index)
+    lv_type = term.lv_type if term is not None else None
+    expression = key_expression(ctx, node, text, lv_type, what)
+    return string_variable(ctx, node, expression, statements, "key")
 
 
 def _bind(
@@ -118,10 +123,9 @@ def _value_type(node: PrimitiveNode) -> LVType | None:
 
 @register_op_fragment("LOOK_IN_MAP")
 def look_in_map(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
-    _hashable(node, 10, "a key")
     statements: list[ast.stmt] = []
     collection = _required(ctx, node, 11, "map", statements)
-    key = _required(ctx, node, 10, "key", statements)
+    key = _hashable_key(ctx, node, 10, "a key", statements)
     default = input_expression(ctx, node, 9)
     if default is None:
         default = ast.unparse(type_default(ctx, _value_type(node)))
@@ -149,7 +153,6 @@ def look_in_map(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None
 
 @register_op_fragment("INSERT_INTO_MAP")
 def insert_into_map(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
-    _hashable(node, 10, "a key")
     if is_wired_output(ctx, node, 1):
         raise ConversionGap(
             "Insert Into Map with value unchanged? wired: NI does not say what it "
@@ -158,7 +161,7 @@ def insert_into_map(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
         )
     statements: list[ast.stmt] = []
     collection = _required(ctx, node, 11, "map in", statements)
-    key = _required(ctx, node, 10, "key", statements)
+    key = _hashable_key(ctx, node, 10, "a key", statements)
     value = _required(ctx, node, 9, "value", statements)
     bindings: dict[str, str] = {}
     _bind(
@@ -185,10 +188,9 @@ def insert_into_map(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
 def _set_operation(
     node: PrimitiveNode, ctx: CodeGenContext, result: str, flag: str, flag_base: str
 ) -> CodeFragment:
-    _hashable(node, 10, "an element")
     statements: list[ast.stmt] = []
     collection = _required(ctx, node, 11, "set in", statements)
-    element = _required(ctx, node, 10, "element", statements)
+    element = _hashable_key(ctx, node, 10, "an element", statements)
     bindings: dict[str, str] = {}
     _bind(
         ctx,

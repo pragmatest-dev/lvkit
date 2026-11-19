@@ -94,6 +94,7 @@ def _extract_class_dir(dest: Path, ref: str = _MC_REF) -> Path | None:
         ["git", "-C", _MC_REPO, "ls-tree", "--name-only", f"{ref}:{_MC_DIR}"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     if listed.returncode != 0 or not listed.stdout.strip():
         return None

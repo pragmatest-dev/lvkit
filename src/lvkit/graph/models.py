@@ -141,6 +141,12 @@ class VINode(GraphNode):
     # On a Call By Reference node, the node's saved ``CBRSaveStyle`` byte: how
     # the node calls the VI its reference holds. None on every other node.
     call_save_style: int | None = None
+    # On a call of an embedded instance (an Express VI: its dialog's settings are
+    # the saved defaults of the instance's controls), what each of the instance's
+    # input controls holds when the call leaves it unwired, by connector-pane
+    # slot: the saved default as text, None when the control saves none (it
+    # holds its type's default). None on every other node.
+    instance_defaults: dict[int, str | None] | None = None
     # This VI's OWN front-panel layout: every control's real bounds, nested
     # cluster/array structure, and (via ParsedFPControl.cluster_geom) real
     # per-field placement -- the full panel as the user sees it, not just the
@@ -888,7 +894,8 @@ class ExecutionProps:
     auto_preallocate_arrays: bool = False  # AllowAutoPrealloc
     inline: bool = False  # ShouldInline (<Execution2>)
     inlinable: bool = False  # InlinableDiagram (<Execution2>)
-    auto_error_handling: bool = False  # DefaultErrorHandling (<Execution2>)
+    # DefaultErrorHandling (<Execution2>); None when the VI has no <Execution2>
+    auto_error_handling: bool | None = None
     allow_debugging: bool = False  # DebugCapable (<Instrument>)
     always_calls_parent: bool = False  # AlwaysCallsParent (<Execution2>)
     # "Clear indicators when called": ClearIndMask (<Execution2>)
@@ -903,6 +910,12 @@ class WindowProps:
     ``can_*``/``transparent`` fields come from ``<Flags12>``.
     """
 
+    # The custom Window title, from the file's ``<TITL>`` block; None when the
+    # file has none: the window's title is then the VI's name ("Same as VI name").
+    window_title: str | None = None
+    # The window's saved bounds ``(left, top, right, bottom)`` in screen pixels,
+    # from the front panel heap (not ``<LVSR>``); None when the file records none.
+    window_bounds: tuple[int, int, int, int] | None = None
     show_title_bar: bool = False  # ShowTitleBar
     show_menu_bar: bool = False  # ShowMenuBar
     show_toolbar: bool = False  # ToolBarVisible

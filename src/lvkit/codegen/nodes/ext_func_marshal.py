@@ -22,6 +22,8 @@ from .ext_func_layout import (
     ctype_of,
     fill,
     fill_handle,
+    flatten,
+    nest,
     read,
     read_handle,
 )
@@ -112,6 +114,24 @@ def marshal(
         )
     if kind == ParamKind.ARRAY_DATA:
         setup: list[str] = []
+        if param.dimensions > 1:
+            # Elements go in row-major order; the function cannot change the
+            # sizes, so the nested list is rebuilt from the sizes sent.
+            flat, sizes = flatten(value or "[]", param.dimensions, prefix)
+            dims = [f"{prefix}_n{k}" for k in range(param.dimensions)]
+            setup = [f"{prefix}_flat = {flat}"]
+            setup += [f"{name} = {size}" for name, size in zip(dims, sizes)]
+            setup.append(
+                f"{prefix} = ({number} * len({prefix}_flat))(*{prefix}_flat)"
+            )
+            after = [f"{prefix}_back = list({prefix})"]
+            return Marshalled(
+                setup,
+                f"ctypes.POINTER({number})",
+                prefix,
+                nest(f"{prefix}_back", dims, prefix),
+                after,
+            )
         items = value
         if text_in:
             items = f"{prefix}_items"

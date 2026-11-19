@@ -36,7 +36,7 @@ def _tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     )
     slot = built.extract(wrapper)[2]
     slot.write_text(
-        slot.read_text()
+        slot.read_text(encoding="utf-8")
         .replace(
             "</Section></LIvi>",
             _record("VIVI", ["variant.vi"], ["", "variant.vi"], 0, 10)
@@ -45,7 +45,8 @@ def _tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         .replace(
             "</VI>",
             '<LVSR><Section><Execution2 AllowPolyTypeAdapt="1"/></Section></LVSR></VI>',
-        )
+        ),
+        encoding="utf-8",
     )
     call = _Call(
         node_class="polyIUse",
@@ -57,7 +58,10 @@ def _tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
     )
     caller = built.vi("Tests/Group/main.vi", "main.vi", [], [call])
     bd = built.extract(caller)[0]
-    bd.write_text(bd.read_text().replace("<termList>", _SELECTOR + "<termList>"))
+    bd.write_text(
+        bd.read_text(encoding="utf-8").replace("<termList>", _SELECTOR + "<termList>"),
+        encoding="utf-8",
+    )
     return built
 
 
@@ -68,7 +72,7 @@ def test_a_call_that_selects_a_project_variant_calls_it(
     out = tmp_path / "gen"
     result = generate_python(tree.root / "Tests/Group/main.vi", out)
     assert not result["gaps"]
-    source = next(out.rglob("main.py")).read_text()
+    source = next(out.rglob("main.py")).read_text(encoding="utf-8")
     assert without_panel_attributes(source).splitlines()[1:] == [
         "from .external.runtime.wrap import variant",
         "",

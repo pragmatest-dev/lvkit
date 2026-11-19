@@ -1,6 +1,6 @@
 {
   "category": "Timing",
-  "count": 16,
+  "count": 17,
   "entries": [
     {
       "name": "UNC Filename Support of File I/O VIs on Windows",
@@ -799,6 +799,47 @@
           "description": "date/time string is the formatted date/time string."
         }
       ]
+    },
+    {
+      "name": "LV70DateRecToTimeStamp",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/date-time-to-seconds.html",
+      "category": "Timing",
+      "description": "Converts a LabVIEW 7.0 date and time record (second, minute, hour, day of month, month, year, day of week, day of year, is DST) to a timestamp. The record is the computer's local time: its is DST field is 0 for standard time, 1 for daylight saving time and -1 to find out which applies; day of week and day of year are ignored (NI, Date/Time To Seconds).",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "Time Stamp",
+          "index": 0,
+          "direction": "output",
+          "type": "Timestamp",
+          "enum_values": null,
+          "python_param": "time_stamp",
+          "description": "The timestamp of the date and time record."
+        },
+        {
+          "name": "date time rec",
+          "index": 1,
+          "direction": "input",
+          "type": "Cluster",
+          "enum_values": null,
+          "python_param": "date_time_rec",
+          "description": "The record, in the cluster's order: second, minute, hour, day of month, month, year, day of week, day of year, is DST."
+        }
+      ],
+      "match_names": [
+        "LV70DateRecToTimeStamp.vi"
+      ],
+      "imports": [
+        "import calendar",
+        "import hightime",
+        "import time",
+        "from datetime import UTC"
+      ],
+      "python_code": "# NI, Date/Time To Seconds: with is UTC FALSE the record is in the time zone configured for the computer; DST 0 is standard time, 1 daylight saving time, -1 lets the system decide, which is time.mktime's tm_isdst; day of week and day of year are ignored. The timestamp is the seconds since 1904-01-01 UTC. Before 1970 LabVIEW keeps its old rule, the computer's CURRENT offset from UTC (current DST status included), not the date's own: LAVA, Rolf Kalbermatter, https://lavag.org/topic/3615-strange-time-behavior ('LabVIEW 7.0 introduced the ability to account for the DST status of the actual timestamp' but the old behaviour was kept for timestamps before 1 January 1970); NI forum, https://ni.lithium.com/t5/LabVIEW/A-strange-behaviour-on-two-of-LV-s-time-VIs/m-p/176558 (search-result text: for seconds from 1 January 1904 through 31 December 1969 the output changes when the Windows time zone setting changes); Get UTC Offset-style callers read the 1904 record as the current offset. time.mktime raises OverflowError before 1970 on Windows, so those dates use calendar.timegm minus time.localtime().tm_gmtoff, which every OS gives.\n{time_stamp} = hightime.datetime(1970, 1, 1, tzinfo=UTC) + hightime.timedelta(seconds=(time.mktime(({date_time_rec}[5], {date_time_rec}[4], {date_time_rec}[3], {date_time_rec}[2], {date_time_rec}[1], {date_time_rec}[0], 0, 0, {date_time_rec}[8])) if {date_time_rec}[5] >= 1970 else calendar.timegm(({date_time_rec}[5], {date_time_rec}[4], {date_time_rec}[3], {date_time_rec}[2], {date_time_rec}[1], {date_time_rec}[0])) - time.localtime().tm_gmtoff))",
+      "inline": true
     }
   ]
 }

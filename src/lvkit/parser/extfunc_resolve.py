@@ -11,7 +11,9 @@ from .extfunc_links import (
     read_data_space_records,
     read_node_records,
 )
+from .extfunc_pool_prototype import pool_params
 from .extfunc_prototype import extfunc_params
+from .heap_types import heap_sidecar_path
 from .models import ParsedNode
 from .node_types import ExtFuncNode
 from .type_mapping import TypeMap
@@ -32,6 +34,7 @@ def resolve_ext_func_calls(
     root = parsed_xml(Path(main_xml))
     node_records = read_node_records(root, Path(main_xml))
     data_space_records = read_data_space_records(root)
+    sidecar = heap_sidecar_path(main_xml)
     for node in pending:
         completed = complete_library(
             node.call, node.uid, node_records, data_space_records
@@ -40,6 +43,7 @@ def resolve_ext_func_calls(
             node.name = extfunc_display_name(node.call.library, completed.function)
         node.call = completed
         if node.call.func_td is not None:
-            node.call = replace(
-                node.call, params=extfunc_params(root, type_map, node.call.func_td)
-            )
+            params = extfunc_params(root, type_map, node.call.func_td)
+            if not params and sidecar.exists():
+                params = pool_params(sidecar.read_bytes(), node.call.func_td)
+            node.call = replace(node.call, params=params)

@@ -548,6 +548,9 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
                     "default": p.default,
                     "caption": p.caption,
                     "caption_visible": p.caption_visible,
+                    "starts_hidden": p.starts_hidden,
+                    "enable_state": p.enable_state,
+                    "mechanical_action": p.mechanical_action,
                     **_scope_entry(
                         (placed.reads if p.direction == "input" else placed.drives).get(
                             p.terminal_uid or p.name
@@ -610,6 +613,16 @@ def netlist_to_dict(module: NetlistModule, *, verbose: bool = False) -> dict[str
             else None
         ),
     }
+    if module.tags:
+        result["tags"] = [
+            {
+                "name": tag.name,
+                "type": tag.type_text(),
+                "value": tag.value_text(),
+                "undecoded": tag.undecoded,
+            }
+            for tag in module.tags
+        ]
     if verbose:
         # The lvnet §7 ``uses :`` dependency manifest -- populated by
         # ``build_netlist_from_graph`` (``NetlistModule.dependencies``

@@ -502,6 +502,7 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess:
         [sys.executable, "-m", "lvkit.cli", *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
 
 

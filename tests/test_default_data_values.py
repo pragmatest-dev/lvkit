@@ -153,12 +153,13 @@ def _load(
     the LabVIEW version that saved it (none recorded for None)."""
     dataspace = "" if slots is None else _dataspace(slots)
     (tmp_path / "T.xml").write_text(
-        main_xml(TYPES).replace("</RSRC>", _vers(version) + dataspace + "</RSRC>")
+        main_xml(TYPES).replace("</RSRC>", _vers(version) + dataspace + "</RSRC>"),
+        encoding="utf-8",
     )
     bd = tmp_path / "T_BDHb.xml"
-    bd.write_text(bd_xml)
+    bd.write_text(bd_xml, encoding="utf-8")
     if fp_xml is not None:
-        (tmp_path / "T_FPHb.xml").write_text(fp_xml)
+        (tmp_path / "T_FPHb.xml").write_text(fp_xml, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd)
     vi = graph.list_vis()[0]
@@ -362,11 +363,23 @@ def test_an_empty_path_or_variant_is_the_same_as_the_stored_empty_value(
 
 
 def test_a_tag_that_is_not_read_stays_a_gap_naming_the_tag(tmp_path: Path) -> None:
-    views = _constant_vi(tmp_path, EXT, "stdNum", SLOTS, EXT_SLOT)
+    slots = [*SLOTS]
+    slots[EXT_SLOT] = ("EXT", "<EXT>junk</EXT>")
+    views = _constant_vi(tmp_path, EXT, "stdNum", slots, EXT_SLOT)
     _, _, gaps = _generate(views)
     (gap,) = gaps
     assert "the default-data tag EXT" in gap.reason
     assert "default data (DFDS)" in gap.reason
+
+
+def test_an_extended_precision_constant_is_read_from_the_default_data(
+    tmp_path: Path,
+) -> None:
+    views = _constant_vi(tmp_path, EXT, "stdNum", SLOTS, EXT_SLOT)
+    function, source, gaps = _generate(views)
+    assert gaps == []
+    assert "1.5" in source
+    assert "lvkit" not in source
 
 
 def test_an_object_with_no_slot_in_the_data_space_stays_a_gap(

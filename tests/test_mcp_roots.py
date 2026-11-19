@@ -141,7 +141,7 @@ def test_resolve_project_autodetects_source_root_from_cwd_subdir(tmp_path, monke
     client happened to launch in."""
     root = tmp_path / "proj"
     (root / "Classes" / "Foo.lvclass").mkdir(parents=True)
-    (root / "proj.lvproj").write_text("<Project/>")
+    (root / "proj.lvproj").write_text("<Project/>", encoding="utf-8")
     monkeypatch.setattr(mcp_server, "_DEFAULT_ROOTS", [])
     monkeypatch.delenv("LVKIT_PROJECT_ROOT", raising=False)
     monkeypatch.chdir(root / "Classes" / "Foo.lvclass")

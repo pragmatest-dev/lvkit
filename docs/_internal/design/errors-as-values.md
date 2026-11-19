@@ -110,6 +110,7 @@ a warning is `LabVIEWError(status=False, code=…)`.
 | Loop stop terminal wired to an error | `if err is not None and err.status: break` |
 | Forked error wire / parallel branches | plain sequential code, each branch carrying its own variable; the thread pool tier (`builder.py:_generate_parallel_tier`) is removed |
 | Unwired error in | the node runs regardless of earlier errors |
+| Unwired error out | follows the VI's Automatic Error Handling (maintainer, 2026-11-17): on, a failure is a Python exception, and a call of a generated VI raises the error its callee returns unless it only passed through from the node's error in; off, the error is dropped and the run continues (`native_failure.py:catch_failures`, `raise_unwired_error`) |
 | Error constant | its value |
 | Error local variable | a function variable (as `codegen/local_indicators.py` does for indicators) |
 

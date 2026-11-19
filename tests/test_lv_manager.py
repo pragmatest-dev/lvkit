@@ -67,7 +67,7 @@ def test_get_info_is_os_stat_into_the_552_byte_record(tmp_path: Path) -> None:
 def test_get_info_of_a_directory_counts_its_entries(tmp_path: Path) -> None:
     clfn_test, _ = _file_info()
     for name in ("a", "b", "c"):
-        (tmp_path / name).write_text(name)
+        (tmp_path / name).write_text(name, encoding="utf-8")
     fields = struct.unpack_from(
         "=iiiiiIIiihh", bytes(clfn_test(str(tmp_path), [0] * 552).info)
     )
@@ -94,7 +94,7 @@ def test_set_info_is_chmod_and_utime_from_the_record(tmp_path: Path) -> None:
     )
     assert "os.chmod(file, _record.permissions & 4095)" in source
     target = tmp_path / "data.bin"
-    target.write_text("x")
+    target.write_text("x", encoding="utf-8")
     os.chmod(target, 0o600)
     record = get(str(target), [0] * 552).info
     head = list(struct.unpack_from("=iiiiiIIiihh", bytes(record)))
@@ -161,6 +161,9 @@ def test_every_function_in_the_table_has_a_template() -> None:
         "FGetInfo",
         "FSetInfo",
         "MoveBlock",
+        "DSNewPtr",
+        "DSNewPClr",
+        "DSDisposePtr",
     }
     for function in manager_functions().values():
         assert function.statements
@@ -237,6 +240,83 @@ def test_move_block_with_overlapping_blocks_is_safe() -> None:
     assert list(block) == [1, 2, 1, 2, 3, 4]
 
 
-def test_a_memory_manager_function_without_a_python_meaning_stays_a_gap() -> None:
-    # DSNewPtr hands back a pointer to memory LabVIEW owns: no standard-library call
-    assert "DSNewPtr" not in manager_functions()
+_SIZE = ExtFuncParam(ParamKind.VALUE, "uint32")
+_POINTER = ExtFuncParam(ParamKind.VALUE, "uintptr")
+
+
+def _allocator(name: str):  # noqa: ANN202
+    # NI (DSNewPtr, DSNewPClr): "A pointer to a block of size bytes. If an error
+    # occurs, this function returns NULL." The C runtime's malloc/calloc.
+    return build_vi(
+        "LabVIEW",
+        name,
+        [_POINTER, _SIZE],
+        ["NumUInt64", "NumUInt32"],
+        controls={1: "size"},
+        indicators={0: "pointer", 1: "size_out"},
+    )
+
+
+def _dispose():  # noqa: ANN202
+    # NI (DSDisposePtr): returns MgErr, noErr (0) when released.
+    return build_vi(
+        "LabVIEW",
+        "DSDisposePtr",
+        [ExtFuncParam(ParamKind.VALUE, "int32"), _POINTER],
+        ["NumInt32", "NumUInt64"],
+        controls={1: "pointer"},
+        indicators={0: "error", 1: "pointer_out"},
+    )
+
+
+def test_new_ptr_allocates_a_block_that_move_block_writes_and_reads() -> None:
+    new, source = _allocator("DSNewPtr")
+    assert "lvkit" not in source
+    assert "ctypes.util.find_library" in source
+    dispose, _ = _dispose()
+    copy_in, _ = _move_block(
+        ExtFuncParam(ParamKind.ARRAY_DATA, "int16"),
+        ExtFuncParam(ParamKind.VALUE, "uintptr"),
+    )
+    copy_out, _ = _move_block(
+        ExtFuncParam(ParamKind.VALUE, "uintptr"),
+        ExtFuncParam(ParamKind.ARRAY_DATA, "int16"),
+    )
+    allocated = new(8)
+    assert allocated.pointer != 0
+    assert allocated.size_out == 8
+    copy_in([11, 22, 33, 44], allocated.pointer, 8)
+    assert copy_out(allocated.pointer, [0, 0, 0, 0], 8).destination_out == [
+        11,
+        22,
+        33,
+        44,
+    ]
+    released = dispose(allocated.pointer)
+    assert released.error == 0
+    assert released.pointer_out == allocated.pointer
+
+
+def test_new_pclr_zeroes_the_block() -> None:
+    new, _ = _allocator("DSNewPClr")
+    copy_out, _ = _move_block(
+        ExtFuncParam(ParamKind.VALUE, "uintptr"),
+        ExtFuncParam(ParamKind.ARRAY_DATA, "uint8"),
+    )
+    dispose, _ = _dispose()
+    pointer = new(16).pointer
+    assert pointer != 0
+    assert copy_out(pointer, [1] * 16, 16).destination_out == [0] * 16
+    assert dispose(pointer).error == 0
+
+
+def test_new_ptr_of_size_zero_returns_an_integer_that_disposes_cleanly() -> None:
+    new, _ = _allocator("DSNewPtr")
+    dispose, _ = _dispose()
+    pointer = new(0).pointer
+    assert isinstance(pointer, int)  # 0 (NULL) or a valid block, as malloc gives
+    assert dispose(pointer).error == 0
+
+
+def test_a_memory_manager_function_not_in_the_table_stays_a_gap() -> None:
+    assert "DSNewHandle" not in manager_functions()

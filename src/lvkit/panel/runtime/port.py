@@ -10,16 +10,29 @@ holds it.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from .view import PanelWidgets
 
 
 class Port:
-    def __init__(self, get: Callable[[], Any], show: Callable[[Any], object]) -> None:
+    """``properties`` are the appliers of the control properties the widget can
+    show (``properties.py``), by member name; ``focus_widget`` is the widget that
+    takes the keyboard focus (None when none does), whose focus and blur the view
+    reports to the panel as Key Focus."""
+
+    def __init__(
+        self,
+        get: Callable[[], Any],
+        show: Callable[[Any], object],
+        properties: Mapping[str, Callable[[Any], object]] | None = None,
+        focus_widget: Any = None,
+    ) -> None:
         self.get = get
         self.show = show
+        self.properties = dict(properties or {})
+        self.focus_widget = focus_widget
         self._listeners: list[Callable[[Any], None]] = []
 
     def on_change(self, listener: Callable[[Any], None]) -> None:
@@ -58,5 +71,5 @@ def bind_control(view: PanelWidgets, name: Any, port: Port) -> Port:
 
 def bind_indicator(view: PanelWidgets, name: Any, port: Port) -> Port:
     """An indicator: the view shows its values in the port."""
-    view.add_indicator(name, port.show)
+    view.add_indicator(name, port.show, port.properties)
     return port

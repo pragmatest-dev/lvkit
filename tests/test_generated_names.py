@@ -83,7 +83,9 @@ def _module_defining(package: Path, class_name: str) -> Path:
     (module,) = (
         p
         for p in _modules(package)
-        if re.search(rf"^class {class_name}[(:]", p.read_text(), re.MULTILINE)
+        if re.search(
+            rf"^class {class_name}[(:]", p.read_text(encoding="utf-8"), re.MULTILINE
+        )
     )
     return module
 
@@ -122,7 +124,7 @@ def _all_undefined(package: Path) -> dict[str, set[str]]:
     found = {
         module.name: undefined
         for module in _modules(package)
-        if (undefined := _undefined_names(module.read_text()))
+        if (undefined := _undefined_names(module.read_text(encoding="utf-8")))
     }
     return found
 
@@ -134,7 +136,7 @@ def _unresolved_relative_imports(package: Path) -> list[str]:
     failed = {p.name.removesuffix(".error.py") for p in package.rglob("*.error.py")}
     missing: list[str] = []
     for module in _modules(package):
-        for node in ast.walk(ast.parse(module.read_text())):
+        for node in ast.walk(ast.parse(module.read_text(encoding="utf-8"))):
             if not isinstance(node, ast.ImportFrom) or not node.level:
                 continue
             base = module.parent
@@ -180,7 +182,9 @@ def test_annotation_types_are_imported_and_defined(tmp_path, monkeypatch):
     assert _unresolved_relative_imports(package) == []
 
     # CallTestMethod is a method of the class module, annotated with the enum.
-    call = _module_named(package, "classes/testcase/testcase.py").read_text()
+    call = _module_named(package, "classes/testcase/testcase.py").read_text(
+        encoding="utf-8"
+    )
     guarded = next(n for n in ast.parse(call).body if isinstance(n, ast.If))
     imported = {a.name for n in guarded.body for a in n.names}
     assert "MethodEnum" in imported
@@ -205,7 +209,9 @@ def test_enum_constant_is_imported_at_run_time(tmp_path):
     # `run` is a method of the class module; the class is in an import cycle with
     # the modules it calls, so the enum is imported where `run` uses it.
     testcase = ast.parse(
-        _module_named(package, "classes/testcase/testcase.py").read_text()
+        _module_named(package, "classes/testcase/testcase.py").read_text(
+            encoding="utf-8"
+        )
     )
     (run,) = (
         n
@@ -224,7 +230,7 @@ def test_enum_constant_is_imported_at_run_time(tmp_path):
 def test_error_cluster_tunnels_carry_the_error(tmp_path, monkeypatch):
     package = _generate(NAME_OR_FORMAT, tmp_path)
     module = _module_named(package, "get_name_or_data_format_as_string.py")
-    assert "    error_out: LabVIEWError | None\n" in module.read_text()
+    assert "    error_out: LabVIEWError | None\n" in module.read_text(encoding="utf-8")
     assert _all_undefined(package) == {}
     assert list(package.rglob("*.error.py")) == []
     _import_all(package, monkeypatch)
@@ -233,7 +239,9 @@ def test_error_cluster_tunnels_carry_the_error(tmp_path, monkeypatch):
 def test_unbundling_an_error_cluster_takes_the_no_error_value(tmp_path):
     package = _generate(DICTIONARY_HAS_KEY, tmp_path)
     assert _all_undefined(package) == {}
-    source = _module_named(package, "dictionary_has_key__ogtk.py").read_text()
+    source = _module_named(package, "dictionary_has_key__ogtk.py").read_text(
+        encoding="utf-8"
+    )
     assert "selector" not in source
 
 
@@ -245,14 +253,14 @@ def test_a_function_that_returns_only_an_error_returns_it_in_its_result(
     module = _module_named(package, "close_generic_object_refnum__ogtk.py")
     scalar = next(
         n
-        for n in ast.parse(module.read_text()).body
+        for n in ast.parse(module.read_text(encoding="utf-8")).body
         if isinstance(n, ast.FunctionDef)
         and n.name == "close_generic_object_refnum_scalar__ogtk"
     )
     assert isinstance(scalar.returns, ast.Name)
     result = next(
         n
-        for n in ast.parse(module.read_text()).body
+        for n in ast.parse(module.read_text(encoding="utf-8")).body
         if isinstance(n, ast.ClassDef) and n.name == scalar.returns.id
     )
     assert [ast.unparse(f.target) for f in result.body] == ["error_out"]  # type: ignore[attr-defined]
@@ -261,7 +269,9 @@ def test_a_function_that_returns_only_an_error_returns_it_in_its_result(
 
 def test_a_disable_structure_generates_its_enabled_subdiagram(tmp_path):
     package = _generate(PATH_IS_TEST_CLASS, tmp_path)
-    source = _module_named(package, "check_if_path_is_test_class.py").read_text()
+    source = _module_named(package, "check_if_path_is_test_class.py").read_text(
+        encoding="utf-8"
+    )
     assert "Unknown node type" not in source
     assert "get_class_inheritance_from_class_path(" in source
     assert _all_undefined(package) == {}
@@ -269,7 +279,7 @@ def test_a_disable_structure_generates_its_enabled_subdiagram(tmp_path):
 
 def test_a_subvi_result_is_not_resolved_through_the_called_vi(tmp_path):
     package = _generate(RECREATE_CLIENT, tmp_path)
-    source = _discovery_module(package, "recreate_client").read_text()
+    source = _discovery_module(package, "recreate_client").read_text(encoding="utf-8")
     assert "grpc_client_id_out = create_client_result.grpc_client_id" in source
     assert _all_undefined(package) == {}
 
@@ -299,7 +309,7 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     assert (
         "is_dvr_valid(dvr_error_in=None, "
         "dvr_valid_in=self.__data_dvr[0].dvr_valid)"
-    ) in source.read_text()
+    ) in source.read_text(encoding="utf-8")
 
 
 WAVEGEN_LIB = SAMPLES / "lv-flex-channel-examples/WaveGen/WaveGen.lvlib"
@@ -332,7 +342,9 @@ def test_a_shift_register_carries_its_new_value_through_a_variable_of_its_own(
     a variable of its own, and the registers take them at the end of the
     iteration; a register is never assigned to itself."""
     package = _generate(CLIENT_CACHE_FGV, tmp_path)
-    source = _discovery_module(package, "grpc_client_cache_fgv_impl").read_text()
+    source = _discovery_module(package, "grpc_client_cache_fgv_impl").read_text(
+        encoding="utf-8"
+    )
     assert re.findall(r"^\s*(\w+) = \1$", source, re.MULTILINE) == []
     for name in ("grpc_client_id", "unique_id_out", "cluster_id"):
         assert f"        {name} = {name}_updated\n" in source

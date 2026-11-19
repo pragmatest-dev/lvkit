@@ -436,6 +436,7 @@ class VIFacts:
     exec_always_calls_parent: bool = False
     exec_print_after_exec: bool = False
     # window_* <- graph.models.WindowProps
+    window_title: str | None = None
     window_show_title_bar: bool = False
     window_show_menu_bar: bool = False
     window_show_toolbar: bool = False

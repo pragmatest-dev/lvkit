@@ -84,7 +84,8 @@ def _loop_xml(*, listed: bool) -> str:
 
 def _views(tmp_path: Path, *, listed: bool) -> Views:
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({}, {30: "result"}, pane={0: 30})
+        front_panel_xml({}, {30: "result"}, pane={0: 30}),
+        encoding="utf-8",
     )
     return load(tmp_path, _loop_xml(listed=listed))
 

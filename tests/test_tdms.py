@@ -8,6 +8,7 @@ Python and runs it on real files, then reads the file back with npTDMS.
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -56,6 +57,7 @@ def _chain(
     name_nodes: bool = True,
     level: str = "file",
     data_type_xml: str | None = None,
+    layout: int | None = None,
 ) -> None:
     """TDMS Open(path, operation) -> Set Properties -> Write -> Close, the error
     wire through all four; ``path``, the properties, the group, the channel and
@@ -152,6 +154,8 @@ def _chain(
             vi.wire(group, written["group name in"])
             vi.wire(channels, written["channel name(s) in"])
         vi.wire(data, written["data"])
+        if layout is not None:
+            vi.wire(vi.int_constant(layout), written["data layout"])
         vi.wire(err, written["error in"])
         ref, err = written["tdms file out"], written["error out"]
 
@@ -177,7 +181,8 @@ def test_a_file_is_created_with_properties_and_data(
 ) -> None:
     _chain(project, operation=2, element=I16)
     package = project.generate(NAME)
-    assert (package.root / "requirements.txt").read_text() == "npTDMS\nnumpy\n"
+    requirements = (package.root / "requirements.txt").read_text(encoding="utf-8")
+    assert requirements == "npTDMS\nnumpy\n"
     target = tmp_path / "run.tdms"
     result = package.function(
         target,
@@ -378,21 +383,23 @@ def test_a_channel_name_without_a_group_name_is_a_gap(
     ("data_type", "reason"),
     [
         (
-            '<TypeDesc Type="Array" Format="inline">'
-            '<Dimension Flags="0x00FF" FixedSize="0xFFFFFF" />'
-            '<Dimension Flags="0x00FF" FixedSize="0xFFFFFF" />'
-            '<TypeDesc TypeID="{element}" /></TypeDesc>',
-            "TDMS Write of a 2D array is not converted",
-        ),
-        (
             '<TypeDesc Type="NumInt32" Prop1="0" Format="inline" />',
-            "TDMS Write of .* is not converted: only a 1D array is",
+            "TDMS Write of .* is not converted: only a 1D or 2D array is",
         ),
         (
-            '<TypeDesc Type="MeasureData" Flavor="Float64Waveform" />',
-            "TDMS Write of a waveform is not converted",
+            '<TypeDesc Type="MeasureData" Flavor="DigitalWaveform" />',
+            "TDMS Write of a DigitalWaveform is not converted: NI's TDMS Write "
+            "page accepts it but does not document how its lines are stored",
         ),
-        (None, "TDMS Write of a waveform is not converted"),
+        (
+            '<TypeDesc Type="MeasureData" Flavor="Complex128Waveform" />',
+            "TDMS Write of a Complex128Waveform is not converted: NI's TDMS "
+            "Write page lists complex numbers only as arrays",
+        ),
+        (
+            '<TypeDesc Type="MeasureData" Flavor="Dynamicdata" />',
+            "A Dynamicdata is not converted",
+        ),
     ],
 )
 def test_the_data_that_has_no_channel_is_a_gap(
@@ -401,17 +408,268 @@ def test_the_data_that_has_no_channel_is_a_gap(
     data_type: str | None,
     reason: str,
 ) -> None:
-    """``None`` is a 1D array of waveforms."""
     _chain(
         project,
         operation=2,
         properties=False,
-        element=WAVEFORM if data_type is None else I32_XML,
-        data_type_xml=data_type.replace("{element}", "{ELEMENT}")
-        if data_type is not None
-        else None,
+        element=I32_XML,
+        data_type_xml=data_type.replace("{element}", "{ELEMENT}"),
     )
     package = project.generate(NAME)
     assert re.search(reason, package.source)
     with pytest.raises(NotImplementedError, match=reason):
         package.function(tmp_path / "x.tdms", [], [], "G", ["C"], [])
+
+
+def _waveform(samples: list[float], t0: datetime, dt: float, name: str | None = None):
+    import nitypes.bintime
+    import nitypes.time
+    import nitypes.waveform
+
+    timing = nitypes.waveform.Timing.create_with_regular_interval(
+        nitypes.bintime.TimeDelta(dt),
+        nitypes.time.convert_datetime(nitypes.bintime.DateTime, t0),
+    )
+    wave = nitypes.waveform.AnalogWaveform.from_array_1d(
+        samples, numpy.float64, timing=timing
+    )
+    if name is not None:
+        wave.extended_properties["NI_ChannelName"] = name
+    return wave
+
+
+START = datetime(2026, 11, 15, 8, 30, 0, tzinfo=UTC)
+
+
+def test_a_waveform_is_a_channel_with_its_timing_properties(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("nitypes")
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element=WAVEFORM,
+        data_type_xml=WAVEFORM,
+    )
+    package = project.generate(NAME)
+    assert "NotImplementedError" not in package.source
+    target = tmp_path / "wave.tdms"
+    first = _waveform([1.0, 2.0, 3.0], START, 0.5, "Volts")
+    package.function(target, [], [], "G", [], first)
+    second = _waveform([4.0, 5.0], START + timedelta(seconds=99), 0.25, "Volts")
+    result = package.function(target, [], [], "G", [], second)
+    assert result.error_out is None
+    with nptdms.TdmsFile.open(target) as tdms:
+        channel = tdms["G"]["Volts"]
+        assert list(channel[:]) == [1.0, 2.0, 3.0, 4.0, 5.0]
+        assert channel.properties["wf_increment"] == 0.5
+        assert channel.properties["wf_start_offset"] == 0.0
+        assert channel.properties["wf_samples"] == 3
+        assert channel.properties["NI_ChannelName"] == "Volts"
+        start = channel.properties["wf_start_time"]
+        assert numpy.datetime64(start) == numpy.datetime64("2026-11-15T08:30:00")
+
+
+def test_a_waveform_with_no_name_is_untitled_and_a_wired_name_wins(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("nitypes")
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element=WAVEFORM,
+        data_type_xml=WAVEFORM,
+    )
+    package = project.generate(NAME)
+    target = tmp_path / "wave.tdms"
+    package.function(target, [], [], "G", [], _waveform([1.0], START, 1.0))
+    package.function(target, [], [], "G", ["Named"], _waveform([2.0], START, 1.0, "X"))
+    with nptdms.TdmsFile.open(target) as tdms:
+        assert [c.name for c in tdms["G"].channels()] == ["Untitled", "Named"]
+
+
+def test_an_array_of_waveforms_is_a_channel_each(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("nitypes")
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element=WAVEFORM,
+    )
+    package = project.generate(NAME)
+    target = tmp_path / "waves.tdms"
+    waves = [_waveform([1.0], START, 1.0), _waveform([2.0, 3.0], START, 2.0, "B")]
+    package.function(target, [], [], "G", ["A"], waves)
+    with nptdms.TdmsFile.open(target) as tdms:
+        assert [c.name for c in tdms["G"].channels()] == ["A", "B"]
+        assert tdms["G"]["B"].properties["wf_increment"] == 2.0
+        assert list(tdms["G"]["B"][:]) == [2.0, 3.0]
+
+
+def _array_2d(element: int | str) -> str:
+    return (
+        '<TypeDesc Type="Array" Format="inline">'
+        '<Dimension Flags="0x00FF" FixedSize="0xFFFFFF" />'
+        '<Dimension Flags="0x00FF" FixedSize="0xFFFFFF" />'
+        f'<TypeDesc TypeID="{element}" /></TypeDesc>'
+    )
+
+
+def test_a_decimated_2d_array_is_a_channel_per_row(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element=DBL,
+        data_type_xml=_array_2d("{ELEMENT}"),
+    )
+    package = project.generate(NAME)
+    assert "NotImplementedError" not in package.source
+    target = tmp_path / "rows.tdms"
+    result = package.function(
+        target, [], [], "G", ["A", "B"], [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+    )
+    assert result.error_out is None
+    with nptdms.TdmsFile.open(target) as tdms:
+        assert [c.name for c in tdms["G"].channels()] == ["A", "B"]
+        assert list(tdms["G"]["A"][:]) == [1.0, 2.0, 3.0]
+        assert list(tdms["G"]["B"][:]) == [4.0, 5.0, 6.0]
+
+
+def test_an_interleaved_2d_array_is_a_channel_per_column(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element=DBL,
+        data_type_xml=_array_2d("{ELEMENT}"),
+        layout=1,
+    )
+    package = project.generate(NAME)
+    target = tmp_path / "columns.tdms"
+    package.function(target, [], [], "G", ["A"], [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    with nptdms.TdmsFile.open(target) as tdms:
+        assert [c.name for c in tdms["G"].channels()] == [
+            "A",
+            "Untitled1",
+            "Untitled2",
+        ]
+        assert list(tdms["G"]["A"][:]) == [1.0, 4.0]
+        assert list(tdms["G"]["Untitled2"][:]) == [3.0, 6.0]
+
+
+def test_a_1d_array_with_a_constant_interleaved_layout_is_a_gap(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    _chain(project, operation=1, properties=False, element=DBL, layout=1)
+    package = project.generate(NAME)
+    with pytest.raises(NotImplementedError, match="interleaved data layout"):
+        package.function(tmp_path / "x.tdms", [], [], "G", [], [1.0, 2.0])
+
+
+def test_a_1d_array_with_a_decimated_layout_is_one_channel(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    _chain(project, operation=1, properties=False, element=DBL, layout=0)
+    package = project.generate(NAME)
+    target = tmp_path / "one.tdms"
+    package.function(target, [], [], "G", [], [1.0, 2.0])
+    with nptdms.TdmsFile.open(target) as tdms:
+        assert list(tdms["G"]["Untitled"][:]) == [1.0, 2.0]
+
+
+def test_an_array_of_timestamps_is_a_timestamp_channel(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    hightime = pytest.importorskip("hightime")
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element='<TypeDesc Type="MeasureData" Flavor="TimeStamp" />',
+    )
+    package = project.generate(NAME)
+    assert "NotImplementedError" not in package.source
+    target = tmp_path / "stamps.tdms"
+    stamps = [
+        hightime.datetime(2026, 11, 15, 8, 30, 0, tzinfo=UTC),
+        hightime.datetime(2026, 11, 15, 8, 30, 1, 500000, tzinfo=UTC),
+    ]
+    package.function(target, [], [], "G", ["T"], stamps)
+    with nptdms.TdmsFile.open(target) as tdms:
+        channel = tdms["G"]["T"]
+        assert channel.data_type is nptdms.types.TimeStamp
+        assert list(channel[:]) == [
+            numpy.datetime64("2026-11-15T08:30:00.000000"),
+            numpy.datetime64("2026-11-15T08:30:01.500000"),
+        ]
+
+
+def test_a_2d_array_of_timestamps_is_a_timestamp_channel_per_row(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    hightime = pytest.importorskip("hightime")
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element='<TypeDesc Type="MeasureData" Flavor="TimeStamp" />',
+        data_type_xml=_array_2d("{ELEMENT}"),
+    )
+    package = project.generate(NAME)
+    target = tmp_path / "stamps2.tdms"
+    t = hightime.datetime(2026, 11, 15, 8, 30, 0, tzinfo=UTC)
+    package.function(target, [], [], "G", ["A", "B"], [[t], [t]])
+    with nptdms.TdmsFile.open(target) as tdms:
+        assert [c.name for c in tdms["G"].channels()] == ["A", "B"]
+        assert tdms["G"]["B"].data_type is nptdms.types.TimeStamp
+
+
+def test_an_array_of_complex_numbers_is_a_complex_channel(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    _chain(
+        project,
+        operation=1,
+        properties=False,
+        element='<TypeDesc Type="NumComplex128" Prop1="0" Format="inline" />',
+    )
+    package = project.generate(NAME)
+    target = tmp_path / "complex.tdms"
+    package.function(target, [], [], "G", ["Z"], [1 + 2j, 3 - 4j])
+    with nptdms.TdmsFile.open(target) as tdms:
+        channel = tdms["G"]["Z"]
+        assert channel.data_type is nptdms.types.ComplexDoubleFloat
+        assert list(channel[:]) == [1 + 2j, 3 - 4j]
+
+
+def test_a_3d_array_is_a_gap(
+    project: Project,  # noqa: F811
+    tmp_path: Path,
+) -> None:
+    three_d = (
+        '<TypeDesc Type="Array" Format="inline">'
+        + '<Dimension Flags="0x00FF" FixedSize="0xFFFFFF" />' * 3
+        + '<TypeDesc TypeID="{ELEMENT}" /></TypeDesc>'
+    )
+    _chain(project, operation=1, properties=False, element=DBL, data_type_xml=three_d)
+    package = project.generate(NAME)
+    assert "TDMS Write of a 3D array is not converted" in package.source

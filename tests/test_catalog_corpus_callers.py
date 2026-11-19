@@ -39,6 +39,7 @@ def _generate(vi: Path, out: Path) -> Path:
         text=True,
         timeout=300,
         check=False,
+        encoding="utf-8",
     )
     assert done.returncode in (0, 3), f"{done.stdout}\n{done.stderr}"
     return next(p for p in out.iterdir() if p.is_dir())
@@ -86,7 +87,9 @@ def test_wait_until_generation_complete_asks_the_session_and_times_apart(
         / "Wait Until Generation Complete.vi"
     )
     package = _generate(vi, tmp_path)
-    source = next(package.rglob("wait_until_generation_complete.py")).read_text()
+    source = next(package.rglob("wait_until_generation_complete.py")).read_text(
+        encoding="utf-8"
+    )
     assert ".is_done()" in source
     names = re.findall(r"^\s*(\w+) = time\.perf_counter\(\)", source, re.MULTILINE)
     assert len(names) == len(set(names)) >= 2

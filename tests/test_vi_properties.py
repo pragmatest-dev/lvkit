@@ -425,6 +425,18 @@ class TestParseLvsrProperties:
             "hide_free_run_button",
         }
 
+    def test_window_title_is_the_titl_block(self) -> None:
+        root = self._root(
+            "<RSRC><LVSR><Section/></LVSR><TITL>"
+            '<Section Index="0" Format="inline"><String>My Title</String></Section>'
+            "</TITL></RSRC>"
+        )
+        assert _parse_lvsr_properties(root)["window"]["window_title"] == "My Title"
+
+    def test_no_titl_block_has_no_window_title(self) -> None:
+        root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
+        assert _parse_lvsr_properties(root)["window"]["window_title"] is None
+
     def test_window_defaults_when_front_panel_absent(self) -> None:
         root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
         result = _parse_lvsr_properties(root)

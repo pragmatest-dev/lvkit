@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .cache_paths import LibraryRoots
 from .extractor import extract_vi_xml
+from .parser import parse_vi
 from .parser.link_table import (
     InstanceSourceLink,
     LinkTableError,
@@ -81,6 +82,25 @@ def _strings(link: ET.Element, tag: str) -> tuple[str, ...]:
     return tuple(s.text or "" for s in link.findall(f"{tag}/String"))
 
 
+def _instances(directory: Path, instance_files: list[str]) -> list[tuple[str, str]]:
+    """``(name, file name)`` of each embedded instance of a caller, in the order
+    the caller's ``VINS`` block lists them (``instance_files``: the name list,
+    then one file per instance, in ``directory``). Empty when the caller has none
+    or the name list does not match its files."""
+    if not instance_files:
+        return []
+    names = _instance_names((directory / instance_files[0]).read_bytes())
+    if len(names) != len(instance_files) - 1:
+        logger.warning(
+            "%s: %d instance names for %d embedded instances",
+            directory,
+            len(names),
+            len(instance_files) - 1,
+        )
+        return []
+    return list(zip(names, instance_files[1:], strict=True))
+
+
 def read_instance_sources(
     directory: Path, instance_files: list[str], roots: LibraryRoots
 ) -> dict[str, ParsedDependencyRef]:
@@ -97,19 +117,8 @@ def read_instance_sources(
     recorded dependency path. A caller with no embedded instances returns
     ``{}``; an embedded VI that is not an instance of another VI is left out.
     """
-    if not instance_files:
-        return {}
-    names = _instance_names((directory / instance_files[0]).read_bytes())
-    if len(names) != len(instance_files) - 1:
-        logger.warning(
-            "%s: %d instance names for %d embedded instances",
-            directory,
-            len(names),
-            len(instance_files) - 1,
-        )
-        return {}
     sources: dict[str, ParsedDependencyRef] = {}
-    for name, file_name in zip(names, instance_files[1:], strict=True):
+    for name, file_name in _instances(directory, instance_files):
         instance_xml = extract_vi_xml(directory / file_name, roots=roots)[2]
         if instance_xml is None:
             continue
@@ -132,3 +141,33 @@ def read_instance_sources(
             path_type=link.path_type,
         )
     return sources
+
+
+def read_instance_defaults(
+    directory: Path, instance_files: list[str], roots: LibraryRoots
+) -> dict[str, dict[int, str | None]]:
+    """For each embedded instance of a caller, the value each of its controls
+    holds when a call leaves it unwired, by connector-pane slot and keyed by the
+    instance's own file name (``<guid>.vi``).
+
+    An Express VI is saved as an instance whose controls carry the settings of
+    its dialog as their saved defaults. A value is the control's saved default as
+    text, or ``None`` when the control saves none (it holds its type's default).
+    Only controls (inputs) on the instance's connector pane are listed; an
+    instance whose files cannot be read is left out.
+    """
+    defaults: dict[str, dict[int, str | None]] = {}
+    for name, file_name in _instances(directory, instance_files):
+        bd_xml, fp_xml, main_xml = extract_vi_xml(directory / file_name, roots=roots)
+        parsed = parse_vi(bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml)
+        pane = parsed.connector_pane
+        if pane is None:
+            continue
+        controls = {c.uid: c for c in parsed.front_panel.controls}
+        defaults[name] = {
+            slot.index: controls[slot.fp_dco_uid].default_value
+            for slot in pane.slots
+            if slot.fp_dco_uid in controls
+            and not controls[slot.fp_dco_uid].is_indicator
+        }
+    return defaults

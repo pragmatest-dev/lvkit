@@ -1,6 +1,6 @@
 {
   "category": "File I/O",
-  "count": 104,
+  "count": 117,
   "entries": [
     {
       "name": "Write Delimited Spreadsheet",
@@ -1859,7 +1859,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "needs_review",
+      "status": "resolved",
       "terminals": [
         {
           "name": "App:Default Data Directory",
@@ -1873,7 +1873,12 @@
       ],
       "match_names": [
         "Dflt Data Dir.vi"
-      ]
+      ],
+      "imports": [
+        "from pathlib import Path"
+      ],
+      "python_code": "# NI, \"Customizing the Default Data Directory\": the LabVIEW Data directory in the default file directory of the operating system (Windows: C:\\Users\\<username>\\Documents\\LabVIEW Data); the path is returned, the folder is not created\n{appdefault_data_directory} = Path.home() / 'Documents' / 'LabVIEW Data'",
+      "inline": true
     },
     {
       "name": "VI Library Function",
@@ -1996,34 +2001,42 @@
       "name": "Open Config Data",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/open-config-data-vi.html",
       "category": "File I/O",
-      "description": "Opens a reference to the configuration data found in a platform-independent configuration file. Format the content of an .ini file correctly when you use this VI.",
-      "vi_path": null,
+      "description": "Opens a reference to the configuration data found in a platform-independent configuration file. Format the content of an .ini file correctly when you use this VI. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Open Config Data.vi",
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
-          "name": "configuration file path",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "configuration_file_path",
-          "description": "configuration file path is the path to the platform-independent configuration file."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
-          "name": "create file if necessary (T)",
-          "index": 10,
-          "direction": "input",
-          "type": null,
+          "name": "file created?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
           "enum_values": null,
-          "python_param": "create_file_if_necessary",
-          "description": "create file if necessary (T) configures the VI to create the file specified in configuration file path if the file does not exist. You must set create file if necessary (T) to the default value of TRUE for the VI to create the file.",
-          "default": true
+          "python_param": "file_created",
+          "description": "file created? returns TRUE if the configuration file operation creates a file."
+        },
+        {
+          "name": "refnum",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -2031,33 +2044,1269 @@
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
-          "name": "refnum",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "create file if necessary (T)",
+          "index": 10,
+          "direction": "input",
+          "type": "Boolean",
           "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is the reference number of the configuration data."
+          "python_param": "create_file_if_necessary",
+          "description": "create file if necessary (T) configures the VI to create the file specified in configuration file path if the file does not exist. You must set create file if necessary (T) to the default value of TRUE for the VI to create the file.",
+          "default": true
         },
         {
-          "name": "file created?",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "configuration file path",
+          "index": 11,
+          "direction": "input",
+          "type": "Path",
           "enum_values": null,
-          "python_param": "file_created",
-          "description": "file created? returns TRUE if the configuration file operation creates a file."
+          "python_param": "configuration_file_path",
+          "description": "configuration file path is the path to the platform-independent configuration file."
+        }
+      ],
+      "match_names": [
+        "Open Config Data.vi"
+      ],
+      "imports": [
+        "from .ini import IniFile",
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
         },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = IniFile(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\n_cfg.load(_path)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
+      "inline": true
+    },
+    {
+      "name": "Open Config Data (compatibility)",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "The 8.6-era Open Config Data VI NI keeps in NI_LVConfig.lvlib so older code does not break (forums.ni.com/t5/LabVIEW/Open-Config-Data-Compatibility-VI-8-6/m-p/1441950: the newer VI added an output for the file format and extra handling of non-standard files). Its pane is the same as Open Config Data's and it opens the file the same way: Opens a reference to the configuration data found in a platform-independent configuration file. Format the content of an .ini file correctly when you use this VI. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Open Config Data (compatibility).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
           "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "file created?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "file_created",
+          "description": "file created? returns TRUE if the configuration file operation creates a file."
+        },
+        {
+          "name": "refnum",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "create file if necessary (T)",
+          "index": 10,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "create_file_if_necessary",
+          "description": "create file if necessary (T) configures the VI to create the file specified in configuration file path if the file does not exist. You must set create file if necessary (T) to the default value of TRUE for the VI to create the file.",
+          "default": true
+        },
+        {
+          "name": "configuration file path",
+          "index": 11,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "configuration_file_path",
+          "description": "configuration file path is the path to the platform-independent configuration file."
         }
-      ]
+      ],
+      "match_names": [
+        "Open Config Data (compatibility).vi"
+      ],
+      "imports": [
+        "from .ini import IniFile",
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_given = {configuration_file_path}\nif _given is None or Path(_given) == Path(''):\n    raise OSError('Open Config Data: configuration file path is ' + repr(_given) + ', not a path')\n_path = Path(_given)\n{file_created} = False\nif not _path.exists():\n    if not {create_file_if_necessary}:\n        raise FileNotFoundError('Open Config Data: ' + str(_path) + ' does not exist and create file if necessary is FALSE')\n    _path.touch()\n    {file_created} = True\n_cfg = IniFile(interpolation=None, delimiters=('=',), comment_prefixes=(';',), allow_no_value=True, strict=False, default_section='')\n_cfg.optionxform = str\n_cfg.load(_path)\n{refnum} = dict(parser=_cfg, path=_path, changed=False)",
+      "inline": true
+    },
+    {
+      "name": "Read Key (String)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-string-vi.html",
+      "category": "File I/O",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Read Key (String).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "value",
+          "index": 1,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value of the key."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "read raw string? (F)",
+          "index": 6,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "read_raw_string",
+          "description": "read raw string? specifies whether the string was written without escaping unprintable and backslash (\\) characters. If FALSE (default), the VI replaces any unprintable characters in the string, such as <ESC>, with a backslash and two Hex characters (\\xx). If TRUE, the VI does not convert the unprintable characters in the string.",
+          "default": false
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section from which to read the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "default value",
+          "index": 9,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "default value is the value to return if the VI does not find the key in the specified section or if an error occurs. Unwired, the empty value of its type.",
+          "default": ""
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to read."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Read Key (String).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n{value} = {default_value} if not {found} else (_text if {read_raw_string} else re.sub(r'\\\\(\\\\|[01][0-9A-F])', lambda _m: '\\\\' if _m.group(1) == '\\\\' else chr(int(_m.group(1), 16)), _text))",
+      "inline": true
+    },
+    {
+      "name": "Read Key (Boolean)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-boolean-vi.html",
+      "category": "File I/O",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Read Key (Boolean).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "value",
+          "index": 1,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value of the key."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section from which to read the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "default value",
+          "index": 9,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "default value is the value to return if the VI does not find the key in the specified section or if an error occurs. Unwired, the empty value of its type.",
+          "default": false
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to read."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Read Key (Boolean).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n_num = _text.split(';')[0].strip()\n_flag = _num.casefold()\n{value} = {default_value}\nif {found} and _flag in ('true', '1'):\n    {value} = True\nelif {found} and _flag in ('false', '0'):\n    {value} = False",
+      "inline": true
+    },
+    {
+      "name": "Read Key (Double)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-double-vi.html",
+      "category": "File I/O",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Read Key (Double).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "value",
+          "index": 1,
+          "direction": "output",
+          "type": "NumFloat64",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value of the key."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section from which to read the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "default value",
+          "index": 9,
+          "direction": "input",
+          "type": "NumFloat64",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "default value is the value to return if the VI does not find the key in the specified section or if an error occurs. Unwired, the empty value of its type.",
+          "default": 0.0
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to read."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Read Key (Double).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n_num = _text.split(';')[0].strip()\n{value} = {default_value}\nif {found}:\n    try:\n        {value} = float(_num)\n    except ValueError:\n        {value} = {default_value}",
+      "inline": true
+    },
+    {
+      "name": "Read Key (I32)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-i32-vi.html",
+      "category": "File I/O",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Read Key (I32).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "value",
+          "index": 1,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value of the key."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section from which to read the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "default value",
+          "index": 9,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "default value is the value to return if the VI does not find the key in the specified section or if an error occurs. Unwired, the empty value of its type.",
+          "default": 0
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to read."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Read Key (I32).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n_num = _text.split(';')[0].strip()\n{value} = {default_value}\nif {found}:\n    try:\n        _n = int(_num, 10)\n    except ValueError:\n        _n = None\n    if _n is not None and -2147483648 <= _n <= 2147483647:\n        {value} = _n",
+      "inline": true
+    },
+    {
+      "name": "Read Key (U32)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-u32-vi.html",
+      "category": "File I/O",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Read Key (U32).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "value",
+          "index": 1,
+          "direction": "output",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value of the key."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section from which to read the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "default value",
+          "index": 9,
+          "direction": "input",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "default value is the value to return if the VI does not find the key in the specified section or if an error occurs. Unwired, the empty value of its type.",
+          "default": 0
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to read."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Read Key (U32).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n_num = _text.split(';')[0].strip()\n{value} = {default_value}\nif {found}:\n    try:\n        _n = int(_num, 10)\n    except ValueError:\n        _n = None\n    if _n is not None and 0 <= _n <= 4294967295:\n        {value} = _n",
+      "inline": true
+    },
+    {
+      "name": "Read Key (Path)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/read-key-path-vi.html",
+      "category": "File I/O",
+      "description": "Reads a value associated with a key in a specified section from the configuration data identified by refnum. If the key does not exist, the VI returns the default value. This VI supports multibyte characters in strings. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Read Key (Path).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "value",
+          "index": 1,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value of the key."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section from which to read the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "default value",
+          "index": 9,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "default value is the value to return if the VI does not find the key in the specified section or if an error occurs. Unwired, the empty value of its type.",
+          "default": ""
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to read."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Read Key (Path).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_text = (_cfg[_sec][_name] or '').strip() if _name is not None else ''\n{found} = _text != ''\n{refnum_out} = {refnum}\nif len(_text) >= 2 and _text[0] == _text[-1] and _text[0] in '\"\\'':\n    _text = _text[1:-1]\n{value} = {default_value}\nif {found}:\n    _m = re.match(r'/([A-Za-z])/(.*)', _text)\n    {value} = None if _text == '' else (Path(_m.group(1) + ':/' + _m.group(2)) if os.name == 'nt' and _m else Path(_text))",
+      "inline": true
+    },
+    {
+      "name": "Write Key (String)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-string-vi.html",
+      "category": "File I/O",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Write Key (String).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "write raw string? (F)",
+          "index": 6,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "write_raw_string",
+          "description": "write raw string? specifies whether to write the string without escaping unprintable and backslash (\\) characters. If FALSE (default), the VI converts any backslashes (\\) to double backslashes (\\\\) and replaces any remaining unprintable characters in the string, such as <ESC>, with a backslash and two Hex characters (\\xx). If TRUE, the VI does not convert the unprintable characters in the string.",
+          "default": false
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section in which to write the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "value",
+          "index": 9,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value of the key to write."
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to write."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Write Key (String).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_encoded = '\"' + ({value} if {write_raw_string} else re.sub(r'[\\x00-\\x08\\x0a-\\x1f]', lambda _m: '\\\\%02X' % ord(_m.group()), {value}.replace('\\\\', '\\\\\\\\'))) + '\"'\nif _sec is None:\n    _sec = {section}\n    _cfg.add_section(_sec)\n{found} = _name is not None\n_cfg[_sec][{key} if _name is None else _name] = _encoded\n{refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Write Key (Path)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-path-vi.html",
+      "category": "File I/O",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Write Key (Path).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section in which to write the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "value",
+          "index": 9,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value of the key to write."
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to write."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Write Key (Path).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_p = {value}\n_s = '' if _p is None else Path(_p).as_posix()\nif _p is not None and Path(_p).drive:\n    _s = '/' + Path(_p).drive[0].casefold() + _s[2:]\n_encoded = '\"' + _s + '\"'\nif _sec is None:\n    _sec = {section}\n    _cfg.add_section(_sec)\n{found} = _name is not None\n_cfg[_sec][{key} if _name is None else _name] = _encoded\n{refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Write Key (Boolean)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-boolean-vi.html",
+      "category": "File I/O",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data'). Write Key (Boolean): the terminal indices are those of Write Key (Path), whose callers record them: NI's Write Key (Boolean) pane image draws the same wires at the same positions as Write Key (Path)'s (section, refnum, key, value, error in; refnum out, found?, error out). A Boolean is written as TRUE or FALSE (NI: 'LabVIEW writes Boolean values as TRUE and FALSE by default').",
+      "vi_path": "<vilib>/Utility/config.llb/Write Key (Boolean).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section in which to write the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "value",
+          "index": 9,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value to write to the key."
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to write."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Write Key (Boolean).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_encoded = 'TRUE' if {value} else 'FALSE'\nif _sec is None:\n    _sec = {section}\n    _cfg.add_section(_sec)\n{found} = _name is not None\n_cfg[_sec][{key} if _name is None else _name] = _encoded\n{refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Write Key (I32)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-i32-vi.html",
+      "category": "File I/O",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data'). Write Key (I32): the terminal indices are those of Write Key (Path), whose callers record them: NI's Write Key (I32) pane image draws the same wires at the same positions as Write Key (Path)'s (section, refnum, key, value, error in; refnum out, found?, error out). A number is written in decimal with no quotation marks (NI: 'they place quotation marks around any string or path data').",
+      "vi_path": "<vilib>/Utility/config.llb/Write Key (I32).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section in which to write the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "value",
+          "index": 9,
+          "direction": "input",
+          "type": "I32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value to write to the key."
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to write."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Write Key (I32).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_encoded = str({value})\nif _sec is None:\n    _sec = {section}\n    _cfg.add_section(_sec)\n{found} = _name is not None\n_cfg[_sec][{key} if _name is None else _name] = _encoded\n{refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Write Key (U32)",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/write-key-u32-vi.html",
+      "category": "File I/O",
+      "description": "Writes a value to a key in a specified section of the configuration data identified by refnum. This VI modifies data in memory. To write data to disk, use the Close Config Data VI. If key exists, the VI replaces the existing value. If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data'). Write Key (U32): the terminal indices are those of Write Key (Path), whose callers record them: NI's Write Key (U32) pane image draws the same wires at the same positions as Write Key (Path)'s (section, refnum, key, value, error in; refnum out, found?, error out). A number is written in decimal with no quotation marks (NI: 'they place quotation marks around any string or path data').",
+      "vi_path": "<vilib>/Utility/config.llb/Write Key (U32).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section in which to write the specified key."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "value",
+          "index": 9,
+          "direction": "input",
+          "type": "U32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "value is the value to write to the key."
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to write."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Write Key (U32).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n_encoded = str({value})\nif _sec is None:\n    _sec = {section}\n    _cfg.add_section(_sec)\n{found} = _name is not None\n_cfg[_sec][{key} if _name is None else _name] = _encoded\n{refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
     },
     {
       "name": "Read Key",
@@ -2189,175 +3438,196 @@
       "name": "Remove Key",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/remove-key-vi.html",
       "category": "File I/O",
-      "description": "Removes a key in a specified section from the configuration data identified by refnum.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "docs_enriched",
-      "terminals": [
-        {
-          "name": "section",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "section",
-          "description": "section is the name of the section from which to remove the specified key."
-        },
-        {
-          "name": "refnum",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is the reference number of the configuration data."
-        },
-        {
-          "name": "key",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "key",
-          "description": "key is the name of the key to remove."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
-        },
-        {
-          "name": "refnum out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum_out",
-          "description": "refnum out is the reference number of the configuration data."
-        },
-        {
-          "name": "found?",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "found",
-          "description": "found? is TRUE if the VI found the key in the specified section ."
-        },
-        {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
-        }
-      ]
-    },
-    {
-      "name": "Remove Section",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/remove-section-vi.html",
-      "category": "File I/O",
-      "description": "Removes a section from the configuration data identified by refnum.",
-      "vi_path": null,
-      "is_polymorphic": false,
-      "python_hint": null,
-      "status": "docs_enriched",
-      "terminals": [
-        {
-          "name": "section",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "section",
-          "description": "section is the name of the section to remove."
-        },
-        {
-          "name": "refnum",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is the reference number of the configuration data."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
-        },
-        {
-          "name": "refnum out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "refnum_out",
-          "description": "refnum out is the reference number of the configuration data."
-        },
-        {
-          "name": "section exists?",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "section_exists",
-          "description": "section exists? is TRUE if the VI found the specified section ."
-        },
-        {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
-        }
-      ]
-    },
-    {
-      "name": "Close Config Data",
-      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/close-config-data-vi.html",
-      "category": "File I/O",
-      "description": "Writes data to the platform-independent configuration file identified by refnum and then closes the reference to that file.",
-      "vi_path": null,
+      "description": "Removes a key in a specified section from the configuration data identified by refnum. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Remove Key.vi",
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
-          "name": "refnum",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is the reference number of the configuration data."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
-          "name": "write file if changed (T)",
-          "index": 10,
-          "direction": "input",
-          "type": null,
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
           "enum_values": null,
-          "python_param": "write_file_if_changed",
-          "description": "write file if changed (T) configures the VI to write the configuration data to the platform-independent configuration file you specify with the Open Config Data VI. You must set write file if changed (T) to the default value of TRUE for the VI to write the configuration data. If the value is FALSE, the VI does not write the configuration data.",
-          "default": true
+          "python_param": "found",
+          "description": "found? is TRUE if the VI found the key in the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section from which to remove the specified key."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "key",
+          "index": 10,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "key is the name of the key to remove."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Remove Key.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n_name = next((_k for _k in _cfg[_sec] if _k.casefold() == {key}.casefold()), None) if _sec is not None else None\n{found} = _name is not None\nif _name is not None:\n    _cfg.remove_option(_sec, _name)\n    {refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Remove Section",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/remove-section-vi.html",
+      "category": "File I/O",
+      "description": "Removes a section from the configuration data identified by refnum. The terminal indices are those of Remove Key (section 7, error in 8, refnum 11; refnum out 3, the Boolean 2, error out 0): NI's Remove Section pane image draws the same wires as Remove Key's with the key wire absent. Remove Key, Get Key Names and Remove Section take the same section, refnum and error in terminals at the same positions. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Remove Section.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "section exists?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "section_exists",
+          "description": "section exists? is TRUE if the VI found the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section to remove."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
+        }
+      ],
+      "match_names": [
+        "Remove Section.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n{section_exists} = _sec is not None\nif _sec is not None:\n    _cfg.remove_section(_sec)\n    {refnum}['changed'] = True\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Close Config Data",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/close-config-data-vi.html",
+      "category": "File I/O",
+      "description": "Writes data to the platform-independent configuration file identified by refnum and then closes the reference to that file. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Close Config Data.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "file path",
+          "index": 3,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "file_path",
+          "description": "file path is the path to the configuration file."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -2365,56 +3635,105 @@
           "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. If an error occurs before this node executes, the node only closes the reference passed to it."
         },
         {
-          "name": "file path",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "write file if changed (T)",
+          "index": 10,
+          "direction": "input",
+          "type": "Boolean",
           "enum_values": null,
-          "python_param": "file_path",
-          "description": "file path is the path to the configuration file."
+          "python_param": "write_file_if_changed",
+          "description": "write file if changed (T) configures the VI to write the configuration data to the platform-independent configuration file you specify with the Open Config Data VI. You must set write file if changed (T) to the default value of TRUE for the VI to write the configuration data. If the value is FALSE, the VI does not write the configuration data.",
+          "default": true
         },
         {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
         }
-      ]
+      ],
+      "match_names": [
+        "Close Config Data.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ref = {refnum}\n{file_path} = _ref['path']\nif {write_file_if_changed} and _ref['changed']:\n    _ref['parser'].save(_ref['path'])\n    _ref['changed'] = False",
+      "inline": true
     },
     {
       "name": "Get Key Names",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/config-llb/get-key-names-vi.html",
       "category": "File I/O",
-      "description": "Gets the names of all keys in the specified section from the configuration data identified by refnum. Format the content of an .ini file correctly when you use this VI.",
-      "vi_path": null,
+      "description": "Gets the names of all keys in the specified section from the configuration data identified by refnum. Format the content of an .ini file correctly when you use this VI. Sources (public): the terminal indices are those the corpus callers' call nodes record; NI's Windows Configuration Settings File Format page (https://www.ni.com/docs/en-US/bundle/labview/page/windows-configuration-settings-file-format.html): 'Every section name in a file must be unique', 'Within each section, every key name must be unique', 'LabVIEW writes Boolean values as TRUE and FALSE by default, but these values are not case sensitive. For example, False, false, and 0 are all acceptable FALSE Boolean values', 'When VIs write to a configuration file, they place quotation marks around any string or path data. LabVIEW also supports single quotes around values', 'If values begin or end with white space characters, you must put the values in quotation marks. LabVIEW removes the quotation marks when a VI returns the value', 'A semicolon in a section name, numeric value, or Boolean value also indicates a comment. However, a semicolon in a string value name does not indicate a comment', 'In converted, or escaped strings, LabVIEW stores any non-displayable text characters in the configuration settings file with the equivalent hexadecimal escape codes, such as \\0D for a carriage return. In addition, LabVIEW stores backslash characters in the configuration settings file as double backslashes', 'LabVIEW stores path data in the standard Linux format for paths' (the absolute path /c/temp/data.dat is c:\\temp\\data.dat on Windows). NI's page does not say whether section and key names match ignoring case; the NI forum answers at forums.ni.com/t5/LabVIEW/Case-in-Preference-Files/m-p/794943 and forums.ni.com/t5/LabVIEW/how-to-read-lowercase-keys-from-ini-file/m-p/744973 say the lookup is not case sensitive and lowercases key names before searching, so names match ignoring case and keys keep the case written. A key with an empty value is not found (NI's Table 44: 'abc=' gives no key and no value). Generated Python keeps the file's data in a configparser.ConfigParser held by the refnum (a plain dict); Write Key and Remove Key change that data in memory and Close Config Data writes the file back (NI: 'LabVIEW does not write the file until you call the Close Config Data VI'); Close Config Data edits the text of the file it opened instead of rewriting it, so the lines that are not a key's (comments, blank lines, other text) stay as they are (NI: 'During a write operation, Configuration File VIs preserve lines that lack section names or value-key pairs'); a changed key's value is replaced on its own line, a new key is added to the end of its section and a new section to the end of the file (NI, Write Key: 'If key does not exist, the VI adds the key/value pair to the end of the specified section. If section does not exist, the VI adds section, with the key/value pair, to the end of the configuration data').",
+      "vi_path": "<vilib>/Utility/config.llb/Get Key Names.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "section",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "section",
-          "description": "section is the name of the section from which to get the key names."
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
         },
         {
-          "name": "refnum",
-          "index": null,
-          "direction": "input",
-          "type": null,
+          "name": "key names",
+          "index": 1,
+          "direction": "output",
+          "type": "Array",
           "enum_values": null,
-          "python_param": "refnum",
-          "description": "refnum is the reference number of the configuration data."
+          "python_param": "key_names",
+          "description": "key names contains the names of all keys in the section, in the order in which they appear in the file."
+        },
+        {
+          "name": "section exists?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "section_exists",
+          "description": "section exists? is TRUE if the VI found the specified section."
+        },
+        {
+          "name": "refnum out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out",
+          "description": "refnum out is the reference number of the configuration data."
+        },
+        {
+          "name": "section",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "section",
+          "description": "section is the name of the section from which to get the key names of the specified key."
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -2422,42 +3741,26 @@
           "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
         },
         {
-          "name": "refnum out",
-          "index": null,
-          "direction": "output",
-          "type": null,
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
           "enum_values": null,
-          "python_param": "refnum_out",
-          "description": "refnum out is the reference number of the configuration data."
-        },
-        {
-          "name": "section exists?",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "section_exists",
-          "description": "section exists? is TRUE if the VI found the specified section ."
-        },
-        {
-          "name": "key names",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "key_names",
-          "description": "key names contains the names of all keys in the section, in the order in which they appear in the file."
-        },
-        {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "refnum",
+          "description": "refnum is the reference number of the configuration data."
         }
-      ]
+      ],
+      "match_names": [
+        "Get Key Names.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "python_code": "_cfg = {refnum}['parser']\n_sec = next((_s for _s in _cfg.sections() if _s.strip().casefold() == {section}.strip().casefold()), None)\n{section_exists} = _sec is not None\n{key_names} = list(_cfg[_sec]) if _sec is not None else []\n{refnum_out} = {refnum}",
+      "inline": true
     },
     {
       "name": "Get Section Names",
@@ -4406,7 +5709,7 @@
           "code": 6
         }
       ],
-      "python_code": "_target = {target_directory} if {target_directory} and str({target_directory}) != '.' else Path({zip_file}).parent\nwith zipfile.ZipFile({zip_file}) as _zip:\n    if {preview_only}:\n        raise NotImplementedError('Unzip: Preview only? is TRUE, and NI does not say how the file paths are written into Preview')\n    _names = _zip.namelist()\n    if any(_info.flag_bits & 0x1 for _info in _zip.infolist()):\n        raise ZipPasswordProtectedError('Unzip: ' + str({zip_file}) + ' is password protected')\n    _zip.extractall(_target)\n{unzipped_files} = [Path(_target) / _name for _name in _names if not _name.endswith('/')]\n{preview} = ''",
+      "python_code": "_target = {target_directory} if {target_directory} and str({target_directory}) != '.' else Path({zip_file}).parent\nwith zipfile.ZipFile({zip_file}) as _zip:\n    if {preview_only}:\n        raise NotImplementedError('Unzip of ' + str({zip_file}) + ': Preview only? is TRUE, and NI does not say how the file paths are written into Preview')\n    _names = _zip.namelist()\n    if any(_info.flag_bits & 0x1 for _info in _zip.infolist()):\n        raise ZipPasswordProtectedError('Unzip: ' + str({zip_file}) + ' is password protected')\n    _zip.extractall(_target)\n{unzipped_files} = [Path(_target) / _name for _name in _names if not _name.endswith('/')]\n{preview} = ''",
       "inline": true
     },
     {
@@ -6927,6 +8230,1336 @@
       "python_hint": null,
       "status": "needs_review",
       "terminals": []
+    },
+    {
+      "name": "Read Characters From File",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: reads characters from a byte stream file, from a byte offset, and returns the mark after the read.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "file path (dialog if empty)",
+          "index": 0,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "file_path"
+        },
+        {
+          "name": "number of characters (all:-1)",
+          "index": 2,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "number_of_characters",
+          "default": -1
+        },
+        {
+          "name": "start of read offset (chars.:0)",
+          "index": 3,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "start_of_read_offset",
+          "default": 0
+        },
+        {
+          "name": "convert eol? (no:F)",
+          "index": 5,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "convert_eol",
+          "default": false
+        },
+        {
+          "name": "new file path (NotAPath if cancelled)",
+          "index": 6,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "new_file_path"
+        },
+        {
+          "name": "character string",
+          "index": 7,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "character_string"
+        },
+        {
+          "name": "EOF?",
+          "index": 8,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "eof"
+        },
+        {
+          "name": "mark after read (chars.)",
+          "index": 9,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "mark_after_read"
+        }
+      ],
+      "match_names": [
+        "Read Characters From File.vi"
+      ],
+      "imports": [
+        "import re",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_path = {file_path}\nif _path is None or Path(_path) == Path(''):\n    raise NotImplementedError('Read Characters From File: file path is ' + repr(_path) + ', so the VI shows a file dialog; Python has no dialog')\nwith open(_path, 'rb') as _file:\n    _file.seek({start_of_read_offset})\n    _bytes = _file.read() if {number_of_characters} < 0 else _file.read({number_of_characters})\n    {mark_after_read} = _file.tell()\n# NI (LabVIEW Wiki, Read Delimited Spreadsheet): EOF? is TRUE \"if you attempt to read past the end of file\"; mark after read is \"the character (byte) in the file following the last character read\"; the offset is in bytes\n{eof} = {number_of_characters} < 0 or len(_bytes) < {number_of_characters}\nif {convert_eol}:\n    _bytes = re.sub(rb'\\r\\n|\\r', b'\\n', _bytes)\n{character_string} = _bytes.decode('utf-8', 'surrogateescape')\n{new_file_path} = _path",
+      "inline": true
+    },
+    {
+      "name": "Write Characters To File",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: writes a string to a file, replacing it or appending to it.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "convert eol? (no:F)",
+          "index": 0,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "convert_eol",
+          "default": false
+        },
+        {
+          "name": "new file path (Not A Path if cancelled)",
+          "index": 2,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "new_file_path"
+        },
+        {
+          "name": "append to file? (new file:F)",
+          "index": 3,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "append_to_file",
+          "default": false
+        },
+        {
+          "name": "character string",
+          "index": 4,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "character_string"
+        },
+        {
+          "name": "file path (dialog if empty)",
+          "index": 5,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "file_path"
+        }
+      ],
+      "match_names": [
+        "Write Characters To File.vi"
+      ],
+      "imports": [
+        "import os",
+        "import re",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_path = {file_path}\nif _path is None or Path(_path) == Path(''):\n    raise NotImplementedError('Write Characters To File: file path is ' + repr(_path) + ', so the VI shows a file dialog; Python has no dialog')\n_text = {character_string}\nif {convert_eol}:\n    # NI forums (convert eol - exactly what does it mean?): \"convert any EOL char combination to the type of EOL that is supported by the current OS\"\n    _text = re.sub(r'\\r\\n|\\r|\\n', lambda _match: os.linesep, _text)\nwith open(_path, 'ab' if {append_to_file} else 'wb') as _file:\n    _file.write(_text.encode('utf-8', 'surrogateescape'))\n{new_file_path} = _path",
+      "inline": true
+    },
+    {
+      "name": "Open File+",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: opens a file read-only and returns its refnum.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "file size (bytes)",
+          "index": 1,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "file_size"
+        },
+        {
+          "name": "file path",
+          "index": 2,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "file_path_out"
+        },
+        {
+          "name": "refnum",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum"
+        },
+        {
+          "name": "advisory dialog? (display:T)",
+          "index": 4,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "advisory_dialog",
+          "default": true
+        },
+        {
+          "name": "[pattern]",
+          "index": 5,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "pattern"
+        },
+        {
+          "name": "default name",
+          "index": 6,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "default_name"
+        },
+        {
+          "name": "prompt",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "prompt"
+        },
+        {
+          "name": "error in (not an error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "open mode (read-only:1)",
+          "index": 9,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "open_mode",
+          "default": 1
+        },
+        {
+          "name": "start path (Not A Path)",
+          "index": 10,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "start_path"
+        },
+        {
+          "name": "file path (\" \")",
+          "index": 11,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "file_path"
+        }
+      ],
+      "match_names": [
+        "Open File+.vi"
+      ],
+      "imports": [
+        "import os",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_path = {file_path}\nif _path is None or Path(_path) == Path(''):\n    raise NotImplementedError('Open File+: file path is ' + repr(_path) + ', so the VI shows a file dialog; Python has no dialog')\nif {open_mode} != 1:\n    raise NotImplementedError('Open File+: open mode ' + str({open_mode}) + ' is not read-only (1), the only open mode the VI label documents')\n{refnum} = open(_path, 'rb')\n{file_size} = os.fstat({refnum}.fileno()).st_size\n{file_path_out} = _path",
+      "inline": true
+    },
+    {
+      "name": "Read File+ (string)",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: reads characters, or one line, from an open file.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "mark after read (bytes)",
+          "index": 1,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "mark_after_read"
+        },
+        {
+          "name": "string",
+          "index": 2,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "string"
+        },
+        {
+          "name": "dup refnum",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "dup_refnum"
+        },
+        {
+          "name": "EOF?",
+          "index": 4,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "eof"
+        },
+        {
+          "name": "convert eol? (no:F)",
+          "index": 5,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "convert_eol",
+          "default": false
+        },
+        {
+          "name": "count",
+          "index": 6,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "count"
+        },
+        {
+          "name": "line mode (characters:F)",
+          "index": 7,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "line_mode",
+          "default": false
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "pos offset (bytes:0)",
+          "index": 9,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "pos_offset",
+          "default": 0
+        },
+        {
+          "name": "pos mode (rel. to current:2)",
+          "index": 10,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "pos_mode",
+          "default": 2
+        },
+        {
+          "name": "refnum",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum"
+        }
+      ],
+      "match_names": [
+        "Read File+ (string).vi"
+      ],
+      "imports": [
+        "import re"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_file = getattr({refnum}, 'buffer', {refnum})\n# NI, Set File Position: from 0 start, 1 end, 2 current\n_file.seek({pos_offset}, [0, 2, 1][{pos_mode}])\n_start = _file.tell()\nif {line_mode}:\n    # one line (it ends in LF, CR or CRLF, which stays in the string), of at most count characters when count is above 0: JKI's Read Lines From File wires its 'max characters/row (no limit:0)' to count and loops over the lines itself\n    _data = b''\n    while True:\n        _chunk = _file.read(8192)\n        _data += _chunk\n        _end = re.search(rb'\\r\\n|\\n|\\r', _data)\n        if not _chunk or (_end and (_end.group() != b'\\r' or _end.end() < len(_data))):\n            break\n    _bytes = _data[:_end.end()] if _end else _data\n    _limited = {count} > 0 and len(_bytes) > {count}\n    if _limited:\n        _bytes = _bytes[:{count}]\n    _file.seek(_start + len(_bytes))\n    {eof} = not _limited and not _bytes.endswith((b'\\r', b'\\n'))\nelse:\n    _bytes = _file.read() if {count} < 0 else _file.read({count})\n    {eof} = {count} < 0 or len(_bytes) < {count}\n{mark_after_read} = _file.tell()\nif {convert_eol}:\n    _bytes = re.sub(rb'\\r\\n|\\r', b'\\n', _bytes)\n{string} = _bytes.decode('utf-8', 'surrogateescape')\n{dup_refnum} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Close File+",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: closes a file refnum.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error in (no error)",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "close when? (now:T)",
+          "index": 1,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "close_when",
+          "default": true
+        },
+        {
+          "name": "error out",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "refnum",
+          "index": 4,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum"
+        },
+        {
+          "name": "file size (bytes)",
+          "index": 6,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "file_size"
+        },
+        {
+          "name": "refnum",
+          "index": 7,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum_out"
+        }
+      ],
+      "match_names": [
+        "Close File+.vi"
+      ],
+      "imports": [
+        "import os"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        },
+        {
+          "exception": "ValueError",
+          "code": 1
+        }
+      ],
+      "python_code": "{file_size} = os.fstat({refnum}.fileno()).st_size\nif {close_when}:\n    {refnum}.close()\n{refnum_out} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "Write File+ (string)",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Legacy file.llb VI: writes a string to an open file at a file position.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "mark after write (bytes)",
+          "index": 1,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "mark_after_write"
+        },
+        {
+          "name": "dup refnum",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "dup_refnum"
+        },
+        {
+          "name": "convert eol? (no:F)",
+          "index": 4,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "convert_eol",
+          "default": false
+        },
+        {
+          "name": "string",
+          "index": 5,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "string"
+        },
+        {
+          "name": "error in (no error)",
+          "index": 6,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "pos offset (bytes:0)",
+          "index": 7,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "pos_offset",
+          "default": 0
+        },
+        {
+          "name": "pos mode (rel. to end:1)",
+          "index": 8,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "pos_mode",
+          "default": 1
+        },
+        {
+          "name": "refnum",
+          "index": 9,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "refnum"
+        }
+      ],
+      "match_names": [
+        "Write File+ (string).vi"
+      ],
+      "imports": [
+        "import os",
+        "import re"
+      ],
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_file = getattr({refnum}, 'buffer', {refnum})\n# NI, Set File Position: from 0 start, 1 end, 2 current\n_file.seek({pos_offset}, [0, 2, 1][{pos_mode}])\n_text = {string}\nif {convert_eol}:\n    # NI forums (convert eol - exactly what does it mean?): \"convert any EOL char combination to the type of EOL that is supported by the current OS\"\n    _text = re.sub(r'\\r\\n|\\r|\\n', lambda _match: os.linesep, _text)\n_file.write(_text.encode('utf-8', 'surrogateescape'))\n{mark_after_write} = _file.tell()\n{dup_refnum} = {refnum}",
+      "inline": true
+    },
+    {
+      "name": "LV Config Read String",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Reads a string setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Read String.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "TRUE when the key is in the file."
+        },
+        {
+          "name": "value",
+          "index": 3,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The string stored under key."
+        },
+        {
+          "name": "config file path",
+          "index": 5,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "config_file_path",
+          "description": "The INI file to read; unwired, the LabVIEW.ini of the package.",
+          "default": ""
+        },
+        {
+          "name": "default value",
+          "index": 6,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "Returned when the file, section or key is missing; unwired, the empty value of its type.",
+          "default": ""
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Read String.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_given = {config_file_path}\n_ini = Path(_given) if _given is not None and Path(_given) != Path('') else Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\n{value} = {default_value} if _text is None else re.sub(r'\\\\(\\\\|[01][0-9A-F])', lambda _m: '\\\\' if _m.group(1) == '\\\\' else chr(int(_m.group(1), 16)), _text)",
+      "inline": true
+    },
+    {
+      "name": "LV Config Read Boolean",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Reads a boolean setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Read Boolean.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "TRUE when the key is in the file."
+        },
+        {
+          "name": "value",
+          "index": 3,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The boolean stored under key."
+        },
+        {
+          "name": "default value",
+          "index": 6,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "Returned when the file, section or key is missing; unwired, the empty value of its type.",
+          "default": false
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Read Boolean.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\n{value} = {default_value}\nif _text is not None and _text.casefold() in ('true', 'yes', 'on', 't', 'y', '1'):\n    {value} = True\nelif _text is not None and _text.casefold() in ('false', 'no', 'off', 'f', 'n', '0'):\n    {value} = False",
+      "inline": true
+    },
+    {
+      "name": "LV Config Read Numeric (I32)",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Reads a numeric setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Read Numeric (I32).vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "TRUE when the key is in the file."
+        },
+        {
+          "name": "value",
+          "index": 3,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The numeric stored under key."
+        },
+        {
+          "name": "default value",
+          "index": 6,
+          "direction": "input",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "Returned when the file, section or key is missing; unwired, the empty value of its type.",
+          "default": 0
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Read Numeric (I32).vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\ntry:\n    {value} = {default_value} if _text is None else int(_text, 10)\nexcept ValueError:\n    {value} = {default_value}",
+      "inline": true
+    },
+    {
+      "name": "LV Config Read Color",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Reads a color setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Read Color.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "TRUE when the key is in the file."
+        },
+        {
+          "name": "value",
+          "index": 3,
+          "direction": "output",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The color stored under key."
+        },
+        {
+          "name": "default value",
+          "index": 6,
+          "direction": "input",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "Returned when the file, section or key is missing; unwired, the empty value of its type.",
+          "default": 0
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Read Color.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\ntry:\n    {value} = {default_value} if _text is None else int(_text, 16)\nexcept ValueError:\n    {value} = {default_value}",
+      "inline": true
+    },
+    {
+      "name": "LV Config Write String",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Writes a string setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Write String.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "value",
+          "index": 6,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The string to store."
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Write String.vi"
+      ],
+      "imports": [
+        "from .ini import IniFile",
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '\"' + re.sub(r'[\\x00-\\x08\\x0a-\\x1f]', lambda _m: '\\\\%02X' % ord(_m.group()), {value}.replace('\\\\', '\\\\\\\\')) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
+      "inline": true
+    },
+    {
+      "name": "LV Config Write Boolean",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Writes a boolean setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Write Boolean.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "value",
+          "index": 6,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The boolean to store."
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Write Boolean.vi"
+      ],
+      "imports": [
+        "from .ini import IniFile",
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = 'TRUE' if {value} else 'FALSE'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
+      "inline": true
+    },
+    {
+      "name": "LV Config Write Color",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Writes a color setting of the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Write Color.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "value",
+          "index": 6,
+          "direction": "input",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The color to store."
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Write Color.vi"
+      ],
+      "imports": [
+        "from .ini import IniFile",
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '%08X' % ({value} & 0xFFFFFFFF)\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
+      "inline": true
+    },
+    {
+      "name": "LV Config Read Pathlist",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Reads a list of paths from the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the actor-framework AddActor and MessageMaker callers; the VI itself is in LabVIEW's resource folder, not in the corpus); the file's setting is a list of paths joined by ';' in one quoted string, as labviewwiki.org 'LabVIEW configuration file/Paths' shows for viSearchPath: viSearchPath= \"<topvi>:\\*;<foundvi>:\\;<vilib>:\\*;<userlib>:\\*;<instrlib>:\\*\" (backslashes single, not doubled as in a string setting); a symbolic root such as <vilib> is kept as the text of the path (the generated path type has no meaning for it); an empty entry is a Not A Path element (no public source says how LabVIEW stores one: recorded default). Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Read Pathlist.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "found?",
+          "index": 2,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "found",
+          "description": "TRUE when the key is in the file."
+        },
+        {
+          "name": "value",
+          "index": 3,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The 1D array of paths stored under key."
+        },
+        {
+          "name": "default value",
+          "index": 6,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "default_value",
+          "description": "Returned when the file, section or key is missing; unwired, an empty array.",
+          "default_behavior": "empty array"
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Read Pathlist.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "from pathlib import Path",
+        "import sys"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = configparser.ConfigParser(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.read(_ini, encoding='utf-8')\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\n{found} = _name is not None\n_text = _cfg['LabVIEW'][_name].strip() if _name is not None else None\nif _text is not None and len(_text) >= 2 and _text[0] == '\"' and _text[-1] == '\"':\n    _text = _text[1:-1]\nif _text is None:\n    {value} = {default_value}\nelif _text == '':\n    {value} = []\nelse:\n    {value} = [None if _p == '' else (_p if _p.startswith('<') else Path(_p)) for _p in _text.split(';')]",
+      "inline": true
+    },
+    {
+      "name": "LV Config Write Pathlist",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Writes a list of paths to the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the actor-framework AddActor and MessageMaker callers; the VI itself is in LabVIEW's resource folder, not in the corpus); the file's setting is a list of paths joined by ';' in one quoted string, as labviewwiki.org 'LabVIEW configuration file/Paths' shows for viSearchPath: viSearchPath= \"<topvi>:\\*;<foundvi>:\\;<vilib>:\\*;<userlib>:\\*;<instrlib>:\\*\" (backslashes single, not doubled as in a string setting); a symbolic root such as <vilib> is kept as the text of the path (the generated path type has no meaning for it); an empty entry is a Not A Path element (no public source says how LabVIEW stores one: recorded default). Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Write Pathlist.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "value",
+          "index": 6,
+          "direction": "input",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "value",
+          "description": "The 1D array of paths to store."
+        },
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Write Pathlist.vi"
+      ],
+      "imports": [
+        "from .ini import IniFile",
+        "import configparser",
+        "from pathlib import Path",
+        "import sys"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_encoded = '\"' + ';'.join('' if _p is None else str(_p) for _p in {value}) + '\"'\nif not _cfg.has_section('LabVIEW'):\n    _cfg.add_section('LabVIEW')\n_name = next((_k for _k in _cfg['LabVIEW'] if _k.casefold() == {key}.casefold()), {key})\n_cfg['LabVIEW'][_name] = _encoded\n_cfg.save(_ini)",
+      "inline": true
+    },
+    {
+      "name": "LV Config Remove",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Removes a setting from the LabVIEW INI file ([LabVIEW] section). Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/LV Config Remove.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "key",
+          "index": 7,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "key",
+          "description": "The name of the setting in the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "LV Config Remove.vi"
+      ],
+      "imports": [
+        "from .ini import IniFile",
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "errors": [
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
+        }
+      ],
+      "python_code": "_ini = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'\n_cfg = IniFile(interpolation=None, delimiters=('=',), strict=False)\n_cfg.optionxform = str\n_cfg.load(_ini)\n_name = next((_k for _k in (_cfg['LabVIEW'] if _cfg.has_section('LabVIEW') else []) if _k.casefold() == {key}.casefold()), None)\nif _name is not None:\n    _cfg.remove_option('LabVIEW', _name)\n    _cfg.save(_ini)",
+      "inline": true
+    },
+    {
+      "name": "Get LabVIEW Preferences (INI) File Path",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "Returns the path of the LabVIEW INI file. Sources (public): the terminals are the labels and types the corpus callers' call nodes record (the VI itself is in LabVIEW's resource folder, not in the corpus); NI forum 'Add a preference page to LabVIEW options dialog' (forums.ni.com, thread 4032547) names lvconfig.llb as the VIs that store settings in the LabVIEW INI file; the file's text rules (strings quoted with doubled backslashes and \\XX control codes, TRUE/FALSE, names equal ignoring case) are those documented by the lvconfig project (github.com/JaviLianes8/lvconfig); NI's Configuration File VIs return the default when a key is missing. Section name (public): labviewwiki.org 'Including ini settings' says \"If you look at the LabVIEW.INI file you will see that the section name is [LabVIEW]\" and that a built application's ini must name its section after the application (\"change this to match your application. eg [myapp]\"). Generated Python keeps the settings in a LabVIEW.ini beside the generated package's root, section [LabVIEW], through configparser; comments in an existing file are not kept when a key is written.",
+      "vi_path": "<resource>/dialog/lvconfig.llb/Get LabVIEW Preferences (INI) File Path.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "LabVIEW Preferences (INI) File Path",
+          "index": 3,
+          "direction": "output",
+          "type": "Path",
+          "enum_values": null,
+          "python_param": "labview_preferences_ini_file_path",
+          "description": "The path of the LabVIEW INI file."
+        }
+      ],
+      "match_names": [
+        "Get LabVIEW Preferences (INI) File Path.vi"
+      ],
+      "imports": [
+        "import configparser",
+        "import re",
+        "import sys",
+        "from pathlib import Path"
+      ],
+      "python_code": "{labview_preferences_ini_file_path} = Path(sys.modules[__name__.partition('.')[0]].__file__).resolve().parent / 'LabVIEW.ini'",
+      "inline": true
+    },
+    {
+      "name": "compatOverwrite",
+      "doc_url": null,
+      "category": "File I/O",
+      "description": "The compatibility VI of the legacy file VIs (<vilib>/_oldvers/_oldvers.llb) that turns the old 'overwrite (F)' Boolean into the operation of Open/Create/Replace File. TRUE gives 4 (replace or create): the file is replaced without asking. FALSE gives 5 (replace or create with confirmation): an existing file is replaced only after the user confirms. Pane: the callers OpenG Write GIF File (Animated) and JKI Prompt Web Browser Path record output 0 'overwrite?' (an unsigned 16-bit enum) wired to the 'operation' input (index 10) of Open/Create/Replace File (primitive 8050) and input 1 'overwrite (F)' (Boolean, default FALSE). The maintainer's decision (2026-11-17): 'it allows the file to be overwritten'; the forum reports that the legacy Write Characters To File shows a Replace/Cancel dialog when the file exists (forums.ni.com/t5/LabVIEW/How-do-I-replace-a-file-using-Write-Characters-to-file-vi/td-p/21126). Open/Create/Replace File's operation values are NI's (Open/Create/Replace File Function page): 4 replace or create, 5 replace or create with confirmation.",
+      "vi_path": "<vilib>/_oldvers/_oldvers.llb/compatOverwrite.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "overwrite?",
+          "index": 0,
+          "direction": "output",
+          "type": "NumUInt16",
+          "enum_values": [
+            [
+              4,
+              "replace or create"
+            ],
+            [
+              5,
+              "replace or create with confirmation"
+            ]
+          ],
+          "python_param": "overwrite_operation",
+          "description": "The operation for Open/Create/Replace File: 4 (replace or create) when overwrite (F) is TRUE, 5 (replace or create with confirmation) when it is FALSE."
+        },
+        {
+          "name": "overwrite (F)",
+          "index": 1,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "overwrite",
+          "description": "overwrite (F) is TRUE to replace an existing file without asking; FALSE (the default) asks the user to confirm.",
+          "default": false
+        }
+      ],
+      "match_names": [
+        "compatOverwrite.vi"
+      ],
+      "python_code": "{overwrite_operation} = 4 if {overwrite} else 5",
+      "inline": true
     }
   ]
 }

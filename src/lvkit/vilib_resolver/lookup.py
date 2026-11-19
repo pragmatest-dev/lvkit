@@ -4,11 +4,48 @@ from __future__ import annotations
 
 from typing import Any
 
+from lvkit.catalog_stamp import vi_file_name
 from lvkit.library_folders import is_symbolic_root
 from lvkit.models import LVType, LVTypeKind
 
 from .models import VIEntry
 from .naming import derive_python_name, selector_key
+
+_ROOT_CLASSES = {
+    "<vilib>": "vilib",
+    "vi.lib": "vilib",
+    "<userlib>": "userlib",
+    "user.lib": "userlib",
+    "<instrlib>": "instrlib",
+    "instr.lib": "instrlib",
+    "<resource>": "resource",
+}
+
+
+def catalog_path_key(path: str | None) -> tuple[str, ...]:
+    """A VI's path in an installation folder as one comparable key: the folder it
+    is in (``<vilib>`` and ``vi.lib`` are one folder; a path with no folder is
+    relative to vi.lib), then the names below it, case-folded."""
+    tokens = [t.casefold() for t in (path or "").replace("\\", "/").split("/") if t]
+    root = _ROOT_CLASSES.get(tokens[0]) if tokens else None
+    if root is None:
+        return ("vilib", *tokens)
+    return (root, *tokens[1:])
+
+
+def _is_other_vi(entry: VIEntry, file_name: str, recorded_path: str | None) -> bool:
+    """Whether ``entry``, found by ``file_name``, records a path of its own that
+    ``recorded_path`` does not follow: the entry's folder and the names below it
+    must all be in the recorded path, in order (a library file sits inside the
+    ``.llb`` or ``.lvlib`` a catalog path may leave out). An entry with no path, or
+    one listed under a second name of its own, is not told apart from a VI of that
+    name."""
+    if not entry.vi_path or entry.vi_path.replace("\\", "/").rsplit("/", 1)[-1] != (
+        file_name
+    ):
+        return False
+    wanted = iter(catalog_path_key(recorded_path))
+    return not all(token in wanted for token in catalog_path_key(entry.vi_path))
 
 
 class _VILibLookupMixin:
@@ -74,11 +111,27 @@ class _VILibLookupMixin:
 
     def resolve_recorded(self, recorded_path: str | None) -> VIEntry | None:
         """The catalog entry for the VI a call records ``recorded_path`` for
-        (``<vilib>/Utility/error.llb/General Error Handler.vi``), matched by the
-        path's file name. None when the path is not in an installation folder, or
-        when the call records no path."""
+        (``<vilib>/Utility/error.llb/General Error Handler.vi``). An entry that
+        records its own path describes only the VI at that path: another VI of the
+        same file name (a library's own ``Start Server.vi``) is not it. An entry
+        with no path is found by the path's file name. None when the path is not in
+        an installation folder, or when the call records no path."""
         file_name = self.catalog_file_name(recorded_path)
-        return None if file_name is None else self._by_name.get(file_name)
+        if file_name is None:
+            return None
+        return self._entry_at(file_name, recorded_path)
+
+    def _entry_at(self, file_name: str, recorded_path: str | None) -> VIEntry | None:
+        """The entry listed under ``file_name`` when it describes the VI at
+        ``recorded_path``; None when it is another VI's."""
+        # A call can record a library VI by its name without the file extension
+        # (``<vilib>/picture/picture.llb/Empty Picture``).
+        entry = self._by_name.get(file_name) or self._by_name.get(
+            vi_file_name(file_name)
+        )
+        if entry is None or not _is_other_vi(entry, file_name, recorded_path):
+            return entry
+        return None
 
     def resolve_call(
         self,
@@ -104,7 +157,7 @@ class _VILibLookupMixin:
             variant = self.resolve_poly_variant(poly_name, poly_variant_name)
             if variant is not None or not wrapper_fallback:
                 return variant
-        return self._by_name.get(base_name)
+        return self._entry_at(base_name, recorded_path)
 
     def resolve_poly_variant(
         self, base_name: str, selector_name: str

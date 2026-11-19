@@ -8,7 +8,9 @@ and every second one after). The rules for the text are in
 ``codegen/labview_scan.py``: the format string, written on the diagram or
 LabVIEW's default for the outputs' types, is turned into one ``re`` pattern while
 generating, and each output is its group's text converted to the output's type.
-A format string wired at run time has no pattern to write and is a gap.
+A format string wired from a value known only at run time is translated by the
+same code when the code runs: ``scan_text`` of the package's ``scan`` module
+(``codegen/scan_module.py``, whose source is copied from ``labview_scan.py``).
 
 A scan that stops before an output leaves that output at its default and its
 error out the "Scan failed" error 85, whose source NI gives as
@@ -30,12 +32,14 @@ from ..error_flow import own_error_terminals
 from ..errors_module import LABVIEW_ERROR_NAME
 from ..fragment import CodeFragment
 from ..labview_scan import (
+    ScanPlan,
     default_format,
     field_count,
     scan_pieces,
     scan_plan,
 )
 from ..output_binding import bind_output
+from ..scan_module import SCAN_FUNCTION_NAME
 from ..type_default import type_default
 from .ops._numeric import FormatKind, format_kind
 from .printf import literal_text
@@ -86,19 +90,26 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         return ctx.wired_input(terminal.id, node) or "None"
 
     kinds = [format_kind(t.lv_type) for t in scanned]
-    pieces = scan_pieces(_format_text(node, wired(_FORMAT_INDEX), kinds))
-    if field_count(pieces) != len(scanned):
-        raise ConversionGap(
-            f"The format string of Scan From String has {field_count(pieces)} "
-            f"specifiers and the node has {len(scanned)} outputs",
-            node,
-        )
-    try:
-        plan = scan_plan(pieces, kinds)
-    except ValueError as reason:
-        raise ConversionGap(str(reason), node) from None
-
-    ctx.add_import("import re")
+    format_value = wired(_FORMAT_INDEX)
+    format_text = _format_text(node, format_value, kinds)
+    plan: ScanPlan | None = None
+    if format_text is not None:
+        pieces = scan_pieces(format_text)
+        if field_count(pieces) != len(scanned):
+            raise ConversionGap(
+                f"The format string of Scan From String has {field_count(pieces)} "
+                f"specifiers and the node has {len(scanned)} outputs",
+                node,
+            )
+        try:
+            plan = scan_plan(pieces, kinds)
+        except ValueError as reason:
+            raise ConversionGap(str(reason), node) from None
+        ctx.add_import("import re")
+        for statement_import in plan.imports:
+            ctx.add_import(statement_import)
+    else:
+        ctx.import_scan()
     fragment = CodeFragment()
     text = parse_expr(wired(_INPUT_INDEX) or "''")
     if not isinstance(text, ast.Name | ast.Constant):
@@ -116,16 +127,23 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         if initial is not None
         else text
     )
-    fragment.statements.append(
-        build_assign(
-            scan,
-            ast.Call(
-                func=parse_expr("re.match"),
-                args=[ast.Constant(value=plan.pattern), start],
-                keywords=[],
-            ),
+    if plan is not None:
+        scan_call = ast.Call(
+            func=parse_expr("re.match"),
+            args=[ast.Constant(value=plan.pattern), start],
+            keywords=[],
         )
-    )
+    else:
+        scan_call = ast.Call(
+            func=parse_expr(SCAN_FUNCTION_NAME),
+            args=[
+                parse_expr(format_value or "''"),
+                start,
+                parse_expr(repr(tuple(tuple(kind) for kind in kinds))),
+            ],
+            keywords=[],
+        )
+    fragment.statements.append(build_assign(scan, scan_call))
     end = f"{scan}.end()" if initial is None else f"{initial} + {scan}.end()"
     _bind_positions(node, ctx, fragment, ast.unparse(text), end)
     for position, terminal in enumerate(scanned):
@@ -138,11 +156,18 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             if default is not None
             else type_default(ctx, terminal.lv_type)
         )
-        value = ast.IfExp(
-            test=parse_expr(f"{group} is not None"),
-            body=parse_expr(plan.values[position].format(g=group)),
-            orelse=default_expr,
-        )
+        if plan is None:
+            value: ast.expr = parse_expr(
+                f"{scan}.value({position}, {ast.unparse(default_expr)})"
+            )
+        else:
+            value = ast.IfExp(
+                test=parse_expr(f"{group} is not None"),
+                body=parse_expr(
+                    plan.values[position].format(g=group, d=ast.unparse(default_expr))
+                ),
+                orelse=default_expr,
+            )
         fragment.extend(
             bind_output(node, terminal.id, terminal.name or "scanned", value, ctx)
         )
@@ -152,22 +177,16 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
 def _format_text(
     node: PrimitiveNode, format_value: str | None, kinds: list[FormatKind]
-) -> str:
+) -> str | None:
     """The format string: the one written on the diagram, else LabVIEW's default
-    for the outputs' types."""
+    for the outputs' types; None for one wired from a value known only when the
+    code runs."""
     if format_value is None:
         try:
             return default_format(kinds)
         except ValueError as reason:
             raise ConversionGap(str(reason), node) from None
-    text = literal_text(format_value)
-    if text is None:
-        raise ConversionGap(
-            "The format string of Scan From String is wired from a value that is "
-            "only known when the code runs",
-            node,
-        )
-    return text
+    return literal_text(format_value)
 
 
 def _bind_positions(

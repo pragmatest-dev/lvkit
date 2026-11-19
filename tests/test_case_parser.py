@@ -717,3 +717,56 @@ def test_an_unlinked_copy_of_a_used_table_is_not_paired_by_position():
     a, b = extract_case_structures(root, ti, tables, table_index_shift=4)
     assert [f.selector_value for f in a.frames] == ["Default", "1", "4"]
     assert all(f.selector_ranges == [] for f in b.frames)
+
+
+class TestStringRangeFrames:
+    """``"/", "0".."9"`` as Text to Timestamp.vi stores it: strings
+    ``/ 0 9`` and the range entry (1, 2) with both ends literal."""
+
+    def _case(self):
+        root = _build_case_xml(
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0, 1), (1, 2, 2)],
+            string_array=["2F", "30", "39"],
+            default_diag=0,
+            num_diags=3,
+            range_types=[(0, 0), (1, 1)],
+        )
+        return extract_case_structures(root, _make_terminal_info("sel1", "String"))[0]
+
+    def test_a_range_is_not_its_two_end_strings(self):
+        frames = self._case().frames
+        assert frames[2].selector_strings == []
+        assert [(r.start, r.end) for r in frames[2].selector_string_ranges] == [
+            ("0", "9")
+        ]
+        assert frames[2].selector_value == "0..9"
+
+    def test_a_single_string_beside_the_range_stays_single(self):
+        frames = self._case().frames
+        assert frames[1].selector_strings == ["/"]
+        assert frames[1].selector_string_ranges == []
+        assert [f.selector_value for f in frames] == ["Default", "/", "0..9"]
+
+
+class TestOpenRangeOfOneValue:
+    def test_an_open_ended_range_of_an_integer_case_is_a_range_not_a_no_error_point(
+        self,
+    ):
+        """``45..`` is stored as (45, 45) with the end open. Only an error
+        selector reads that shape as its "No Error" point."""
+        root = _build_case_xml(
+            "cs1",
+            "sel1",
+            select_ranges=[(0, 0), (45, 45, 1)],
+            default_diag=2,
+            num_diags=3,
+            range_types=[(0, 0), (1, 3)],
+        )
+        cs = extract_case_structures(root, _make_terminal_info("sel1", "NumInt32"))[0]
+        assert [f.selector_value for f in cs.frames] == ["0", "45", "Default"]
+        assert [(r.start, r.open_end) for r in cs.frames[1].selector_ranges] == [
+            (45, True)
+        ]
+        assert not cs.frames[1].is_no_error

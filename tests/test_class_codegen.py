@@ -1210,14 +1210,14 @@ def test_a_free_vi_that_holds_a_class_makes_the_class_import_lazily(
 
 
 def test_a_member_in_a_subfolder_is_found_from_the_folder_of_its_module() -> None:
-    from lvkit.codegen.nodes.vi_reference import _path_from
+    from lvkit.codegen.computed_path import path_from
 
     assert (
-        _path_from(object(), "/p/Cls/private/X.vi", "/p/Cls/Cls.lvclass")
+        path_from(object(), "/p/Cls/private/X.vi", "/p/Cls/Cls.lvclass")
         == "private/X.vi"
     )
     assert (
-        _path_from(object(), "/p/Other/Y.vi", "/p/Cls/Cls.lvclass") == "../Other/Y.vi"
+        path_from(object(), "/p/Other/Y.vi", "/p/Cls/Cls.lvclass") == "../Other/Y.vi"
     )
 
 
@@ -2055,14 +2055,19 @@ class Service:
     assert_method_imports_are_read(written)
     out = tmp_path / "pkg"
     out.mkdir()
-    (out / "__init__.py").write_text("")
-    (out / "errors.py").write_text("class LabVIEWError(Exception):\n    pass\n")
-    write_support_modules(out)
-    (out / "helper.py").write_text("def helper(x):\n    return x + 1\n")
-    (out / "typedefs.py").write_text(
-        "from typing import NamedTuple\nclass Annotation(NamedTuple):\n    name: str\n"
+    (out / "__init__.py").write_text("", encoding="utf-8")
+    (out / "errors.py").write_text(
+        "class LabVIEWError(Exception):\n    pass\n", encoding="utf-8"
     )
-    (out / "service.py").write_text(written + "\n")
+    write_support_modules(out)
+    (out / "helper.py").write_text(
+        "def helper(x):\n    return x + 1\n", encoding="utf-8"
+    )
+    (out / "typedefs.py").write_text(
+        "from typing import NamedTuple\nclass Annotation(NamedTuple):\n    name: str\n",
+        encoding="utf-8",
+    )
+    (out / "service.py").write_text(written + "\n", encoding="utf-8")
     with Package(out, {"service": written}, []).use() as module:
         service = module("service").Service()
         assert service.stop() == 2

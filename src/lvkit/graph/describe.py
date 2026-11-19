@@ -11,15 +11,22 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from ..models import (
+    MAP_ACCESS_NODE_TYPE,
     CaseFrame,
     FPTerminal,
     LVType,
     LVTypeKind,
+    SavedTag,
     ScalarValue,
     Terminal,
     TunnelTerminal,
 )
 from ..parser.constants import NODE_CLASS_EXPRESSION
+from ..parser.flags import (
+    ENABLE_STATE_DISABLED,
+    ENABLE_STATE_GREYED_OUT,
+    MECHANICAL_ACTION_NAMES,
+)
 from ..parser.node_types import get_display_name
 from ..path_value import is_path_text
 from ..vi_files import strip_vi_extension
@@ -123,6 +130,10 @@ def describe_vi(
     # emergent state, not a user setting). Terse: shown only when broken;
     # verbose (-v): every field shown, healthy or not.
     lines.extend(_describe_health(ctx, show_all=verbose))
+
+    # The tags the VI saves with its file (its ``VITS`` block): shown whenever it
+    # saves any.
+    lines.extend(_describe_tags(graph.get_vi_tags(vi_name)))
 
     # Connector pane, in canonical order (errors last, Required first, then pane
     # geometry). Terse: unmarked is the baseline; only the exceptions annotate --
@@ -327,6 +338,15 @@ def _pane_terminal_line(t: Terminal, direction: str, verbose: bool) -> str:
         line += f" (caption {lvnet_literal_token(caption)})"
     if is_required(t, direction):
         line += " (required)"
+    if isinstance(t, FPTerminal):
+        if t.starts_hidden:
+            line += " (hidden)"
+        if t.enable_state == ENABLE_STATE_DISABLED:
+            line += " (disabled)"
+        elif t.enable_state == ENABLE_STATE_GREYED_OUT:
+            line += " (disabled and grayed out)"
+        if t.mechanical_action:
+            line += f" ({MECHANICAL_ACTION_NAMES[t.mechanical_action].lower()})"
     line += default_suffix(t.default_value, t.lv_type)
     if verbose and t.index is not None and t.index >= 0:
         line += f" [idx {t.index}]"
@@ -455,6 +475,8 @@ def _is_ipes_border_node(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
     like tunnels, not in its body."""
     if graph._graph.nodes.get(node.id, {}).get("poser_uid") is None:
         return False
+    if getattr(node, "node_type", None) == MAP_ACCESS_NODE_TYPE:
+        return True
     has_list_out = any(
         t.nmux_role == "list" and t.direction == "output" for t in node.terminals
     )
@@ -572,6 +594,27 @@ def _describe_health(ctx: VIContext, *, show_all: bool = False) -> list[str]:
         if show_all or val:
             lines.append(f"  {f.name}: {bool_str(val)}")
     lines.append(f"  is_broken: {bool_str(health.is_broken)}")
+    lines.append("")
+    return lines
+
+
+def _describe_tags(tags: list[SavedTag]) -> list[str]:
+    """The ``## Tags`` section: each tag the VI saves as ``name: type = value``
+    (``name: Variant()`` for an empty Variant, ``name: (not decoded: <reason>)``
+    for a value lvkit does not read); nothing when it saves none."""
+    if not tags:
+        return []
+    lines = ["## Tags"]
+    for tag in tags:
+        if tag.value is None:
+            lines.append(f"  {tag.name}: (not decoded: {tag.undecoded})")
+            continue
+        type_text = tag.type_text()
+        lines.append(
+            f"  {tag.name}: {type_text} = {tag.value_text()}"
+            if type_text is not None
+            else f"  {tag.name}: Variant()"
+        )
     lines.append("")
     return lines
 

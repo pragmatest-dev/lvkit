@@ -250,6 +250,13 @@
           "exception": "error",
           "module": "struct",
           "code": 116
+        },
+        {
+          "exception": "FlattenedClassError",
+          "base": "Exception",
+          "code": 1403,
+          "code_attribute": "code",
+          "only_with_class": true
         }
       ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/unflatten-from-string.html",
@@ -335,13 +342,9 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "high": "in_0 >> 16",
-        "low": "in_0 & 0xFFFF"
-      },
-      "inline": true,
+      "op": "SPLIT_NUMBER",
       "verified": false,
-      "note": "1in/2out array→array+array. Could be Split Number or type-specific split. Unconfirmed."
+      "note": "Split Number: hi(x) and lo(x) are the upper and lower halves of the input integer, each an unsigned integer of half its width (NI's page); emitted via the SPLIT_NUMBER op handler, which reads the width from the input terminal's type."
     },
     "1171": {
       "name": "Join Numbers",
@@ -366,11 +369,9 @@
           "type": "NumUInt16"
         }
       ],
-      "python_code": {
-        "hilo": "(in_2 << ((in_1).bit_length() or 8)) | in_1"
-      },
+      "op": "JOIN_NUMBERS",
       "verified": true,
-      "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result."
+      "note": "operand order corrected from nodes.json terminal geometry (#59); confirmed against pylabview terminal_info in corpus -- old indices had x/y swapped, inverting the result. Emitted via the JOIN_NUMBERS op handler, which shifts hi up by the width of the widest input (NI's page) and joins arrays element by element."
     },
     "1606": {
       "name": "Rotate Left With Carry",

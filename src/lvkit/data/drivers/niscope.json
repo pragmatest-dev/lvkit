@@ -268,7 +268,7 @@
     },
     {
       "name": "niScope Configure Horizontal Timing.vi",
-      "description": "Configures horizontal timing.",
+      "description": "Configures horizontal timing. Unwired defaults as NI documents them (ni-scope-labview-api-ref, instr-lib/niscope/niscope-llb/niscope-configure-horizontal-timing-vi.html): number of records 1, min sample rate 20 MS/s, min record length 1000, reference position 50%, enforce realtime TRUE.",
       "python_code": "{session}.configure_horizontal_timing(min_sample_rate={min_sample_rate}, min_num_pts={min_num_pts}, ref_position={ref_position}, num_records={num_records}, enforce_realtime={enforce_realtime})",
       "inline": true,
       "imports": [
@@ -284,27 +284,32 @@
         {
           "name": "min sample rate",
           "direction": "input",
-          "python_param": "min_sample_rate"
+          "python_param": "min_sample_rate",
+          "default": 20000000.0
         },
         {
           "name": "min record length",
           "direction": "input",
-          "python_param": "min_num_pts"
+          "python_param": "min_num_pts",
+          "default": 1000
         },
         {
           "name": "reference position",
           "direction": "input",
-          "python_param": "ref_position"
+          "python_param": "ref_position",
+          "default": 50.0
         },
         {
           "name": "number of records",
           "direction": "input",
-          "python_param": "num_records"
+          "python_param": "num_records",
+          "default": 1
         },
         {
           "name": "enforce realtime",
           "direction": "input",
-          "python_param": "enforce_realtime"
+          "python_param": "enforce_realtime",
+          "default": true
         },
         {
           "name": "instrument handle out",

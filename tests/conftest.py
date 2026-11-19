@@ -17,6 +17,7 @@ from .helpers import (
     make_ctx,
     make_graph_with_terminals,
 )
+from .time_zone import time_zone  # noqa: F401  (a fixture)
 
 # The sample VI corpus is local-only (gitignored, pulled via
 # scripts/pull_samples.sh) — never committed and absent on a fresh clone or a CI

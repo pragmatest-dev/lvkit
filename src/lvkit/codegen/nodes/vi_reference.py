@@ -12,7 +12,8 @@ it holds is found when the code is generated, not when it runs:
   forgotten call on a daemon thread;
 - Close Reference of any reference generates nothing;
 - the Name and Path properties of a VI reference are the function's own
-  ``__name__`` and file, and its Description is the function's docstring
+  ``vi_name`` (the VI's qualified name, ``call_chain.vi_name_statement``) and
+  file, and its Description is the function's docstring
   (``vi_property_read``).
 
 A reference to a member VI of a class is ``Class.method`` and the call passes
@@ -31,8 +32,6 @@ error in and error out are a parameter and a result of the call like any other.
 from __future__ import annotations
 
 import ast
-import os
-import posixpath
 import textwrap
 from dataclasses import dataclass, field
 from enum import IntEnum
@@ -73,6 +72,7 @@ from ..class_model import (
     not_a_method,
     python_class_name,
 )
+from ..computed_path import PATH_FROM_HERE, computed_path_module_key, path_from
 from ..context import CodeGenContext
 from ..error_flow import assigned_names, output_defaults, own_error_terminals
 from ..errors import CodeGenError
@@ -81,13 +81,17 @@ from ..import_resolver import ImportResolver
 from ..native_failure import labview_error
 from ..pane_candidates import CallForm, candidates
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
-from . import method_call, primitive, subvi
+from . import front_panel_bounds, front_panel_title, method_call, primitive, subvi
+from .call_chain import VI_NAME_ATTRIBUTE
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
 CLOSE_REFERENCE_PRIM_ID = 8011
 
 # NI, General LabVIEW Error Codes: 1026 "VI Reference is invalid."
 INVALID_VI_REFERENCE_CODE = 1026
+
+# NI, General LabVIEW Error Codes: 7 "File not found."
+FILE_NOT_FOUND_CODE = 7
 
 # Open VI Reference options: bit 0x80 opens the VI to be called and forgotten.
 CALL_AND_FORGET = 0x80
@@ -506,10 +510,7 @@ def _function_name(stem):
     return name
 """.replace("{modules}", repr(sorted(GENERATED_MODULE_NAMES)))
 
-_IMPORT_BY_PATH = """\
-{here} = os.path.dirname(__file__)
-{path} = os.path.join({here}, os.fspath({value}).replace("\\\\", "/"))
-{rel} = os.path.relpath({path}, {here}).replace(os.sep, "/")
+_IMPORT_BY_PATH = PATH_FROM_HERE + """\
 {parts} = {rel}.split("/")
 {up} = 0
 while {parts}[0] == "..":
@@ -521,7 +522,7 @@ while {parts}[0] == "..":
 
 _IMPORT_BY_NAME = """\
 {owner}, _, {stem} = {value}.rpartition(":")
-{package} = {owners}[{owner}]
+{package} = {owners}[{owner}] if {owner} else {unowned}[{stem}]
 """
 
 # A VI a class lists is a method of the class, found by the name or the path
@@ -538,7 +539,9 @@ else:
 
 _IMPORT_MODULE = """\
 {suffix} = ""
-if {stem}.lower().endswith((".vi", ".vim", ".vit")):
+if {stem}.endswith(".py"):
+    {stem} = {stem}[:-3]
+elif {stem}.lower().endswith((".vi", ".vim", ".vit")):
     {stem}, {suffix} = {stem}.rsplit(".", 1)
     {suffix} = {{"vim": "_vim", "vit": "_vit"}}.get({suffix}.lower(), "")
 {module} = importlib.import_module(
@@ -592,7 +595,7 @@ def _generate_lookup(
     names["member"] = f"{reference_var}_member"
     has_members = bool(ctx.graph.class_members())
     if by_name:
-        names["owners"] = _owners_table(node, ctx)
+        names["owners"], names["unowned"] = _owners_tables(ctx)
         locate = _IMPORT_BY_NAME
         ctx.add_import("import importlib")
     else:
@@ -622,7 +625,55 @@ def _generate_lookup(
         text = head + _CLASS_MEMBER.format(**names) + textwrap.indent(rest, "    ")
     statements = ast.parse(text).body
     bindings = {reference.id: reference_var} if reference is not None else {}
-    return CodeFragment(statements=statements, bindings=bindings)
+    fragment = CodeFragment(statements=statements, bindings=bindings)
+    _, error_outs = own_error_terminals(node, ctx)
+    if not any(ctx.is_wired(term.id) for term in error_outs):
+        # With nowhere to put an error, a name or path that finds no VI stays
+        # the lookup's own exception, as a native failure does
+        # (``native_failure``).
+        return fragment
+    return _not_found_is_error_7(node, ctx, fragment, reference_var, value)
+
+
+def _not_found_is_error_7(
+    node: PrimitiveNode,
+    ctx: CodeGenContext,
+    fragment: CodeFragment,
+    reference_var: str,
+    value: str,
+) -> CodeFragment:
+    """``fragment``, the lookup of a computed VI name or path, with a name or
+    path that finds no VI in the project made the node's own error 7, "File not
+    found.", and the reference Not a Refnum. NI, Open VI Reference: "If a
+    matching VI is not found in memory, LabVIEW then tries to load the VI from
+    that file on disk. An error occurs if LabVIEW cannot find the file." (7 is
+    NI's General LabVIEW Error Code for a file not found.)"""
+    own_error = ctx.make_output_var("own_error", node.id)
+    ctx.import_labview_error()
+    not_found = labview_error(
+        FILE_NOT_FOUND_CODE,
+        _label(node),
+        f"'the VI ' + repr({value}) + ' is not in memory and has no file'",
+    )
+    fragment.statements = [
+        ast.Try(
+            body=fragment.statements,
+            handlers=[
+                ast.ExceptHandler(
+                    type=parse_expr("LookupError"),
+                    name=None,
+                    body=[
+                        build_assign(reference_var, parse_expr("None")),
+                        build_assign(own_error, not_found),
+                    ],
+                )
+            ],
+            orelse=[build_assign(own_error, parse_expr("None"))],
+            finalbody=[],
+        )
+    ]
+    fragment.own_error = own_error
+    return fragment
 
 
 def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
@@ -631,16 +682,9 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
     that a diagram can compute, each with its class's module spec, its class's
     name and its method's name. A member the catalog gives Python for is no
     method of its class and is not listed."""
-    assert ctx.graph is not None and ctx.vi_name is not None
+    assert ctx.graph is not None
     resolver = ctx.import_resolver
-    # A path computed when the code runs is read from the folder of the module
-    # being written (the resolver's ``module_key``: a class, a polymorphic VI,
-    # the VI itself).
-    module_key = (
-        resolver.module_key
-        if isinstance(resolver, ImportResolver) and resolver.module_key
-        else ctx.graph.owning_class_key(ctx.vi_name) or ctx.vi_name
-    )
+    module_key = computed_path_module_key(ctx)
     entries: dict[str, tuple[str, str, str]] = {}
     for name, key, class_key in ctx.graph.class_members():
         shape = member_shape(ctx.graph, key)
@@ -660,7 +704,7 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
         class_name = python_class_name(class_key)
         entry = (module, class_name, run_time_name(class_name, shape.name))
         entries[name] = entry
-        entries[_path_from(resolver, key, module_key)] = entry
+        entries[path_from(resolver, key, module_key)] = entry
     ctx.add_module_global(
         "_class_members",
         ast.Dict(
@@ -676,39 +720,33 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
     )
 
 
-def _path_from(resolver: object, key: str, module_key: str) -> str:
-    """The path of the file ``key`` from the folder of the module generated for
-    ``module_key``, both by the project-relative paths modules are placed by."""
-    if isinstance(resolver, ImportResolver):
-        member = resolver.shown(key)
-        folder = posixpath.dirname(resolver.shown(module_key))
-        return posixpath.relpath(member, folder or ".")
-    return Path(os.path.relpath(key, os.path.dirname(module_key))).as_posix()
-
-
-def _owners_table(node: PrimitiveNode, ctx: CodeGenContext) -> str:
-    """The module-level dictionary from each owner's full delimited name to the
-    package holding the modules of its VIs, as the start of an import spec
-    (the dots, then the dotted package and a final dot)."""
+def _owners_tables(ctx: CodeGenContext) -> tuple[str, str]:
+    """The module-level dictionaries from each owner's full delimited name, and from
+    each VI that no library or class owns (its ``Name.vi``), to the package holding
+    the modules of its VIs, as the start of an import spec (the dots, then the
+    dotted package and a final dot)."""
     assert ctx.graph is not None
     resolver = ctx.import_resolver
-    owners = ctx.graph.owner_files()
-    table = "_vi_owners"
-    ctx.add_module_global(
-        table,
-        ast.Dict(
-            keys=[ast.Constant(value=name) for name in owners],
-            values=[
-                ast.Constant(
-                    value=resolver.package_spec(key)
-                    if isinstance(resolver, ImportResolver)
-                    else "."
-                )
-                for key in owners.values()
-            ],
-        ),
+    tables = (
+        ("_vi_owners", ctx.graph.owner_files()),
+        ("_vi_unowned", ctx.graph.unowned_vi_files()),
     )
-    return table
+    for table, files in tables:
+        ctx.add_module_global(
+            table,
+            ast.Dict(
+                keys=[ast.Constant(value=name) for name in files],
+                values=[
+                    ast.Constant(
+                        value=resolver.package_spec(key)
+                        if isinstance(resolver, ImportResolver)
+                        else "."
+                    )
+                    for key in files.values()
+                ],
+            ),
+        )
+    return tables[0][0], tables[1][0]
 
 
 def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:
@@ -729,19 +767,32 @@ def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:
 
 
 def vi_property_read(
-    node: PrimitiveNode, prop: PropertyDef, reference: str, ctx: CodeGenContext
+    node: PrimitiveNode,
+    prop: PropertyDef,
+    reference: str,
+    ctx: CodeGenContext,
+    lv_type: LVType | None = None,
 ) -> ast.expr | None:
     """The read of a property of a VI reference as Python reads it from the
-    function: Name is the function's name, Path its file, Description its
+    function: Name is its ``vi_name`` (NI, VI Name: "If a LabVIEW project library
+    owns the VI, the property returns the qualified name of the VI"), Path its
+    file, Description its
     docstring (the VI's description), Exec.State the state of its front panel
-    (``Panel.state``: 1 Idle, 2 Run top level while it runs).
+    (``Panel.state``: 1 Idle, 2 Run top level while it runs), Front Panel
+    Window:Title its ``window_title`` (``front_panel_title``), Front Panel
+    Window:Window Bounds its ``window_bounds`` as the cluster ``lv_type`` of the
+    property's terminal (``front_panel_bounds``).
     None for a property of another class, or one with no such reading. The
     imports the read needs are added to ``ctx``."""
     if not is_on_vi_reference(node) or len(prop.segments) != 1:
         return None
+    if front_panel_title.is_title_row(prop):
+        return front_panel_title.read(reference)
+    if front_panel_bounds.is_bounds_row(prop):
+        return front_panel_bounds.read(reference, lv_type, node, ctx)
     code = prop.segments[0].code
     if code == VI_NAME_PROPERTY_CODE:
-        return parse_expr(f"{reference}.__name__")
+        return parse_expr(f"{reference}.{VI_NAME_ATTRIBUTE}")
     if code == VI_PATH_PROPERTY_CODE:
         ctx.add_import("import inspect")
         return parse_expr(f"inspect.getfile({reference})")

@@ -91,6 +91,7 @@ def _run_pkg(vi_rel: str, **kwargs: object) -> Any:
         [sys.executable, str(_GEN), str(vi), "-o", str(outdir),
          "--userlib", str(OPENG_USERLIB)],
         capture_output=True, text=True, timeout=180, check=False,
+        encoding="utf-8",
     )
     assert proc.returncode in (0, 3), (  # written: complete, or with gaps
         f"generation failed:\n{proc.stdout}\n{proc.stderr}"
@@ -286,8 +287,8 @@ def test_get_header_from_td_builds_cluster() -> None:
     mutable attribute object) and the bundle materializing one variable instead
     of mutating a throwaway per statement."""
     vi = "lvdata/lvdata.llb/Get Header from TD__ogtk.vi"
-    # The TD array holds (length-source, packed private|type, # elements)
-    r = _run_leaf(vi, [5, (7 << 16) | 9, 11])
+    # The TD array holds (length, I16 packing the U8 private and U8 type, # elements)
+    r = _run_leaf(vi, [5, (7 << 8) | 9, 11])
     h = r.type_descriptor_header
     assert (h.length, h.private, h.type_, h._elements) == (5, 7, 9, 11)
 

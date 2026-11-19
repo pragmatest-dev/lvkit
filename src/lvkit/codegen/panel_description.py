@@ -28,6 +28,25 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
 - ``types`` and ``variants``: the type of each control and indicator that has a
   type-descriptor code, and the names of those that are Variants
   (``panel_types``);
+- ``states``: the name of each control or indicator the file stores hidden, disabled
+  or greyed out to its properties by member name (``{"x": {"visible": False}}``),
+  what a panel starts the control in (``control_property_state.stored_states``);
+- ``saved``: the name of each control or indicator that has a property the file saves
+  and a running VI cannot change to those properties by member name
+  (``{"e": {"strings": ["a", "b"]}, "b": {"mech_action": 4}}``: an Enum's items, a
+  Boolean's Mechanical Action when it is not Switch When Pressed,
+  ``control_property_state.saved_properties``), what a reference's ``get_property``
+  reads;
+- ``elements``: the name of each array control or indicator to the element its Array
+  Element property is a reference to, ``(class, front_panel_class, saved)``: the
+  element's VI Server class name (None when it has none), its front-panel class
+  when it has no VI Server class, and the properties it is saved with, as ``saved``
+  above;
+- ``classes``: the name of each control or indicator whose front-panel class has a
+  VI Server class to that class's name (``FPTerminal.vi_server_class``), what its
+  reference's ClassID reads (``control_classes``), and ``front_panel_classes``: the
+  name of each control with no VI Server class to its front-panel class, which a
+  ClassID read names when it raises NotImplementedError;
 - ``order``: every name in the front panel's tabbing order (``FPTerminal.tab_index``,
   the object's place in the heap's ``ddoList``), left out when that is the controls
   and then the indicators in the order given above.
@@ -50,6 +69,13 @@ from lvkit.graph.models import VIContext
 from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import interface_names, parameter_default_expr, parse_expr
+from .control_property_state import (
+    StateValue,
+    element_saved_properties,
+    saved_properties,
+    state_expression,
+    stored_states,
+)
 from .panel_clusters import cluster_specs
 from .panel_names import panel_names
 from .panel_types import panel_type_keywords
@@ -159,7 +185,7 @@ def _tabbing_order(
 
 
 def _name_map(
-    keyword: str, entries: Iterable[tuple[str, str | None]]
+    keyword: str, entries: Iterable[tuple[str, str | int | None]]
 ) -> tuple[str, ast.Dict] | None:
     """``keyword={name: value}`` of the entries with a value (a label is "" for an
     object with none), None when there are none."""
@@ -169,6 +195,40 @@ def _name_map(
     return keyword, ast.Dict(
         keys=[ast.Constant(value=name) for name, _ in found],
         values=[ast.Constant(value=value) for _, value in found],
+    )
+
+
+def _member_dict(held: dict[str, StateValue]) -> ast.Dict:
+    """``{member: value}`` as a dict expression."""
+    return ast.Dict(
+        keys=[ast.Constant(value=member) for member in held],
+        values=[state_expression(v) for v in held.values()],
+    )
+
+
+def _property_dict(found: dict[str, dict[str, StateValue]]) -> ast.Dict:
+    """``{name: {member: value}}`` as a dict expression."""
+    return ast.Dict(
+        keys=[ast.Constant(value=name) for name in found],
+        values=[_member_dict(held) for held in found.values()],
+    )
+
+
+def _element_spec(terminal: FPTerminal) -> ast.Tuple:
+    """``(class, front_panel_class, saved)`` of the element of the array control
+    ``terminal``: its VI Server class name (None when the front-panel class has
+    none), its front-panel class when it has none (what a ClassID read names), and
+    the properties it is saved with (``element_saved_properties``)."""
+    class_name = terminal.element_vi_server_class
+    return ast.Tuple(
+        elts=[
+            ast.Constant(value=class_name),
+            ast.Constant(
+                value=terminal.element_control_type if class_name is None else None
+            ),
+            _member_dict(element_saved_properties(terminal)),
+        ],
+        ctx=ast.Load(),
     )
 
 
@@ -235,6 +295,57 @@ def panel_statements(
             )
         )
     objects = [*controls, *indicators, *passed]
+    for keyword, found in (
+        (
+            "states",
+            {
+                names[t.id]: stored
+                for t, _ in objects
+                if isinstance(t, FPTerminal) and (stored := stored_states(t))
+            },
+        ),
+        (
+            "saved",
+            {
+                names[t.id]: held
+                for t, _ in objects
+                if isinstance(t, FPTerminal) and (held := saved_properties(t))
+            },
+        ),
+    ):
+        if found:
+            keywords.append((keyword, _property_dict(found)))
+    fp_objects = [t for t, _ in objects if isinstance(t, FPTerminal)]
+    elements = {
+        names[t.id]: _element_spec(t) for t in fp_objects if t.element_control_type
+    }
+    if elements:
+        keywords.append(
+            (
+                "elements",
+                ast.Dict(
+                    keys=[ast.Constant(value=name) for name in elements],
+                    values=list(elements.values()),
+                ),
+            )
+        )
+    for entry in (
+        _name_map("classes", [(names[t.id], t.vi_server_class) for t in fp_objects]),
+        _name_map(
+            "front_panel_classes",
+            [
+                (names[t.id], t.control_type)
+                for t in fp_objects
+                if t.vi_server_class is None
+            ],
+        ),
+        _name_map(
+            "undecoded_strings",
+            [(names[t.id], t.undecoded_strings or None) for t in fp_objects],
+        ),
+    ):
+        if entry is not None:
+            keywords.append(entry)
     given = [names[t.id] for t, _ in objects]
     tabbing = _tabbing_order(names, objects)
     if tabbing != given:

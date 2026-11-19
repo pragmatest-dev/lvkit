@@ -21,6 +21,31 @@ those words as TRUE Boolean values. The function reads F, FALSE, OFF, or NO and
 any lowercase versions of those words as FALSE"; with a numeric code "any numeric
 value greater than 0.5" is TRUE.
 
+An enum output (Scan From String: "If you wire an enumerated type to default 1,
+the function finds substrings matching the string values in the enumerated type
+and returns the corresponding numeric value of the enumerated type"; Format
+Specifier Syntax gives ``%s`` for an enum, the item's label) reads the label of
+one item at the scan position. NI forum reports (forums.ni.com, "Scan From
+String Into Enum -- Exact Match Otherwise Error", t5/LabVIEW/td-p/3333885; "Find
+Enum Item from String Input", ta-p/3490889): text after the label is ignored
+("Oneasdf" gives One), text before it is an error, no matching item is error 85
+(the scan's usual failure here), and NI's knowledge base says the match is case
+sensitive. When one item's label starts another's NI's pages do not say which
+item the scan returns; the forum posts found say it "matches the longest string
+in the enum" (a reply on the "Exact Match" thread) and that the position of the
+item in the list made no difference in a test ("ThisIs" and "ThisIsnt"), while
+the original poster only feared the order might matter. The longest label is
+the recorded choice. An empty label is a gap (a forum report says an enum whose
+first item is empty fails to scan back).
+
+A complex output reads one real number into its real part, the imaginary part 0
+(a recorded deduction, the maintainer's decision, 2026-11-17: NI's Format Into
+String page: "For complex numeric data types, this function converts only the real
+component", and a scan reads what a format writes; an NI engineer on
+forums.ni.com, "Odd behavior with Error In for Scan From String function",
+m-p/3134009: "2+2" does not parse as 2+0i, the scan stops after "2"). With no
+format string it reads ``%f``, the code Format Into String writes it with.
+
 The pattern reads as far as the input matches: each specifier and the text
 before it sit in a group that is optional given the one before, so the number of
 specifiers scanned is the last group that matched, and a scan that stops early
@@ -33,21 +58,56 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .labview_format import _lv_decode_escapes, _lv_parse, _LvSpecifier
+from .labview_format import (
+    _lv_decode_escapes,
+    _lv_default_code,
+    _lv_parse,
+    _LvSpecifier,
+)
+from .labview_scan_time import time_scan
 
 if TYPE_CHECKING:
-    from .nodes.ops._numeric import FormatKind
+    from .labview_format import FormatKind
 
 # The conversion codes a scan reads: signed decimal, floating point (``f``, ``g``
 # and ``e`` read the same text), hexadecimal and string.
-_CODES = "dfgexs"
+_CODES = "dfgexsp"
+# The SI prefix letters ``%p`` reads and the power of ten each stands for (NI's
+# pages do not list them; the letters are the SI prefixes, with ``u`` for micro as
+# NI forum posts show).
+_SI_EXPONENTS = {
+    "y": -24,
+    "z": -21,
+    "a": -18,
+    "f": -15,
+    "p": -12,
+    "n": -9,
+    "u": -6,
+    "m": -3,
+    "k": 3,
+    "M": 6,
+    "G": 9,
+    "T": 12,
+    "P": 15,
+    "E": 18,
+    "Z": 21,
+    "Y": 24,
+}
+_SI_LETTERS = "".join(_SI_EXPONENTS)
 _SET = re.compile(r"%(\d*)\[(\^?\]?[^\]]*)\]")
 _TRUE_WORDS = ("Y", "T", "TRUE", "ON", "YES", "y", "t", "true", "on", "yes")
 _FALSE_WORDS = ("F", "FALSE", "OFF", "NO", "f", "false", "off", "no")
 # What a Scan From String with no format string reads for each kind of output: a
-# string and a Boolean as ``%s``, an integer as ``%d``, a floating-point number as
-# ``%f`` (see ``default_format``).
-_DEFAULT_CODES = {"string": "%s", "bool": "%s", "int": "%d", "float": "%f"}
+# string, a Boolean and an enum as ``%s``, an integer as ``%d``, a floating-point
+# number as ``%f`` (see ``default_format``).
+_DEFAULT_CODES = {
+    "string": "%s",
+    "bool": "%s",
+    "enum": "%s",
+    "int": "%d",
+    "float": "%f",
+    "complex": _lv_default_code("complex"),
+}
 
 
 @dataclass(frozen=True)
@@ -78,6 +138,7 @@ class ScanField:
     pattern: str
     value: str
     skips_white_space: bool
+    imports: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -88,6 +149,7 @@ class ScanPlan:
 
     pattern: str
     values: tuple[str, ...]
+    imports: tuple[str, ...] = ()
 
 
 def scan_pieces(format_text: str) -> list[str | ScanSpec | ScanSet]:
@@ -170,6 +232,7 @@ def scan_plan(
     conversion for its output is a ``ValueError`` giving the reason."""
     segments: list[str] = []
     values: list[str] = []
+    imports: list[str] = []
     literal = ""
     fields = iter(kinds)
     for piece in pieces:
@@ -183,13 +246,14 @@ def scan_plan(
         white = r"\s*" if field.skips_white_space else ""
         segments.append(f"{prefix}{white}({field.pattern})")
         values.append(field.value)
+        imports.extend(field.imports)
     pattern = ""
     tail = _literal_pattern(literal)
     if tail:
         pattern = f"(?:{tail})?"
     for segment in reversed(segments):
         pattern = f"(?:{segment}{pattern})?"
-    return ScanPlan(pattern, tuple(values))
+    return ScanPlan(pattern, tuple(values), tuple(dict.fromkeys(imports)))
 
 
 def _literal_pattern(text: str) -> str:
@@ -213,12 +277,16 @@ def _field(piece: ScanSpec | ScanSet, kind: FormatKind) -> ScanField:
     if reason:
         raise ValueError(reason)
     width = spec.width
+    if spec.code == "T":
+        return _time_field(piece, kind)
     if spec.code == "s":
         if kind.kind == "bool":
             words = "|".join((*_TRUE_WORDS, *_FALSE_WORDS))
             return ScanField(
                 f"(?:{words})(?![^\\s])", f"{{g}} in {_TRUE_WORDS!r}", False
             )
+        if kind.kind == "enum":
+            return _enum_field(spec.text, width, kind)
         return _string_field(spec.text, r"\S", width, kind)
     if spec.code == "d":
         text = _decimal_pattern(width)
@@ -241,6 +309,9 @@ def _field(piece: ScanSpec | ScanSet, kind: FormatKind) -> ScanField:
         number = (
             'float({g}.replace(",", "."))' if piece.decimal == "," else "float({g})"
         )
+        if spec.code == "p":
+            text += f"(?:[{_SI_LETTERS}](?![A-Za-z]))?"
+            number = _si_number(piece.decimal)
     return ScanField(text, _as_kind(number, spec, kind), True)
 
 
@@ -248,10 +319,12 @@ def _unsupported(piece: ScanSpec) -> str | None:
     """Why the specifier cannot be read (None when it can)."""
     spec = piece.spec
     part = None
-    if spec.code == ";":
+    if spec.code == "T":
+        part = _time_unsupported(spec)
+    elif spec.code == ";":
         part = "the system decimal separator"
     elif spec.flags:
-        part = "a flag"
+        part = "a modifier (NI: scanning uses %[Width]Conversion Code, no modifiers)"
     elif spec.precision is not None or spec.bare_precision:
         part = "a precision"
     elif spec.significant is not None:
@@ -265,6 +338,58 @@ def _unsupported(piece: ScanSpec) -> str | None:
     if part is None:
         return None
     return f"Scan From String specifier {spec.text!r} ({part}) has no conversion"
+
+
+def _time_unsupported(spec: _LvSpecifier) -> str | None:
+    """Why a ``T`` specifier cannot be read (None when it can): only the ``^``
+    flag and the embedded time format are read."""
+    if set(spec.flags) - {"^"}:
+        return "a flag"
+    if spec.width or spec.precision is not None or spec.bare_precision:
+        return "a width or precision"
+    if spec.significant is not None or spec.unit:
+        return "significant digits or a unit"
+    if not spec.embedded:
+        return "no embedded time format"
+    return None
+
+
+def _time_field(piece: ScanSpec, kind: FormatKind) -> ScanField:
+    """The text of a ``%<...>T`` and the value it reads: a time stamp output gets
+    the time stamp, a floating-point output the time stamp as seconds since
+    1904-01-01 UTC (NI, Format Specifier Syntax: "T can interpret time stamps and
+    numerics"; a time stamp is read as a number of seconds), whose default is
+    likewise a number of seconds."""
+    spec = piece.spec
+    if kind.kind not in ("timestamp", "float"):
+        raise ValueError(
+            f"Scan From String specifier {spec.text!r} (a time into a "
+            f"{kind.kind} output) has no conversion"
+        )
+    scan = time_scan(spec.text, spec.embedded, "^" in spec.flags, piece.decimal)
+    value = scan.value
+    if kind.kind == "float":
+        epoch = "hightime.datetime(1904, 1, 1, tzinfo=UTC)"
+        value = value.replace(
+            "{d}", f"({epoch} + hightime.timedelta(seconds={{d}}))"
+        )
+        value = f"({value} - {epoch}).total_seconds()"
+    return ScanField(scan.pattern, value, False, scan.imports)
+
+
+def _si_number(decimal: str) -> str:
+    """The expression of the number an SI-notation text (``%p``) reads: the
+    number, scaled by its prefix letter when it ends in one (the text of a prefix
+    followed by another letter, as in ``10.0kHz``, is not taken as a prefix: NI
+    forum reports, "Bug with Scan from String using SI (%p) format code" and "SI
+    Notation in Scan Value and Scan from String issue": "10.0k" reads 10000,
+    "10.0kHz" reads 10, "12uA" reads 12)."""
+    plain = '{g}.replace(",", ".")' if decimal == "," else "{g}"
+    exponents = ", ".join(f'"{c}": "{e}"' for c, e in _SI_EXPONENTS.items())
+    return (
+        f"(float({plain}[:-1] + 'e' + {{{{{exponents}}}}}[{{g}}[-1]]) "
+        f"if {{g}}[-1:] in {_SI_LETTERS!r} else float({plain}))"
+    )
 
 
 def _decimal_pattern(width: int) -> str:
@@ -293,6 +418,27 @@ def _set_pattern(piece: ScanSet) -> str:
     return f"[{'^' if negate else ''}{out}]"
 
 
+def _enum_field(text: str, width: int, kind: FormatKind) -> ScanField:
+    """The label of one item of an enum output, read as its value."""
+    if width:
+        raise ValueError(
+            f"Scan From String specifier {text!r} (a width with an enum output) "
+            "has no conversion"
+        )
+    labels = [label for _, label in kind.labels]
+    if not labels or "" in labels:
+        raise ValueError(
+            f"Scan From String specifier {text!r} (an enum output with no item "
+            "labels, or an empty one) has no conversion"
+        )
+    longest_first = sorted(labels, key=lambda label: -len(label))
+    pattern = "|".join(re.escape(label) for label in longest_first)
+    values = repr({label: value for value, label in kind.labels})
+    # The value is a template in which ``{g}`` stands for the text.
+    template = values.replace("{", "{{").replace("}", "}}") + "[{g}]"
+    return ScanField(f"(?:{pattern})", template, False)
+
+
 def _string_field(text: str, char: str, width: int, kind: FormatKind) -> ScanField:
     if kind.kind != "string":
         raise ValueError(
@@ -307,9 +453,26 @@ def _as_kind(number: str, spec: _LvSpecifier, kind: FormatKind) -> str:
     """The expression that turns the number ``number`` a numeric code reads into
     the value of an output of ``kind``."""
     if kind.kind == "float":
-        return number if spec.code in "fge" else f"float({number})"
+        return number if spec.code in "fgep" else f"float({number})"
     if kind.kind == "bool":
         return f"{number} > 0.5"
+    if kind.kind == "complex":
+        # A recorded deduction (the maintainer's decision, 2026-11-17): a
+        # complex output reads one real number, the same text the specifier
+        # reads for a real output, into the real part; the imaginary part is 0.
+        # Evidence: NI's Format Into String page says "For complex numeric data
+        # types, this function converts only the real component" (a scan reads
+        # what a format writes), and an NI engineer on forums.ni.com ("Odd
+        # behavior with Error In for Scan From String function",
+        # m-p/3134009) says "2+2" does not parse as 2+0i: the scan stops after
+        # "2". NI's "Valid Format Specifiers for Numeric Data Types" lets a
+        # complex type use f, e, g, p, # and ^; f, e, g and p are read here.
+        if spec.code in "fgep":
+            return f"complex({number}, 0.0)"
+        raise ValueError(
+            f"Scan From String specifier {spec.text!r} (code {spec.code!r} into "
+            "a complex output) has no conversion"
+        )
     if kind.kind == "int" and spec.code in "dx":
         low, high = _range(kind)
         return f"max({low}, min({high}, {number}))"

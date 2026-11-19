@@ -33,13 +33,13 @@ def poly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Tree:
         _record("VIVI", [name], ["", folder, name], 0, 10 + i)
         for i, (folder, name) in enumerate(variants)
     )
-    text = slot.read_text()
+    text = slot.read_text(encoding="utf-8")
     text = text.replace("</Section></LIvi>", f"{records}</Section></LIvi>")
     text = text.replace(
         "</VI>",
         '<LVSR><Section><Execution2 AllowPolyTypeAdapt="1"/></Section></LVSR></VI>',
     )
-    slot.write_text(text)
+    slot.write_text(text, encoding="utf-8")
     return built
 
 
@@ -103,5 +103,5 @@ def test_generate_writes_the_wrapper_module_and_none_for_its_variants(
     )
     assert "wrap.py" in written
     assert not [w for w in written if w.endswith(("v1.py", "v2.py"))]
-    wrap = next(out.rglob("wrap.py")).read_text()
+    wrap = next(out.rglob("wrap.py")).read_text(encoding="utf-8")
     assert "def v1(" in wrap and "def v2(" in wrap

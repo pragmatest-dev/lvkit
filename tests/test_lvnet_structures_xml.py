@@ -132,6 +132,17 @@ def test_a_while_loop_says_how_its_condition_reads(tmp_path: Path) -> None:
     _round_trips(go)
 
 
+def test_a_while_loop_conditional_terminal_is_found_by_its_class(
+    tmp_path: Path,
+) -> None:
+    stop = load(tmp_path, cases.loop_xml("whileLoop", stop_tag="loopEndDCO"))
+    assert stop.diagram == (
+        "    while-loop (stop if true) (id 400) :\n"
+        "      loop_400::in0 = 7\n"
+        "      loop_400::condition = False"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Sequences, Disable and Event structures
 # ---------------------------------------------------------------------------
@@ -376,7 +387,9 @@ def test_a_type_specialization_drives_its_output_like_the_other_disables(
 
 
 def test_an_event_frame_label_with_quotes_is_escaped(tmp_path: Path) -> None:
-    (tmp_path / "T_FPHb.xml").write_text(front_panel_xml({10: "stop"}, {}))
+    (tmp_path / "T_FPHb.xml").write_text(
+        front_panel_xml({10: "stop"}, {}), encoding="utf-8"
+    )
     views = load(tmp_path, cases.event_on_control_xml())
     assert views.diagram == (
         "    event-structure (id 4000) :\n"

@@ -97,6 +97,31 @@ def unbundle(
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)
 
 
+def component_read(
+    node: PrimitiveNode,
+    term: Terminal,
+    waveform: str,
+    flavor: str,
+    ctx: CodeGenContext,
+) -> str:
+    """The expression reading the component the element ``term`` of an In Place
+    Element Structure selects from the waveform or digital data ``waveform``,
+    its imports added to the function. The extended properties are read in
+    statements of their own, which this has no place for."""
+    waveform_form(flavor, node)
+    component = measure_component(term, flavor, node)
+    if component == ATTRIBUTES:
+        raise ConversionGap(
+            f"The extended properties of a {flavor} taken out by "
+            f"{node.name!r} have no code generation yet",
+            node,
+        )
+    imports = IMPORTS | (DIGITAL_IMPORTS if is_digital_flavor(flavor) else set())
+    for statement_import in imports:
+        ctx.add_import(statement_import)
+    return _read(waveform, component, flavor)
+
+
 def bundle(
     node: PrimitiveNode,
     list_in: list[Terminal],

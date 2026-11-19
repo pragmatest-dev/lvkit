@@ -358,7 +358,11 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "auto_preallocate_arrays": _bool_attr(execution, "AllowAutoPrealloc"),
         "inline": _bool_attr(execution2, "ShouldInline"),
         "inlinable": _bool_attr(execution2, "InlinableDiagram"),
-        "auto_error_handling": _bool_attr(execution2, "DefaultErrorHandling"),
+        # A VI whose save record pylabview leaves unparsed has no <Execution2>:
+        # the setting is unknown (None), not off.
+        "auto_error_handling": None
+        if execution2 is None
+        else _bool_attr(execution2, "DefaultErrorHandling"),
         "allow_debugging": _bool_attr(instrument, "DebugCapable"),
         "always_calls_parent": _bool_attr(execution2, "AlwaysCallsParent"),
         "clear_indicators_when_called": _bool_attr(execution2, "ClearIndMask"),
@@ -368,7 +372,11 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
     front_panel = root.find(".//LVSR/Section/FrontPanel")
     flags0c = root.find(".//LVSR/Section/Flags0C")
     flags12 = root.find(".//LVSR/Section/Flags12")
+    title = root.find(".//TITL/Section/String")
     result["window"] = {
+        # The custom Window title (<TITL>); a VI with no such block uses its own
+        # name ("Same as VI name"), which is None here.
+        "window_title": None if title is None else (title.text or ""),
         "show_title_bar": _bool_attr(front_panel, "ShowTitleBar"),
         "show_menu_bar": _bool_attr(front_panel, "ShowMenuBar"),
         "show_toolbar": _bool_attr(front_panel, "ToolBarVisible"),

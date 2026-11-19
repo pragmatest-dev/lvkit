@@ -154,8 +154,8 @@ class _Tree:
         path.write_bytes(b"")
         slot = self.root / "_xml" / rel.replace("/", "__").replace(".", "_")
         slot.mkdir(parents=True)
-        (slot / "vi_BDHb.xml").write_text(_bd(calls))
-        (slot / "vi.xml").write_text(_main(qualified, owners, calls))
+        (slot / "vi_BDHb.xml").write_text(_bd(calls), encoding="utf-8")
+        (slot / "vi.xml").write_text(_main(qualified, owners, calls), encoding="utf-8")
         self._xml[path.resolve()] = (slot / "vi_BDHb.xml", None, slot / "vi.xml")
         return path
 
@@ -630,7 +630,9 @@ def test_each_generated_caller_imports_its_own_callee_and_runs(
     ran: list[str] = []
     for caller, owner in (("caller_case", "testcase"), ("caller_suite", "testsuite")):
         package = _generate(tree, tmp_path, caller)
-        source = without_panel_attributes((package / f"{caller}.py").read_text())
+        source = without_panel_attributes(
+            (package / f"{caller}.py").read_text(encoding="utf-8")
+        )
         assert source.splitlines() == [
             "from __future__ import annotations",
             f"from .{owner}.skip import skip",
@@ -650,7 +652,7 @@ def test_callers_of_two_files_with_one_name_import_two_modules(
     generate_python(tree.root / "twins", out)
     imports = {}
     for caller in ("caller_one", "caller_two"):
-        source = next(out.rglob(f"{caller}.py")).read_text()
+        source = next(out.rglob(f"{caller}.py")).read_text(encoding="utf-8")
         (line,) = [
             ln
             for ln in without_panel_attributes(source).splitlines()

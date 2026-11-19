@@ -115,13 +115,11 @@ def _other_row_vi(row: str | tuple[str, int]) -> Vi:
 def test_a_node_with_a_row_that_is_not_listed_stays_a_gap(
     project: Project,  # noqa: F811
 ) -> None:
-    project.add(_other_row_vi(("Visible", 104013825)))
+    project.add(_other_row_vi(("Frame Color", 104013830)))
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "Implicit property reference requires a binding model" in str(
-        package.gaps[0]
-    )
-    with pytest.raises(NotImplementedError, match="binding model"):
+    assert "writes 'Frame Color'" in str(package.gaps[0])
+    with pytest.raises(NotImplementedError, match="writes .Frame Color."):
         package.function(n=1)
 
 
@@ -204,7 +202,9 @@ def test_the_property_code_decides_not_the_stored_name(
     assert recorder.properties == [("n", package.module.PropProperty.DISABLED, 1)]
 
 
-@pytest.mark.parametrize("row", [("Visible", 104013825), ("Frame Color", 104013830)])
+@pytest.mark.parametrize(
+    "row", [("Zoom Factor", 104090001), ("Frame Color", 104013830)]
+)
 def test_a_property_that_is_not_listed_is_a_gap(
     row: str | tuple[str, int],
     project: Project,  # noqa: F811
@@ -218,33 +218,35 @@ def test_a_property_that_is_not_listed_is_a_gap(
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "binding model" in str(package.gaps[0])
+    assert f"control 'n' writes {row[0]!r}" in str(package.gaps[0])
 
 
-def test_a_read_of_a_listed_property_is_a_gap(
+def test_a_read_of_a_listed_property_with_no_stored_state_is_a_gap(
     project: Project,  # noqa: F811
 ) -> None:
     vi = Vi(NAME)
     n = vi.control("n", I32, REQUIRED)
     seen = vi.indicator("seen", BOOL, ddo_class="stdBool")
-    (visible,) = value_property(vi, n, ["Visible"])
-    vi.wire(visible, seen)
+    (focus,) = value_property(vi, n, ["Key Focus"])
+    vi.wire(focus, seen)
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "binding model" in str(package.gaps[0])
+    assert "reads 'Key Focus'" in str(package.gaps[0])
 
 
-def test_an_unwired_listed_write_is_a_gap(project: Project) -> None:  # noqa: F811
+def test_an_unwired_listed_row_is_a_read_and_a_gap_without_stored_state(
+    project: Project,  # noqa: F811
+) -> None:
     vi = Vi(NAME)
     n = vi.control("n", I32, REQUIRED)
     out = vi.indicator("out", I32)
-    value_property(vi, n, ["Visible"])
+    value_property(vi, n, ["Key Focus"])
     vi.wire(n, out)
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "binding model" in str(package.gaps[0])
+    assert "reads 'Key Focus'" in str(package.gaps[0])
 
 
 def test_a_vi_with_only_value_rows_has_no_property_hook(
@@ -391,4 +393,22 @@ def test_a_listed_row_and_an_unlisted_row_make_the_node_a_gap(
     project.add(vi)
     package = project.generate(NAME)
     assert len(package.gaps) == 1
-    assert "binding model" in str(package.gaps[0])
+    assert "writes 'Frame Color'" in str(package.gaps[0])
+
+
+def test_the_disabled_property_of_an_old_node_is_the_same_write(
+    project: Project,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    n = vi.control("n", I32, REQUIRED)
+    out = vi.indicator("out", I32)
+    (disabled,) = value_property(vi, n, ["Disabled"])
+    vi.wire(vi.int_constant(2), disabled)
+    vi.wire(n, out)
+    project.add(vi)
+    package = project.generate(NAME)
+    assert package.gaps == []
+    recorder = Recorder()
+    package.function(n=3, live_io=recorder)
+    assert recorder.properties == [("n", package.module.PropProperty.DISABLED, 2)]
+    assert package.function(n=3).out == 3

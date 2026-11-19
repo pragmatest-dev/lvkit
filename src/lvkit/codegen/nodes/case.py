@@ -10,7 +10,7 @@ from lvkit.graph.core import kind_display
 from lvkit.graph.models import CaseStructureNode
 from lvkit.graph.op_walk import error_code_ranges
 from lvkit.lv_type_codes import is_boolean_type_name
-from lvkit.models import CaseFrame, SelectorRange
+from lvkit.models import CaseFrame, SelectorRange, StringRange
 
 from ..ast_utils import parse_expr, to_var_name
 from ..context import CodeGenContext
@@ -61,6 +61,7 @@ def _has_placeholder_frame(node: CaseStructureNode) -> bool:
     return any(
         not frame.is_default
         and not frame.selector_strings
+        and not frame.selector_string_ranges
         and not frame.selector_ranges
         and frame.boolean_value is None
         for frame in node.frames
@@ -185,7 +186,9 @@ def _generate_match_case(
             pattern: ast.pattern = ast.MatchAs(pattern=None, name=None)
             guard: ast.expr | None = None
         else:
-            pattern, guard = _build_frame_pattern(frame, selector_var, is_string)
+            pattern, guard = _build_frame_pattern(
+                frame, selector_var, is_string, node if is_string else None
+            )
         patterns.append((pattern, guard))
 
         inner_fragment = generate_frame_body(node, frame, ops_by_frame, ctx)
@@ -262,10 +265,51 @@ def _range_clause(selector_var: str, r: SelectorRange) -> str:
     return f"{r.start} <= {selector_var} <= {r.end}"
 
 
+def _string_range_clause(selector_var: str, r: StringRange) -> str:
+    """The Python comparison for one string range: ``start <= s < end`` by
+    character code (the end is excluded; see ``StringRange``). An open side has
+    no bound."""
+    parts = []
+    if r.start is not None:
+        parts.append(f"{selector_var} >= {r.start!r}")
+    if r.end is not None:
+        parts.append(f"{selector_var} < {r.end!r}")
+    return "(" + " and ".join(parts) + ")" if parts else "True"
+
+
+def _insensitive_string_pattern(
+    frame: CaseFrame, selector_var: str, node: CaseStructureNode
+) -> tuple[ast.pattern, ast.expr | None]:
+    """The pattern of a frame of a case structure with Case Insensitive Match.
+    NI (labviewwiki.org/wiki/Case_Structure, string selectors): with the option
+    on, a selector of "a" "executes if the value is either "a" or "A"" and a list
+    matches every value in either case. The comparison is the ASCII one (the same
+    page: "ranges are matched using the ASCII character set"), so only the
+    letters A-Z fold: ``bytes.lower`` lowers exactly those. A string range has no
+    documented case-insensitive form beyond that page's table (its closed range
+    "a".."z" runs for values ">= A and < z"), which does not say how either end
+    is compared, so a range is a gap."""
+    if frame.selector_string_ranges:
+        raise ConversionGap(
+            "A string range in a Case structure with Case Insensitive Match: NI "
+            "does not document how its ends are compared",
+            node,
+        )
+    values = frame.selector_strings or [str(frame.selector_value)]
+    folded = ", ".join(
+        repr(v.encode("utf-8", "surrogateescape").lower()) for v in values
+    )
+    guard = parse_expr(
+        f"{selector_var}.encode('utf-8', 'surrogateescape').lower() in ({folded},)"
+    )
+    return ast.MatchAs(pattern=None, name=None), guard
+
+
 def _build_frame_pattern(
     frame: CaseFrame,
     selector_var: str,
     is_string: bool,
+    string_node: CaseStructureNode | None = None,
 ) -> tuple[ast.pattern, ast.expr | None]:
     """Build the match pattern (and optional guard) for one non-default frame.
 
@@ -275,7 +319,17 @@ def _build_frame_pattern(
     range (closed or open-ended) is expressed as a ``case _ if`` guard,
     OR-combined with the singletons.
     """
-    # String selector: OR of the matched string literals.
+    insensitive = string_node is not None and string_node.case_insensitive
+    if insensitive and string_node is not None:
+        return _insensitive_string_pattern(frame, selector_var, string_node)
+    # String selector: OR of the matched string literals; a range guards a
+    # wildcard, as a numeric range does.
+    if frame.selector_string_ranges:
+        clauses = [f"{selector_var} == {s!r}" for s in frame.selector_strings]
+        clauses += [
+            _string_range_clause(selector_var, r) for r in frame.selector_string_ranges
+        ]
+        return ast.MatchAs(pattern=None, name=None), parse_expr(" or ".join(clauses))
     if frame.selector_strings:
         pats: list[ast.pattern] = [
             ast.MatchValue(value=ast.Constant(value=s)) for s in frame.selector_strings

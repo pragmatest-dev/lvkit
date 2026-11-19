@@ -152,7 +152,7 @@ class TestCycleDetection:
             </RSRC>
         """)
         xml_path = tmp_path / "cycle.xml"
-        xml_path.write_text(xml_content)
+        xml_path.write_text(xml_content, encoding="utf-8")
 
         # Should not hang — cycle detection kicks in
         result = parse_vctp_types(xml_path)
@@ -180,7 +180,7 @@ class TestRefnumElementType:
             </Section></VCTP></RSRC>
         """)
         p = tmp_path / "refnum.xml"
-        p.write_text(xml)
+        p.write_text(xml, encoding="utf-8")
         return parse_vctp_types(p)
 
     def test_queue_of_dbl_carries_element_and_renders_in_braces(self, tmp_path):
@@ -242,7 +242,7 @@ class TestUserEventName:
             </Section></VCTP></RSRC>
         """)
         p = tmp_path / "uev.xml"
-        p.write_text(xml)
+        p.write_text(xml, encoding="utf-8")
         return parse_vctp_types(p)
 
     def test_plain_data_type_label_is_the_event_name(self, tmp_path):
@@ -363,7 +363,8 @@ class TestDataSpaceTypeComments:
                   </Section></TM80>
                 </RSRC>
                 """
-            )
+            ),
+            encoding="utf-8",
         )
         sidecar = Path(__file__).parent / "data" / "lv85_unitinfo_DTHP.bin"
         (tmp_path / "T_DTHP.bin").write_bytes(sidecar.read_bytes())

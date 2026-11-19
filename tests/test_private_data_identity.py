@@ -25,7 +25,7 @@ def _write(tmp_path: Path, *typedefs: str) -> Path:
         + "</Section></VCTP></Root>"
     )
     path = tmp_path / "vi.xml"
-    path.write_text(xml)
+    path.write_text(xml, encoding="utf-8")
     return path
 
 
@@ -89,7 +89,7 @@ def test_by_reference_cluster_deferred(tmp_path: Path) -> None:
         + "</Section></VCTP></Root>"
     )
     path = tmp_path / "ref.xml"
-    path.write_text(xml)
+    path.write_text(xml, encoding="utf-8")
     assert _fields_from_xml(path, "My Class.lvclass", "My Class.ctl") is None
 
 
@@ -126,7 +126,7 @@ def test_non_data_value_refnum_field_kept(tmp_path: Path) -> None:
         + "</Section></VCTP></Root>"
     )
     path = tmp_path / "q.xml"
-    path.write_text(xml)
+    path.write_text(xml, encoding="utf-8")
     assert _names(_fields_from_xml(path, "My Class.lvclass", "My Class.ctl")) == [
         "Reply Queue"
     ]

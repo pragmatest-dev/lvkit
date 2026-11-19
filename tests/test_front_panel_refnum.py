@@ -42,7 +42,9 @@ _VI_SERVER_REF = LVType(
 
 def _write_fp(tmp_path: Path, body: str) -> Path:
     p = tmp_path / "vi_FPHb.xml"
-    p.write_text(f"<root><paneHierarchy>{body}</paneHierarchy></root>")
+    p.write_text(
+        f"<root><paneHierarchy>{body}</paneHierarchy></root>", encoding="utf-8"
+    )
     return p
 
 

@@ -96,7 +96,8 @@ def test_front_panel_ring_control_carries_labels_and_values(tmp_path: Path) -> N
         '<SL__arrayElement class="fPDCO" uid="10">'
         + _ring_ddo("11", _ITEMS, _SPARSE)
         + "</SL__arrayElement>"
-        "</zPlaneList></paneHierarchy></root></SL__rootObject>"
+        "</zPlaneList></paneHierarchy></root></SL__rootObject>",
+        encoding="utf-8",
     )
     fp = _parse_front_panel(
         fp_xml, ParsedBlockDiagram(nodes=[], constants=[], wires=[])

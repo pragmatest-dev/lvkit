@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 TD_FULL_TYPE = _lv_datatype.TD_FULL_TYPE
 REFNUM_TYPE = _lv_datatype.REFNUM_TYPE
+MEASURE_DATA_FLAVOR = _lv_datatype.MEASURE_DATA_FLAVOR
 
 BOOLEAN_TYPE_NAMES: frozenset[str] = frozenset(
     {TD_FULL_TYPE.Boolean.name, TD_FULL_TYPE.BooleanU16.name}

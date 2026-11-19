@@ -58,7 +58,7 @@ def _generate(vi: Path, out_dir: Path, hashseed: str) -> str:
     )
     assert proc.returncode in (0, 3), proc.stderr  # 3: partial, a gap warned
     return "\n".join(
-        f"# === {p.relative_to(out_dir)} ===\n{p.read_text()}"
+        f"# === {p.relative_to(out_dir)} ===\n{p.read_text(encoding='utf-8')}"
         for p in sorted(out_dir.rglob("*.py"))
     )
 

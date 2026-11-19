@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 
 from lvkit.models import Tunnel
 
+from ..border_dco import BORDER_DCO_KIND, border_dco
 from ..constants import (
     LOOP_NODE_CLASSES,
     TERMINAL_CLASS,
@@ -29,14 +30,6 @@ from .base import extract_tunnel_mapping, frame_inner_node_uids
 # ``loopIndexDCO`` carries the identical no-objFlags/termBMPs=1 signature). See
 # issue #34.
 _TERM_HIDDEN_FLAG = 0x800000
-
-# Loop border DCO tag -> the glyph kind the renderer draws for it. The iteration
-# terminal (i) and while-loop conditional (cond) are not graph Terminals; N is.
-_BORDER_DCO_KIND = {
-    "loopIndexDCO": "i",
-    "loopLimitDCO": "N",
-    "loopTestDCO": "cond",
-}
 
 
 def _hidden_border_terminals(loop_elem: ET.Element) -> frozenset[str]:
@@ -65,8 +58,8 @@ def _hidden_border_terminals(loop_elem: ET.Element) -> frozenset[str]:
                     term_flags[dco.get("uid", "")] = safe_int(term.find("objFlags"))
 
     hidden: set[str] = set()
-    for tag, kind in _BORDER_DCO_KIND.items():
-        dco = loop_elem.find(tag)
+    for dco_class, kind in BORDER_DCO_KIND.items():
+        dco = border_dco(loop_elem, dco_class)
         uid = dco.get("uid") if dco is not None else None
         if uid and term_flags.get(uid, 0) & _TERM_HIDDEN_FLAG:
             hidden.add(kind)
@@ -327,10 +320,10 @@ def extract_loops(root: ET.Element) -> list[ParsedLoopStructure]:
                 for t in tunnels:
                     t.condition_terminal_uid = conditions.get(t.outer_terminal_uid)
 
-            # Find stop condition terminal for while loops (loopTestDCO class="lTst")
+            # Find stop condition terminal for while loops (class="lTst")
             stop_condition_uid: str | None = None
             stop_condition_inverted = False
-            loop_test_dco = loop_elem.find("loopTestDCO[@class='lTst']")
+            loop_test_dco = border_dco(loop_elem, "lTst")
             if loop_test_dco is not None:
                 # The termList inside has the terminal receiving the stop boolean
                 term_list = loop_test_dco.find("termList")

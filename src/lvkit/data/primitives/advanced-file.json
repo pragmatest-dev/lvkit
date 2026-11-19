@@ -988,7 +988,11 @@
           "index": 5,
           "direction": "input",
           "name": "from (0:start)",
-          "type": "enum"
+          "type": "enum",
+          "default": 0,
+          "default_when_unwired": {
+            "6": 2
+          }
         },
         {
           "index": 6,
@@ -1017,7 +1021,7 @@
         }
       ],
       "python_code": {
-        "refnum_out": "(in_7.seek(in_6, in_5), in_7)[1]",
+        "refnum_out": "(in_7.seek(in_6, (0, 2, 1)[in_5]), in_7)[1]",
         "error_out": "in_4"
       },
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/set-file-position.html",

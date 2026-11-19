@@ -221,7 +221,9 @@ def test_a_set_of_integers():
 
 def _vctp(tmp_path: Path, descs: str) -> dict[int, LVType]:
     path = tmp_path / "vi.xml"
-    path.write_text(f"<LVSR><VCTP><Section>{descs}</Section></VCTP></LVSR>")
+    path.write_text(
+        f"<LVSR><VCTP><Section>{descs}</Section></VCTP></LVSR>", encoding="utf-8"
+    )
     return parse_vctp_types(path)
 
 
@@ -739,11 +741,12 @@ def test_generated_code_loads_a_large_array_from_its_data_file(
 
     module = tmp_path / "my_vi.py"
     module.write_text(
-        f"import struct\nfrom pathlib import Path\nvalue = {expression}\n"
+        f"import struct\nfrom pathlib import Path\nvalue = {expression}\n",
+        encoding="utf-8",
     )
     (tmp_path / file_name).write_bytes(content)
     namespace: dict = {"__file__": str(module)}
-    exec(compile(module.read_text(), str(module), "exec"), namespace)  # noqa: S102
+    exec(compile(module.read_text(encoding="utf-8"), str(module), "exec"), namespace)  # noqa: S102
     assert namespace["value"] == expected
 
 
@@ -760,11 +763,12 @@ def test_a_large_one_dimensional_array_loads_flat(monkeypatch, tmp_path):
     )
     module = tmp_path / "my_vi.py"
     module.write_text(
-        f"import struct\nfrom pathlib import Path\nvalue = {expression}\n"
+        f"import struct\nfrom pathlib import Path\nvalue = {expression}\n",
+        encoding="utf-8",
     )
     (tmp_path / "my_vi.frame_77.bin").write_bytes(blob)
     namespace: dict = {"__file__": str(module)}
-    exec(compile(module.read_text(), str(module), "exec"), namespace)  # noqa: S102
+    exec(compile(module.read_text(encoding="utf-8"), str(module), "exec"), namespace)  # noqa: S102
     assert namespace["value"] == [7, 8, 9, 4000000000]
 
 
@@ -777,11 +781,12 @@ def test_a_large_three_dimensional_array_is_grouped_by_its_sizes(monkeypatch, tm
     expression = ctx.constant_expression(node)
     module = tmp_path / "my_vi.py"
     module.write_text(
-        f"import struct\nfrom pathlib import Path\nvalue = {expression}\n"
+        f"import struct\nfrom pathlib import Path\nvalue = {expression}\n",
+        encoding="utf-8",
     )
     (tmp_path / "my_vi.frame_77.bin").write_bytes(blob)
     namespace: dict = {"__file__": str(module)}
-    exec(compile(module.read_text(), str(module), "exec"), namespace)  # noqa: S102
+    exec(compile(module.read_text(encoding="utf-8"), str(module), "exec"), namespace)  # noqa: S102
     values = list(range(-12, 12))
     assert namespace["value"] == [
         [values[0:4], values[4:8], values[8:12]],

@@ -492,6 +492,7 @@ class TestNetlistTreeInViewer:
                 capture_output=True,
                 text=True,
                 timeout=60,
+                encoding="utf-8",
             )
             assert result.returncode == 0, result.stderr
             digests.append(result.stdout.strip())

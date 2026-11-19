@@ -40,7 +40,8 @@ def _loop_over(
     """The generated source of a VI whose For loop takes ``saved`` (a Path
     constant for ``source`` ``"path"``, else a String constant) as a tunnel input."""
     (tmp_path / "T_FPHb.xml").write_text(
-        front_panel_xml({}, {30: "result"}, pane={0: 30})
+        front_panel_xml({}, {30: "result"}, pane={0: 30}),
+        encoding="utf-8",
     )
     literal = (
         path_constant(702, saved)  # type: ignore[arg-type]

@@ -14,6 +14,7 @@ from typing import Any
 from nicegui import ui
 
 from .port import Port, bind_control, bind_indicator
+from .properties import widget_properties
 from .view import PanelWidgets
 
 
@@ -27,7 +28,7 @@ def variant_port(*, readonly: bool) -> Port:
         held = value
         shown.set_value(repr(getattr(value, "value", value)))
 
-    return Port(lambda: held, show_variant)
+    return Port(lambda: held, show_variant, widget_properties(shown))
 
 
 def hidden_port(*, readonly: bool) -> Port:

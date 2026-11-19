@@ -111,8 +111,10 @@ def test_elf_needed_entries_are_listed_whatever_the_file_is_called(
     compiler = shutil.which("cc") or shutil.which("gcc")
     if compiler is None:
         pytest.skip("no C compiler")
-    (tmp_path / "b.c").write_text("int b_value(void) { return 1; }\n")
-    (tmp_path / "a.c").write_text("int b_value(void); int a(void){return b_value();}\n")
+    (tmp_path / "b.c").write_text("int b_value(void) { return 1; }\n", encoding="utf-8")
+    (tmp_path / "a.c").write_text(
+        "int b_value(void); int a(void){return b_value();}\n", encoding="utf-8"
+    )
     subprocess.run(
         [compiler, "-shared", "-fPIC", "-o", str(tmp_path / "libb.so"),
          str(tmp_path / "b.c")],

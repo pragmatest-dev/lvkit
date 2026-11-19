@@ -226,7 +226,7 @@ def test_bundle_preserves_input(shape, indices, replacements, expected):
 @pytest.mark.parametrize("index", [None, 99])
 def test_missing_or_invalid_field_indices_raise_where_they_run(index):
     function = generated_unbundle("trailing", index)
-    with pytest.raises(NotImplementedError, match="positional field"):
+    with pytest.raises(NotImplementedError, match=r"field\["):
         function(example("trailing").value)
 
 
@@ -261,6 +261,7 @@ def test_unknown_fields_fail_instead_of_guessing(operation):
     context = make_ctx("agg", "field")
     context.bind("agg", "incoming")
     context.bind("field", "replacement")
+    context.is_wired = lambda _terminal_id: True
     with pytest.raises(TypeResolutionNeeded):
         nmux.generate(node, context)
 
@@ -273,7 +274,7 @@ def run_fragment(node, incoming):
     module = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
-    namespace = {"incoming": incoming}
+    namespace = {"incoming": incoming, "copy": copy}
     exec_generated(module, namespace, "<named-cluster>")
     return fragment, namespace
 
@@ -312,7 +313,7 @@ def test_named_cluster_attribute_path_is_unchanged(operation):
         assert eval(fragment.bindings["result"], namespace) is incoming
 
 
-def test_anonymous_path_does_not_guess_inside_named_descendant():
+def test_anonymous_path_reaches_a_field_inside_a_named_descendant():
     named = cluster(("child", DBL))
     named.typedef_name = "NamedChild"
     outer = cluster(("named", named), ("last", DBL))
@@ -334,16 +335,49 @@ def test_anonymous_path_does_not_guess_inside_named_descendant():
             ),
         ],
     )
-    with pytest.raises(TypeResolutionNeeded, match="positional field"):
-        run_fragment(node, (SimpleNamespace(child=10.0), 20.0))
+    incoming = (SimpleNamespace(child=10.0), 20.0)
+    fragment, namespace = run_fragment(node, incoming)
+    assert eval(fragment.bindings["field"], namespace) == 10.0
     node.terminals[1].nmux_field_index = 2
-    fragment, namespace = run_fragment(node, (SimpleNamespace(child=10.0), 20.0))
+    fragment, namespace = run_fragment(node, incoming)
     assert eval(fragment.bindings["field"], namespace) == 20.0
 
 
-def test_unresolved_bundle_value_fails_explicitly():
+def test_bundle_writes_a_field_inside_a_named_descendant_without_changing_the_input():
+    named = cluster(("child", DBL))
+    named.typedef_name = "NamedChild"
+    outer = cluster(("named", named), ("last", DBL))
     node = PrimitiveNode(
-        id="missing",
+        id="mixed_bundle",
+        vi_path="test.vi",
+        node_type="nMux",
+        terminals=[
+            Terminal(
+                id="agg", index=0, direction="input", nmux_role="agg", lv_type=outer
+            ),
+            Terminal(
+                id="result", index=1, direction="output", nmux_role="agg", lv_type=outer
+            ),
+            Terminal(
+                id="field",
+                index=2,
+                direction="input",
+                nmux_role="list",
+                nmux_field_index=1,
+                lv_type=DBL,
+            ),
+        ],
+    )
+    incoming = (SimpleNamespace(child=10.0), 20.0)
+    fragment, namespace = run_fragment(node, incoming)
+    result = eval(fragment.bindings["result"], namespace)
+    assert (result[0].child, result[1]) == (99.0, 20.0)
+    assert incoming[0].child == 10.0
+
+
+def test_an_unwired_bundle_element_keeps_the_value_of_the_cluster_wired_in():
+    node = PrimitiveNode(
+        id="unwired",
         vi_path="test.vi",
         node_type="nMux",
         terminals=[
@@ -355,8 +389,15 @@ def test_unresolved_bundle_value_fails_explicitly():
                 lv_type=example("trailing").lv_type,
             ),
             Terminal(
-                id="field",
+                id="result",
                 index=1,
+                direction="output",
+                nmux_role="agg",
+                lv_type=example("trailing").lv_type,
+            ),
+            Terminal(
+                id="field",
+                index=2,
                 direction="input",
                 nmux_role="list",
                 nmux_field_index=3,
@@ -364,7 +405,94 @@ def test_unresolved_bundle_value_fails_explicitly():
             ),
         ],
     )
-    context = make_ctx("agg", "field")
+    context = make_ctx("agg", "result", "field")
     context.bind("agg", "incoming")
-    with pytest.raises(TypeResolutionNeeded, match="bundle value"):
-        nmux.generate(node, context)
+    fragment = nmux.generate(node, context)
+    namespace = {"incoming": example("trailing").value}
+    module = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    exec_generated(module, namespace, "<unwired>")
+    assert eval(fragment.bindings["result"], namespace) == example("trailing").value
+
+
+def test_a_classic_unbundle_counts_the_cluster_fields_before_it_once():
+    """An Unbundle (not By Name) stores the position among the cluster's own
+    fields: element 2 of (marker, inner, last) is ``last``, not a field of inner."""
+    outer = cluster(("marker", DBL), ("inner", INNER), ("last", DBL))
+    node = PrimitiveNode(
+        id="demux",
+        vi_path="test.vi",
+        node_type="demux",
+        terminals=[
+            Terminal(
+                id="agg", index=0, direction="input", nmux_role="agg", lv_type=outer
+            ),
+            Terminal(
+                id="field",
+                index=1,
+                direction="output",
+                nmux_role="list",
+                nmux_field_index=2,
+                lv_type=DBL,
+            ),
+        ],
+    )
+    fragment, namespace = run_fragment(node, (10.0, (20.0, 30.0), 40.0))
+    assert eval(fragment.bindings["field"], namespace) == 40.0
+
+
+STRING = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+NAMED = LVType(
+    kind=LVTypeKind.CLUSTER,
+    typedef_name="Pair.ctl",
+    fields=[ClusterField(name="a", type=DBL), ClusterField(name="b", type=STRING)],
+)
+
+
+def _new_cluster_bundle(wired):
+    """A Bundle with no cluster wired in: a number, a string, a typedef cluster
+    and an anonymous cluster; only the elements named in ``wired`` have a wire."""
+    kinds = {"number": DBL, "text": STRING, "named": NAMED, "inner": INNER}
+    result = cluster(*kinds.items())
+    node = PrimitiveNode(
+        id="bundle",
+        vi_path="Cluster Test.vi",
+        node_type="nMux",
+        terminals=[
+            Terminal(
+                id="agg_out",
+                index=0,
+                direction="output",
+                nmux_role="agg",
+                lv_type=result,
+            )
+        ],
+    )
+    inputs = []
+    pairs = [("agg_out", "fp:value")]
+    for row, (name, kind) in enumerate(kinds.items()):
+        node.terminals.append(
+            Terminal(
+                id=name,
+                index=row + 1,
+                direction="input",
+                nmux_role="list",
+                nmux_field_index=row,
+                lv_type=kind,
+            )
+        )
+        if name in wired:
+            inputs.append(public_terminal(name, "input", kind, len(inputs)))
+            pairs.append((f"fp:{name}", name))
+    return compile_vi(node, inputs, public_terminal("value", "output", result), pairs)
+
+
+def test_a_new_cluster_takes_each_unwired_element_default():
+    value = _new_cluster_bundle(set())()
+    assert value.value == (0.0, "", SimpleNamespace(a=0.0, b=""), (0.0, 0.0))
+
+
+def test_a_new_cluster_keeps_the_wired_elements():
+    value = _new_cluster_bundle({"text", "inner"})("hello", (1.0, 2.0)).value
+    assert value == (0.0, "hello", SimpleNamespace(a=0.0, b=""), (1.0, 2.0))

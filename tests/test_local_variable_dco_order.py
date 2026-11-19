@@ -75,7 +75,7 @@ _BD_XML = """<?xml version='1.0' encoding='utf-8'?>
 
 def test_front_panel_reads_dco_order_from_ddolist(tmp_path: Path) -> None:
     fp_xml = tmp_path / "Locals_FPHb.xml"
-    fp_xml.write_text(_FP_XML)
+    fp_xml.write_text(_FP_XML, encoding="utf-8")
     fp = _parse_front_panel(
         fp_xml, ParsedBlockDiagram(nodes=[], constants=[], wires=[])
     )
@@ -95,7 +95,8 @@ def test_front_panel_without_ddolist_falls_back_to_controls_order(
         "<root><paneHierarchy>"
         + _fpdco("10", "Alpha")
         + _fpdco("20", "Beta")
-        + "</paneHierarchy></root>"
+        + "</paneHierarchy></root>",
+        encoding="utf-8",
     )
     fp = _parse_front_panel(
         fp_xml, ParsedBlockDiagram(nodes=[], constants=[], wires=[])
@@ -108,8 +109,8 @@ def test_front_panel_without_ddolist_falls_back_to_controls_order(
 
 def test_local_variables_resolve_through_ddolist(tmp_path: Path) -> None:
     bd_xml = tmp_path / "Locals_BDHb.xml"
-    bd_xml.write_text(_BD_XML)
-    (tmp_path / "Locals_FPHb.xml").write_text(_FP_XML)
+    bd_xml.write_text(_BD_XML, encoding="utf-8")
+    (tmp_path / "Locals_FPHb.xml").write_text(_FP_XML, encoding="utf-8")
 
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
@@ -130,8 +131,8 @@ def test_terminals_carry_their_place_in_the_tabbing_order(tmp_path: Path) -> Non
     """The panel's tabbing order is the order of the heap root's ``<ddoList>``
     (z-order, which the walk of the panel follows, says Alpha then Beta)."""
     bd_xml = tmp_path / "Locals_BDHb.xml"
-    bd_xml.write_text(_BD_XML)
-    (tmp_path / "Locals_FPHb.xml").write_text(_FP_XML)
+    bd_xml.write_text(_BD_XML, encoding="utf-8")
+    (tmp_path / "Locals_FPHb.xml").write_text(_FP_XML, encoding="utf-8")
 
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
@@ -146,7 +147,8 @@ def test_terminals_carry_their_place_in_the_tabbing_order(tmp_path: Path) -> Non
 def test_a_panel_without_a_ddolist_records_no_tabbing_order(tmp_path: Path) -> None:
     fp_xml = tmp_path / "Old_FPHb.xml"
     fp_xml.write_text(
-        "<root><paneHierarchy>" + _fpdco("10", "Alpha") + "</paneHierarchy></root>"
+        "<root><paneHierarchy>" + _fpdco("10", "Alpha") + "</paneHierarchy></root>",
+        encoding="utf-8",
     )
     fp = _parse_front_panel(
         fp_xml, ParsedBlockDiagram(nodes=[], constants=[], wires=[])

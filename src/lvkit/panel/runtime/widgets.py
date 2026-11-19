@@ -15,6 +15,7 @@ from typing import Any
 from nicegui import ui
 
 from .port import Port, bind_control, bind_indicator
+from .properties import widget_properties
 from .view import PanelWidgets
 
 CAPTION_CLS = "text-xs font-semibold text-gray-500 truncate leading-none"
@@ -42,7 +43,7 @@ def number_port(default: float, integer: bool, *, readonly: bool) -> Port:
             current = value
             shown.set_value(str(value))
 
-        return Port(lambda: current, show_number)
+        return Port(lambda: current, show_number, widget_properties(shown))
     held = as_number(default, integer)
     port: Port
 
@@ -57,7 +58,12 @@ def number_port(default: float, integer: bool, *, readonly: bool) -> Port:
         widget.props("step=1")
         widget.format = "%d"
     widget.classes("w-full")
-    port = Port(lambda: held, lambda value: widget.set_value(value))
+    port = Port(
+        lambda: held,
+        lambda value: widget.set_value(value),
+        widget_properties(widget, focusable=widget, limits=widget),
+        widget,
+    )
     return port
 
 
@@ -92,7 +98,7 @@ def complex_port(default: complex, *, readonly: bool) -> Port:
         real.set_value(shown(held.real))
         imaginary.set_value(shown(held.imag))
 
-    port = Port(lambda: held, show_complex)
+    port = Port(lambda: held, show_complex, widget_properties(real, imaginary))
     return port
 
 
@@ -107,10 +113,15 @@ def bool_port(default: bool, *, readonly: bool) -> Port:
             light.classes(replace="text-green-500" if lit else "text-gray-400")
 
         show_light(default)
-        return Port(lambda: lit, show_light)
+        return Port(lambda: lit, show_light, widget_properties(light))
     port: Port
     switch = ui.switch(value=bool(default), on_change=lambda e: port.changed())
-    port = Port(lambda: bool(switch.value), lambda value: switch.set_value(bool(value)))
+    port = Port(
+        lambda: bool(switch.value),
+        lambda value: switch.set_value(bool(value)),
+        widget_properties(switch, focusable=switch, root_focus=True),
+        switch,
+    )
     return port
 
 
@@ -122,7 +133,10 @@ def string_port(default: str, *, readonly: bool) -> Port:
     ).props("outlined dense readonly" if readonly else "outlined dense")
     widget.classes("w-full")
     port = Port(
-        lambda: str(widget.value or ""), lambda value: widget.set_value(str(value))
+        lambda: str(widget.value or ""),
+        lambda value: widget.set_value(str(value)),
+        widget_properties(widget, focusable=None if readonly else widget),
+        None if readonly else widget,
     )
     return port
 

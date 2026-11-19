@@ -221,6 +221,7 @@ def frame_value_changed(fa: Frame, fb: Frame) -> bool:
             or fa.is_default != fb.is_default
             or fa.selector_ranges != fb.selector_ranges
             or fa.selector_strings != fb.selector_strings
+            or fa.selector_string_ranges != fb.selector_string_ranges
         )
     if isinstance(fa, SequenceFrame) and isinstance(fb, SequenceFrame):
         return fa.index != fb.index

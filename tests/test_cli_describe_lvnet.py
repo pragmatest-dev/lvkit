@@ -62,6 +62,7 @@ def _run_describe(*args: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         env=env,
+        encoding="utf-8",
     )
 
 

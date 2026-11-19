@@ -2786,7 +2786,7 @@
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "resolved",
+      "status": "complete",
       "terminals": [
         {
           "name": "replace all? (F)",
@@ -2800,7 +2800,7 @@
         },
         {
           "name": "string",
-          "index": null,
+          "index": 0,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -2839,7 +2839,7 @@
         },
         {
           "name": "result string",
-          "index": null,
+          "index": 5,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -2848,14 +2848,16 @@
         },
         {
           "name": "offset past match",
-          "index": null,
+          "index": 6,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "offset_past_match",
           "description": "offset past match is the index in string of the first character after the last match. If the VI does not find a match, offset past match is –1."
         }
-      ]
+      ],
+      "op": "SEARCH_AND_REPLACE_PATTERN",
+      "inline": true
     },
     {
       "name": "Append True/False String Function",

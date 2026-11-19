@@ -115,7 +115,7 @@ def _registrations(
             f.type is not None and f.type.ref_type == _EVENT_REG for f in lv_type.fields
         ):
             return [
-                member_expression(ctx, lv_type, position, reg.value, node.id)
+                member_expression(ctx, lv_type, position, reg.value)
                 for position in range(len(lv_type.fields))
             ]
     raise ConversionGap(
@@ -157,7 +157,7 @@ def _row_entry(
     registration = (
         reg.value
         if position is None
-        else member_expression(ctx, reg.lv_type, position, reg.value, node.id)
+        else member_expression(ctx, reg.lv_type, position, reg.value)
     )
     return f"{registration}[1][{local - 1}]", row
 
@@ -231,7 +231,7 @@ def data_fields(
     data = f"{message}[{NEW_VALUE}]"
     if data_type is not None and data_type.kind == LVTypeKind.CLUSTER:
         return {
-            field.name: member_expression(ctx, data_type, position, data, node.id)
+            field.name: member_expression(ctx, data_type, position, data)
             for position, field in enumerate(data_type.fields or [])
         }
     aggregate = next((t for t in data_node.terminals if t.nmux_role == "agg"), None)

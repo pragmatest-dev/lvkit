@@ -49,6 +49,7 @@ from lvkit.models import (
     unique_names,
 )
 from lvkit.path_value import format_path
+from lvkit.picture_records import PictureData, walk_picture
 from lvkit.text_encoding import xml_text_encoding
 from lvkit.timestamp_value import (
     TIMESTAMP_FLAVOR,
@@ -82,6 +83,9 @@ from .flags import (
     is_inverted_terminal,
     is_method_row_input,
     is_output_terminal,
+    mechanical_action,
+    starting_enable_state,
+    starts_hidden,
 )
 from .flat_type import descriptor_type, read_descriptors, read_var_size
 from .fp_fonts import read_font_table
@@ -92,7 +96,12 @@ from .fp_heap_type import (
     ring_sparse_values,
 )
 from .fp_listbox import read_listbox
-from .fp_parts import parse_bounds, parse_fp_parts_list, parse_multi_label_buf
+from .fp_parts import (
+    combo_box_saved_item_count,
+    parse_bounds,
+    parse_fp_parts_list,
+    parse_multi_label_buf,
+)
 from .fp_pictures import attach_panel_pictures
 from .fp_structure import read_panel_layout
 from .front_panel import (
@@ -108,6 +117,7 @@ from .layout import (
     _cluster_field_geoms,
     _icon_for_heap,
     _part_shown,
+    absolute_coordinates,
     build_layout_from_root,
     cluster_child_frame,
     stored_top_left,
@@ -192,6 +202,7 @@ from .utils import (
     extract_xtunnel_name,
     heap_rect,
     safe_int,
+    saved_window_bounds,
     strip_surrounding_quotes,
 )
 from .xml_trees import parsed_xml, xml_scope
@@ -379,6 +390,9 @@ def parse_vi(
     if main_path is not None and main_path.exists():
         file_metadata = parse_vi_metadata(main_path)
         front_panel.lv_version = file_metadata.get("lv_version")
+        file_metadata.setdefault("window", {})[
+            "window_bounds"
+        ] = front_panel.window_bounds
         if connector_pane:
             wiring_rules = parse_connector_pane_types(main_path, connector_pane)
     return ParsedVI(
@@ -620,6 +634,12 @@ def _parse_block_diagram(
                 if main_xml is not None
                 else resources_for_heap(Path(bd_xml))
             ),
+            absolute_coordinates=absolute_coordinates(
+                main_xml
+                if main_xml is not None
+                else Path(bd_xml).parent
+                / f"{Path(bd_xml).stem.replace('_BDHb', '')}.xml"
+            ),
         )
         if want_layout
         else None
@@ -788,6 +808,7 @@ def _parse_front_panel(
         layout=layout,
         unread_objects=unread_objects,
         fonts=tuple(fonts),
+        window_bounds=saved_window_bounds(root),
     )
 
 
@@ -2138,13 +2159,18 @@ def _parse_cluster_fields(
             set(),
             (
                 str(value)
-                if isinstance(value, (str, ValuesNotKept, UndecodedPicture))
+                if isinstance(
+                    value, (str, ValuesNotKept, UndecodedPicture, PictureData)
+                )
                 else None
             ),
             unresolved_uids=unresolved_uids,
             field_defaults=(
                 value
-                if isinstance(value, (dict, list, ValuesNotKept, UndecodedPicture))
+                if isinstance(
+                    value,
+                    (dict, list, ValuesNotKept, UndecodedPicture, PictureData),
+                )
                 else None
             ),
             type_map=type_map,
@@ -2283,6 +2309,17 @@ def _parse_ddo(
     ring_values: list[int] = []
     if control_type in ("stdEnum", "stdRing", "stdComboBox"):
         enum_values = _enum_labels_of(ddo)
+    undecoded_strings = (
+        combo_box_saved_item_count(ddo) if control_type == "stdComboBox" else 0
+    )
+    if undecoded_strings:
+        warnings.warn(
+            f"the Combo Box {name!r} is saved with {undecoded_strings} strings in "
+            "its drop-down list, which no corpus VI has, so their form is not "
+            "read: a read of its Strings[] before any write raises "
+            "NotImplementedError",
+            stacklevel=2,
+        )
     if control_type == "stdRing":
         ring_values = ring_sparse_values(ddo)
 
@@ -2305,6 +2342,8 @@ def _parse_ddo(
     cluster_geom = None
     element_default_value = None
     element_lv_type: LVType | None = None
+    element_control_type: str | None = None
+    element_mechanical_action: int | None = None
     if control_type == "stdClust":
         clust_defaults = field_defaults if isinstance(field_defaults, dict) else None
         children = _parse_cluster_fields(
@@ -2389,6 +2428,11 @@ def _parse_ddo(
 
         if element is not None:
             element_class = element.get("class")
+            element_control_type = element_class
+            if element_class == "stdBool":
+                element_mechanical_action = mechanical_action(
+                    safe_int(element.find("objFlags"))
+                )
             if element_class == "stdClust":
                 elem_clust_defaults = (
                     elem_defaults if isinstance(elem_defaults, dict) else None
@@ -2418,6 +2462,15 @@ def _parse_ddo(
         bounds=bounds,
         is_indicator=control_is_indicator,
         shows_as_indicator=is_indicator(safe_int(ddo.find("objFlags"))),
+        starts_hidden=starts_hidden(safe_int(ddo.find("objFlags"))),
+        starting_enable_state=starting_enable_state(safe_int(ddo.find("objFlags"))),
+        mechanical_action=(
+            mechanical_action(safe_int(ddo.find("objFlags")))
+            if control_type == "stdBool"
+            else None
+        ),
+        element_control_type=element_control_type,
+        element_mechanical_action=element_mechanical_action,
         lv_type=own_lv_type,
         default_value=default_data,
         unwritable=find_unwritable(field_defaults),
@@ -2427,6 +2480,7 @@ def _parse_ddo(
         children=children,
         parts=_parse_fp_parts(ddo, fonts),
         enum_values=enum_values,
+        undecoded_strings=undecoded_strings,
         ring_values=ring_values,
         cluster_geom=cluster_geom,
         element_default_value=element_default_value,
@@ -2667,7 +2721,9 @@ def _variant_head(
     if len(data) < 8 or (data[0] >> 4) * 10 + (data[0] & 0xF) < 8:
         return None
     count = int.from_bytes(data[4:8], "big")
-    read = read_descriptors(data, 8, count)
+    # The version is BCD: 0x08610000 is LabVIEW 8.6.1.
+    old_class_field = int.from_bytes(data[:4], "big") < 0x08610000
+    read = read_descriptors(data, 8, count, old_class_field)
     if read is None:
         return None
     descriptors, pos = read
@@ -3022,9 +3078,10 @@ def _decode_element(
         return value, 4 + str_len, value
 
     # Picture: a 4-byte length then that many bytes of drawing data (the stored
-    # size of a Glyph-list default is exactly 4 + 1 + 2 x (4 + len) + 4 + 4).
-    # The drawing is not turned into a value, but its bytes are consumed so a
-    # cluster's following fields stay aligned. A Picture with no drawing is empty.
+    # size of a Glyph-list default is exactly 4 + 1 + 2 x (4 + len) + 4 + 4),
+    # which read as records (``picture_records``). Its bytes are consumed either
+    # way so a cluster's following fields stay aligned. A Picture with no drawing
+    # is empty; drawing whose records do not end at its length stays undecoded.
     if underlying == "Picture":
         if len(data) < 4:
             return None, 0, None
@@ -3033,7 +3090,11 @@ def _decode_element(
             return None, 0, None
         if picture_len == 0:
             return "None", 4, None
-        picture = UndecodedPicture(picture_len)
+        picture: PictureData | UndecodedPicture | None = walk_picture(
+            bytes(data[4 : 4 + picture_len])
+        )
+        if picture is None:
+            picture = UndecodedPicture(picture_len)
         return str(picture), 4 + picture_len, picture
 
     # Boolean: 1 byte in binary data

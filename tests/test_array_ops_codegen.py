@@ -619,11 +619,85 @@ class TestArrayReplaceResized:
         )
         assert result[fragment.bindings["out"]] == [[[0, 0]]]
 
-    def test_subarray_without_its_leading_index_is_a_diagnostic(self):
+    def _column_fragment(self):
+        ctx = make_ctx("arr", "el0", "ix0_0", "ix0_1", "out")
+        ctx.bind("arr", "grid")
+        ctx.bind("el0", "col")
+        ctx.bind("ix0_1", "c")
+        op = _replace_op_nd(2, 1, [LVType(kind=LVTypeKind.ARRAY, dimensions=1)])
+        return compound.generate_array_replace(op, ctx)
+
+    def test_1d_subarray_with_only_the_column_index_replaces_a_column(self):
+        fragment = self._column_fragment()
+        grid = [[1, 2, 3], [4, 5, 6]]
+        result = _compile_and_run(
+            fragment.statements, {"grid": grid, "col": [8, 9], "c": 1}
+        )
+        assert result[fragment.bindings["out"]] == [[1, 8, 3], [4, 9, 6]]
+        assert grid == [[1, 2, 3], [4, 5, 6]]
+
+    def test_column_subarray_is_cropped_and_may_be_short(self):
+        fragment = self._column_fragment()
+        grid = [[1, 2], [3, 4]]
+        result = _compile_and_run(
+            fragment.statements, {"grid": grid, "col": [7, 8, 9], "c": 0}
+        )
+        assert result[fragment.bindings["out"]] == [[7, 2], [8, 4]]
+        result = _compile_and_run(
+            fragment.statements, {"grid": grid, "col": [7], "c": 1}
+        )
+        assert result[fragment.bindings["out"]] == [[1, 7], [3, 4]]
+
+    def test_column_out_of_range_has_no_effect(self):
+        fragment = self._column_fragment()
+        for column in (2, -1):
+            result = _compile_and_run(
+                fragment.statements,
+                {"grid": [[1, 2], [3, 4]], "col": [7, 8], "c": column},
+            )
+            assert result[fragment.bindings["out"]] == [[1, 2], [3, 4]]
+        result = _compile_and_run(
+            fragment.statements, {"grid": [], "col": [7, 8], "c": 0}
+        )
+        assert result[fragment.bindings["out"]] == []
+
+    def test_1d_subarray_with_only_the_row_index_replaces_a_row(self):
+        ctx = make_ctx("arr", "el0", "ix0_0", "ix0_1", "out")
+        for tid, var in (("arr", "grid"), ("el0", "row"), ("ix0_0", "r")):
+            ctx.bind(tid, var)
+        op = _replace_op_nd(2, 1, [LVType(kind=LVTypeKind.ARRAY, dimensions=1)])
+        fragment = compound.generate_array_replace(op, ctx)
+        result = _compile_and_run(
+            fragment.statements,
+            {"grid": [[1, 2, 3], [4, 5, 6]], "row": [8, 9], "r": 1},
+        )
+        assert result[fragment.bindings["out"]] == [[1, 2, 3], [8, 9, 6]]
+
+    def test_2d_subarray_with_no_index_wired_lands_at_zero_zero(self):
+        ctx = make_ctx("arr", "el0", "ix0_0", "ix0_1", "out")
+        ctx.bind("arr", "grid")
+        ctx.bind("el0", "block")
+        op = _replace_op_nd(2, 1, [LVType(kind=LVTypeKind.ARRAY, dimensions=2)])
+        fragment = compound.generate_array_replace(op, ctx)
+        result = _compile_and_run(
+            fragment.statements,
+            {"grid": [[1, 2, 3], [4, 5, 6], [7, 8, 9]], "block": [[0, 0], [0, 0]]},
+        )
+        assert result[fragment.bindings["out"]] == [[0, 0, 3], [0, 0, 6], [7, 8, 9]]
+
+    def test_3d_subarray_with_only_a_trailing_index_stays_a_diagnostic(self):
+        ctx = make_ctx("arr", "el0", "ix0_0", "ix0_1", "ix0_2", "out")
+        ctx.bind("arr", "cube")
+        ctx.bind("el0", "row")
+        ctx.bind("ix0_2", "c")
+        op = _replace_op_nd(3, 1, [LVType(kind=LVTypeKind.ARRAY, dimensions=1)])
+        with pytest.raises(ConversionGap, match="leading 2 index"):
+            compound.generate_array_replace(op, ctx)
+
+    def test_1d_subarray_with_no_index_wired_stays_a_diagnostic(self):
         ctx = make_ctx("arr", "el0", "ix0_0", "ix0_1", "out")
         ctx.bind("arr", "grid")
         ctx.bind("el0", "row")
-        ctx.bind("ix0_1", "c")
         op = _replace_op_nd(2, 1, [LVType(kind=LVTypeKind.ARRAY, dimensions=1)])
         with pytest.raises(ConversionGap, match="leading 1 index"):
             compound.generate_array_replace(op, ctx)

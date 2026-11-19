@@ -192,8 +192,10 @@ _MAIN_XML = """<?xml version='1.0' encoding='utf-8'?>
 
 
 def _load(tmp_path: Path, return_label: str = "") -> tuple[InMemoryVIGraph, str]:
-    (tmp_path / "Clfn_BDHb.xml").write_text(_BD_XML)
-    (tmp_path / "Clfn.xml").write_text(_MAIN_XML.format(return_label=return_label))
+    (tmp_path / "Clfn_BDHb.xml").write_text(_BD_XML, encoding="utf-8")
+    (tmp_path / "Clfn.xml").write_text(
+        _MAIN_XML.format(return_label=return_label), encoding="utf-8"
+    )
     graph = InMemoryVIGraph()
     graph.load_vi(tmp_path / "Clfn_BDHb.xml")
     return graph, graph.list_vis()[0]
@@ -308,7 +310,7 @@ _MUX_BD_XML = """<?xml version='1.0' encoding='utf-8'?>
 
 
 def test_bare_dco_reference_of_a_bundle_stays_an_input(tmp_path: Path) -> None:
-    (tmp_path / "Mux_BDHb.xml").write_text(_MUX_BD_XML)
+    (tmp_path / "Mux_BDHb.xml").write_text(_MUX_BD_XML, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(tmp_path / "Mux_BDHb.xml")
     vi_name = graph.list_vis()[0]

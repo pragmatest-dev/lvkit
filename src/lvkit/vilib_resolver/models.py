@@ -41,6 +41,9 @@ class VIEntry(BaseModel):
     # NI's page says the VI runs even when an error comes in on its error in
     # (``CodeFragment.runs_on_error``).
     runs_on_error: bool = False
+    # The entry's Python calls ``live_io`` (a dialog box): a VI that calls it
+    # takes the ``live_io`` parameter (``codegen/panel_hooks.py``).
+    live_io: bool = False
     # The failures of the VI's Python operation that are its error out, in the
     # order they are caught (``codegen/native_failure.py``).
     errors: list[NativeError] = Field(default_factory=list)

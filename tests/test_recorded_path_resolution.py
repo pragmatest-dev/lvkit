@@ -212,7 +212,10 @@ def test_an_absolute_recorded_path_that_exists_is_loaded(tree: _Tree) -> None:
         ],
     )
     main = tree.extract(caller)[2]
-    main.write_text(main.read_text().replace('TpVal="1"', 'TpVal="0"'))
+    main.write_text(
+        main.read_text(encoding="utf-8").replace('TpVal="1"', 'TpVal="0"'),
+        encoding="utf-8",
+    )
     graph, key = _load(tree, "caller_abs.vi")
     assert graph.loaded_callee_key(_call(graph, key)) == str(target.resolve())
 
@@ -225,7 +228,7 @@ def test_a_member_recorded_by_its_class_path_is_the_file_beside_the_class(
 ) -> None:
     cls = tmp_path / "Cls" / "Cls.lvclass"
     cls.parent.mkdir()
-    cls.write_text("<LVClass/>")
+    cls.write_text("<LVClass/>", encoding="utf-8")
     graph = InMemoryVIGraph()
     assert graph._locate_recorded(cls, "Data.ctl") is None  # noqa: SLF001
     (cls.parent / "Data.ctl").write_bytes(b"")
@@ -314,7 +317,9 @@ def test_a_parent_class_is_found_only_at_the_url_its_child_records(
         ),
         encoding="utf-8",
     )
-    (tmp_path / "Child" / "Base.lvclass").write_text(_CLASS.format(parent=""))
+    (tmp_path / "Child" / "Base.lvclass").write_text(
+        _CLASS.format(parent=""), encoding="utf-8"
+    )
     graph = InMemoryVIGraph()
     key = graph.load_lvclass(child, LoadMode.MINIMAL)
     parent_key = graph._dep_graph.nodes[key]["parent_key"]  # noqa: SLF001
@@ -326,3 +331,36 @@ def test_a_parent_class_is_found_only_at_the_url_its_child_records(
     graph = InMemoryVIGraph()
     key = graph.load_lvclass(child, LoadMode.MINIMAL)
     assert not graph.is_stub(graph._dep_graph.nodes[key]["parent_key"])  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "../../Gone/Base/Base.lvclass",
+        "/&lt;vilib&gt;/Plug-In SDKs/Base/Base.lvclass",
+    ],
+)
+def test_a_parent_class_not_at_its_recorded_path_is_found_on_the_search_path(
+    tmp_path: Path, url: str
+) -> None:
+    """A parent class the child records at a path that holds no file (a relative
+    path nobody kept, a ``<vilib>`` path) is the file with that path's tail on
+    the VI Search Path, as a called VI is."""
+    child = tmp_path / "Child" / "Child.lvclass"
+    child.parent.mkdir()
+    child.write_text(
+        _CLASS.format(
+            parent='\t<Item Name="Lib.lvlib:Base.lvclass" Type="Parent" '
+            f'URL="{url}"/>\n'
+        ),
+        encoding="utf-8",
+    )
+    found = tmp_path / "Runtime" / "Base" / "Base.lvclass"
+    found.parent.mkdir(parents=True)
+    found.write_text(_CLASS.format(parent=""), encoding="utf-8")
+    graph = InMemoryVIGraph()
+    graph.set_library_roots(search_path=[str(tmp_path / "Runtime")])
+    key = graph.load_lvclass(child, LoadMode.MINIMAL)
+    parent_key = graph._dep_graph.nodes[key]["parent_key"]  # noqa: SLF001
+    assert parent_key == str(found.resolve())
+    assert not graph.is_stub(parent_key)

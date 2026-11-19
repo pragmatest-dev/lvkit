@@ -41,6 +41,8 @@ class FrameSpec:
     ranges: tuple[tuple[int, int], ...] = ()
     no_error_point: bool = False
     strings: tuple[str, ...] = ()
+    # ``"start".."end"`` ranges of a string selector; ``None`` for an open end.
+    string_ranges: tuple[tuple[str, str | None], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -127,6 +129,14 @@ def _selector_xml(
             for value in frame.strings:
                 ranges.append(_range_xml(len(strings), len(strings), diag))
                 strings.append(value.encode("utf-8").hex().upper())
+            for first, last in frame.string_ranges:
+                start = len(strings)
+                strings.append(first.encode("utf-8").hex().upper())
+                if last is None:
+                    ranges.append(_range_xml(start, start, diag, open_end=True))
+                    continue
+                strings.append(last.encode("utf-8").hex().upper())
+                ranges.append(_range_xml(start, start + 1, diag))
         else:
             if frame.no_error_point:
                 ranges.append(_range_xml(0, 0, diag, open_end=True))
@@ -206,7 +216,9 @@ def case_structure_views(
     and no ``SelectStringArray``, so the frames carry no values of their own.
     ``enum_items`` are the item names of an ``"enum"`` selector.
     """
-    (tmp_path / "Case.xml").write_text(_main_xml(selector, enum_items))
+    (tmp_path / "Case.xml").write_text(
+        _main_xml(selector, enum_items), encoding="utf-8"
+    )
     bd_xml = tmp_path / "Case_BDHb.xml"
     bd_xml.write_text(
         _bd_xml(
@@ -214,7 +226,8 @@ def case_structure_views(
             frames,
             default_frame=default_frame,
             stored_values=stored_values,
-        )
+        ),
+        encoding="utf-8",
     )
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)

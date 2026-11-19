@@ -11,6 +11,7 @@ import networkx as nx
 from ..control_properties import (
     ControlProperty,
     control_property,
+    is_reinit_to_default,
     is_value_row,
     is_value_signaling_row,
 )
@@ -34,6 +35,10 @@ from .models import (
 )
 from .op_walk import correlate_property_terminals
 
+if TYPE_CHECKING:
+    from ..primitive_resolver import PrimitiveResolver
+    from ..vilib_resolver import VILibResolver
+
 
 class WireQueriesMixin:
     """Wire and Local Variable queries on ``InMemoryVIGraph``."""
@@ -50,6 +55,20 @@ class WireQueriesMixin:
         def terminal_vi(self, terminal_id: str) -> str | None: ...
         def get_off_pane_inputs(self, vi_name: str) -> list[Terminal]: ...
         def loaded_callee_key(self, node: VINode) -> str | None: ...
+        def catalog_path(self, node: VINode) -> str | None: ...
+        def acts_on_own_front_panel_window(
+            self, node: AnyGraphNode, vi_name: str
+        ) -> bool: ...
+        def writes_own_window_properties(
+            self, node: AnyGraphNode, vi_name: str
+        ) -> bool: ...
+
+        @property
+        def primitive_catalog(self) -> PrimitiveResolver: ...
+
+        @property
+        def vilib_catalog(self) -> VILibResolver: ...
+
         def pane_terminals(
             self, vi_key: str, direction: TerminalDirection, *, public_only: bool = True
         ) -> list[Terminal]: ...
@@ -206,8 +225,8 @@ class WireQueriesMixin:
         self, vi_name: str
     ) -> tuple[dict[str, FPTerminal], dict[str, FPTerminal]]:
         """The indicators of a VI that a bound Property Node's ``Value`` row
-        reads and those it writes, by terminal id, in that order. A ``Value
-        (Signaling)`` row writes (it cannot be read)."""
+        reads and those it writes, by terminal id, in that order. A Reinit To Default
+        writes, and so does a ``Value (Signaling)`` row (it cannot be read)."""
         read: dict[str, FPTerminal] = {}
         written: dict[str, FPTerminal] = {}
         for node in self.iter_nodes(vi_name):
@@ -216,6 +235,8 @@ class WireQueriesMixin:
             bound = self.bound_terminal(node)
             if bound is None or not bound.is_indicator:
                 continue
+            if is_reinit_to_default(node.method_code):
+                written[bound.id] = bound
             for row, term in correlate_property_terminals(
                 node.properties, node.terminals, node.property_value_terminal_ids
             ):
@@ -262,14 +283,72 @@ class WireQueriesMixin:
             isinstance(node, EventStructureNode) for node in self.iter_nodes(vi_name)
         )
 
+    def calls_live_io(self, vi_name: str) -> bool:
+        """Whether the VI's diagram holds a node whose Python calls ``live_io``:
+        a node whose catalog entry says so (a dialog box), a primitive, or a
+        vi.lib VI by the path its caller records; or an Invoke Node that opens or
+        closes or centers the VI's own front panel window (FP.Open, FP.Close,
+        FP.Center) or writes its Title or Window Bounds."""
+        for node in self.iter_nodes(vi_name):
+            if self.acts_on_own_front_panel_window(
+                node, vi_name
+            ) or self.writes_own_window_properties(node, vi_name):
+                return True
+            if isinstance(node, PrimitiveNode) and node.prim_id is not None:
+                resolved = self.primitive_catalog.resolve(prim_id=node.prim_id)
+                if resolved is not None and (
+                    resolved.live_io
+                    or (
+                        resolved.live_io_when_input is not None
+                        and self._input_may_be(
+                            node,
+                            resolved.live_io_when_input.index,
+                            resolved.live_io_when_input.value,
+                        )
+                    )
+                ):
+                    return True
+            elif isinstance(node, VINode):
+                entry = self.vilib_catalog.resolve_recorded(self.catalog_path(node))
+                if entry is not None and entry.live_io:
+                    return True
+        return False
+
+    def _input_may_be(self, node: PrimitiveNode, index: int, value: int) -> bool:
+        """Whether the input of ``node`` at connector-pane ``index`` can be
+        ``value`` when the code runs: it is a constant of that value, or it is
+        wired from something only known then. An unwired input is its default,
+        which the catalog's ``live_io_when_input`` does not name."""
+        terminal = next(
+            (t for t in node.terminals if t.index == index and t.direction == "input"),
+            None,
+        )
+        if terminal is None:
+            return False
+        for source in self.incoming_edges(terminal.id):
+            origin = self.get_graph_node(source.node_id)
+            if not isinstance(origin, ConstantNode):
+                return True
+            held = origin.value
+            if isinstance(held, str):
+                try:
+                    held = int(held)
+                except ValueError:
+                    return False
+            return held == value and not isinstance(held, bool)
+        return False
+
     def touches_panel_while_running(self, vi_name: str) -> bool:
         """Whether the VI's diagram reads or writes its own front panel while it
         runs: a control or indicator terminal inside a While Loop, For Loop or
         Event Structure, an Event Structure (it waits for the panel's events), a
         Local Variable of one of its controls or indicators, a Value Property
-        Node bound to one of its controls, or an off-pane control whose terminal
-        has a wire leaving it (the diagram reads it)."""
-        if self.has_event_structure(vi_name):
+        Node bound to one of its controls, Reinit To Default on a control or
+        indicator of its own, an off-pane control whose terminal
+        has a wire leaving it (the diagram reads it), or a node whose Python
+        calls ``live_io`` (a dialog box, opening or closing its own front panel
+        window: ``calls_live_io``)."""
+        if self.has_event_structure(vi_name) or self.calls_live_io(vi_name):
             return True
         vi = self.get_graph_node(vi_name)
         if vi is not None and any(
@@ -289,7 +368,14 @@ class WireQueriesMixin:
             elif (
                 isinstance(node, PrimitiveNode)
                 and node.bound_control_uid
-                and (self.has_value_row(node) or self.listed_property_writes(node))
+                and (
+                    self.has_value_row(node)
+                    or self.listed_property_writes(node)
+                    or (
+                        is_reinit_to_default(node.method_code)
+                        and self.bound_terminal(node) is not None
+                    )
+                )
             ):
                 return True
         return False
@@ -304,24 +390,40 @@ class WireQueriesMixin:
             for codes in ([s.code for s in row.segments] for row in node.properties)
         )
 
-    def listed_property_writes(
+    def listed_property_rows(
         self, node: PrimitiveNode
     ) -> list[tuple[PropertyDef, Terminal, ControlProperty]]:
-        """The rows of the bound Property Node ``node`` that write a property
-        listed in ``control_properties.json``, in row order, each with its value
-        terminal; the node must be bound to a control or indicator of its VI."""
+        """The rows of the bound Property Node ``node`` (reads and writes) of a
+        property listed in ``control_properties.json`` that a running VI can change,
+        in row order, each with its value terminal; the node must be bound to a
+        control or indicator of its VI. A property it cannot change (an Enum's
+        ``Strings[]``) is a saved value, not a panel state."""
         if self.bound_terminal(node) is None:
             return []
-        writes: list[tuple[PropertyDef, Terminal, ControlProperty]] = []
+        rows: list[tuple[PropertyDef, Terminal, ControlProperty]] = []
         for row, term in correlate_property_terminals(
             node.properties, node.terminals, node.property_value_terminal_ids
         ):
             listed = control_property(
                 node.object_name or "", [s.code for s in row.segments]
             )
-            if term is not None and term.direction == "input" and listed is not None:
-                writes.append((row, term, listed))
-        return writes
+            if (
+                term is not None
+                and listed is not None
+                and listed.settable_while_running
+            ):
+                rows.append((row, term, listed))
+        return rows
+
+    def listed_property_writes(
+        self, node: PrimitiveNode
+    ) -> list[tuple[PropertyDef, Terminal, ControlProperty]]:
+        """The rows of ``listed_property_rows`` that write the property."""
+        return [
+            found
+            for found in self.listed_property_rows(node)
+            if found[1].direction == "input"
+        ]
 
     def bound_terminal(self, node: PrimitiveNode) -> FPTerminal | None:
         """The control or indicator of the VI that the bound Property Node

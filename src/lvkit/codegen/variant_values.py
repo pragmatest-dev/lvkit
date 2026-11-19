@@ -10,8 +10,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from lvkit.graph.models import ConstantNode, VINode
 from lvkit.lv_type_codes import is_variant_type_name
-from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 
 from .ast_utils import COPY_IMPORT
 from .variants_module import VARIANT_NAME, lv_type_expression
@@ -43,22 +44,55 @@ def is_array_or_cluster(lv_type: LVType) -> bool:
     )
 
 
-def as_variant(ctx: CodeGenContext, expr: str, source_type: LVType) -> str:
+def variant_label(ctx: CodeGenContext, source: Terminal | None) -> str:
+    """The label of the data a wire carries into a variant, which Get Type
+    Information returns as its ``name`` and the variant's type string records: the
+    label the graph keeps for the wire's source. That is the label of a control or
+    indicator (``FPTerminal.name``), the field label of a Bundle or Unbundle By Name
+    lane (``Terminal.display_name``), the label of a constant (``label``) and the
+    label of a subVI output (``Terminal.name``: the label the calling VI records for
+    the called VI's connector-pane slot, its indicator's). A function's output has
+    none: NI's pages and the forum threads searched (forums.ni.com "Get the type of
+    the data in a variant", "Cluster Element Names") say only that the name is the
+    label of the data, an output indicator's by default, and none says a function's
+    terminal gives its type one; "" when the source records none."""
+    if source is None:
+        return ""
+    if isinstance(source, FPTerminal):
+        return source.name or ""
+    if source.nmux_role == "list":
+        return source.display_name or ""
+    if ctx.graph is None:
+        return ""
+    node = ctx.graph.get_graph_node(ctx.graph.terminal_node_id(source.id))
+    if isinstance(node, ConstantNode):
+        return node.label or ""
+    if isinstance(node, VINode):
+        return source.name or ""
+    return ""
+
+
+def as_variant(
+    ctx: CodeGenContext, expr: str, source_type: LVType, label: str = ""
+) -> str:
     """``Variant(<expr>, <its type>)``: ``expr`` copied one level first when it is
-    an array or a cluster, as To Variant copies its data."""
+    an array or a cluster, as To Variant copies its data. A ``label`` (see
+    ``variant_label``) is the variant's ``name``; the type string a variant is
+    flattened with ends in it (``flat_writer``)."""
     type_expr = type_expression(ctx, source_type)
     value = expr
     if is_array_or_cluster(source_type):
         ctx.add_import(COPY_IMPORT)
         value = f"copy.copy({expr})"
-    return f"{VARIANT_NAME}({value}, {type_expr})"
+    name = f", name={label!r}" if label else ""
+    return f"{VARIANT_NAME}({value}, {type_expr}{name})"
 
 
-def _source_type(
+def _source(
     ctx: CodeGenContext, terminal_id: str, source_id: str | None
-) -> LVType | None:
-    """The type of the wire feeding the terminal (``source_id``, else the one wired
-    to it); None when nothing known is wired."""
+) -> Terminal | None:
+    """The terminal feeding the terminal (``source_id``, else the one wired to it);
+    None when nothing known is wired."""
     if ctx.graph is None:
         return None
     if source_id is None:
@@ -66,24 +100,23 @@ def _source_type(
         if not sources:
             return None
         source_id = sources[0].terminal_id
-    source = ctx.graph.get_terminal(source_id)
-    return source.lv_type if source is not None else None
+    return ctx.graph.get_terminal(source_id)
 
 
-def _coerced_type(
+def _coerced_source(
     ctx: CodeGenContext, terminal_id: str, source_id: str | None
-) -> LVType | None:
-    """The type of the typed wire a Variant terminal is fed by; None when the
+) -> Terminal | None:
+    """The terminal of the typed wire a Variant terminal is fed by; None when the
     terminal is not a Variant or its wire is a Variant or has no known type."""
     if ctx.graph is None:
         return None
     terminal = ctx.graph.get_terminal(terminal_id)
     if terminal is None or not is_variant_type(terminal.lv_type):
         return None
-    source_type = _source_type(ctx, terminal_id, source_id)
-    if source_type is None or is_variant_type(source_type):
+    source = _source(ctx, terminal_id, source_id)
+    if source is None or source.lv_type is None or is_variant_type(source.lv_type):
         return None
-    return source_type
+    return source
 
 
 def is_coerced(
@@ -91,7 +124,7 @@ def is_coerced(
 ) -> bool:
     """Whether the terminal is a Variant fed by a typed wire: the generated code
     then builds a new ``Variant`` for it (``wrap_if_coerced``)."""
-    return _coerced_type(ctx, terminal_id, source_id) is not None
+    return _coerced_source(ctx, terminal_id, source_id) is not None
 
 
 def wrap_if_coerced(
@@ -102,10 +135,10 @@ def wrap_if_coerced(
     terminal). A gap constant (``None``) stays as it is."""
     if expr == "None":
         return expr
-    source_type = _coerced_type(ctx, terminal_id, source_id)
-    if source_type is None:
+    source = _coerced_source(ctx, terminal_id, source_id)
+    if source is None or source.lv_type is None:
         return expr
-    return as_variant(ctx, expr, source_type)
+    return as_variant(ctx, expr, source.lv_type, variant_label(ctx, source))
 
 
 def variant_input(
@@ -121,7 +154,7 @@ def variant_input(
         return f"{VARIANT_NAME}()"
     if is_variant_type(term.lv_type):
         return value
-    source_type = _source_type(ctx, term.id, None)
-    if source_type is None or is_variant_type(source_type):
+    source = _source(ctx, term.id, None)
+    if source is None or source.lv_type is None or is_variant_type(source.lv_type):
         return value
-    return as_variant(ctx, value, source_type)
+    return as_variant(ctx, value, source.lv_type, variant_label(ctx, source))

@@ -72,7 +72,7 @@ def test_init_project_store_idempotent(tmp_path: Path) -> None:
     """Re-running init does not clobber existing files."""
     store = init_project_store(tmp_path)
     custom = "MY CUSTOM README"
-    (store / "README.md").write_text(custom)
+    (store / "README.md").write_text(custom, encoding="utf-8")
     init_project_store(tmp_path)
     assert (store / "README.md").read_text(encoding="utf-8") == custom
 
@@ -116,7 +116,8 @@ def project_with_prim_override(tmp_path: Path) -> Path:
                     }
                 }
             }
-        )
+        ),
+        encoding="utf-8",
     )
     return store
 
@@ -164,7 +165,8 @@ def project_with_vilib_override(tmp_path: Path) -> Path:
     store = init_project_store(tmp_path)
     vilib_dir = store / "vilib"
     (vilib_dir / "_index.json").write_text(
-        json.dumps({"categories": {"string": "string.json"}})
+        json.dumps({"categories": {"string": "string.json"}}),
+        encoding="utf-8",
     )
     (vilib_dir / "string.json").write_text(
         json.dumps(
@@ -194,7 +196,8 @@ def project_with_vilib_override(tmp_path: Path) -> Path:
                     }
                 ]
             }
-        )
+        ),
+        encoding="utf-8",
     )
     return store
 
@@ -258,6 +261,7 @@ def test_cli_setup_creates_project_store(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         check=True,
+        encoding="utf-8",
     )
     assert "Initialized .lvkit/" in result.stdout
     assert (tmp_path / ".lvkit" / "README.md").exists()
@@ -278,6 +282,7 @@ def test_cli_setup_skills_choice_is_not_a_directory(tmp_path: Path) -> None:
         cwd=tmp_path,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, result.stderr
     assert "Not a directory" not in result.stderr
@@ -295,6 +300,7 @@ def test_cli_setup_codex_choice_is_not_a_directory(tmp_path: Path) -> None:
         cwd=tmp_path,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, result.stderr
     assert "Not a directory" not in result.stderr
@@ -307,12 +313,13 @@ def test_cli_setup_auto_detects_codex(tmp_path: Path) -> None:
     import subprocess
     import sys
 
-    (tmp_path / "AGENTS.md").write_text("# Project instructions\n")
+    (tmp_path / "AGENTS.md").write_text("# Project instructions\n", encoding="utf-8")
     result = subprocess.run(
         [sys.executable, "-m", "lvkit.cli", "setup"],
         cwd=tmp_path,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, result.stderr
     assert "Installed 7 Codex skill(s)" in result.stdout
@@ -329,6 +336,7 @@ def test_cli_setup_without_agent_marker_installs_no_skills(tmp_path: Path) -> No
         cwd=tmp_path,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     assert result.returncode == 0, result.stderr
     assert "No AI agent detected" in result.stdout
@@ -381,7 +389,7 @@ def test_install_claude_skills_refuses_local_edits(tmp_path: Path) -> None:
 
     install_claude_skills(tmp_path)
     edited = tmp_path / ".claude" / "skills" / "lvkit-convert" / "SKILL.md"
-    edited.write_text("LOCAL EDIT\n")
+    edited.write_text("LOCAL EDIT\n", encoding="utf-8")
 
     with pytest.raises(FileExistsError, match="local edits"):
         install_claude_skills(tmp_path)
@@ -393,7 +401,7 @@ def test_install_claude_skills_force_overwrites(tmp_path: Path) -> None:
 
     install_claude_skills(tmp_path)
     edited = tmp_path / ".claude" / "skills" / "lvkit-convert" / "SKILL.md"
-    edited.write_text("LOCAL EDIT\n")
+    edited.write_text("LOCAL EDIT\n", encoding="utf-8")
 
     install_claude_skills(tmp_path, force=True)
     assert "LOCAL EDIT" not in edited.read_text(encoding="utf-8")
@@ -414,7 +422,9 @@ def test_install_claude_skills_atomic_on_conflict(tmp_path: Path) -> None:
     # split, they'd get written before the install hit the conflict.
     skills_dir = tmp_path / ".claude" / "skills"
     (skills_dir / "lvkit-convert").mkdir(parents=True)
-    (skills_dir / "lvkit-convert" / "SKILL.md").write_text("LOCAL EDIT\n")
+    (skills_dir / "lvkit-convert" / "SKILL.md").write_text(
+        "LOCAL EDIT\n", encoding="utf-8"
+    )
 
     with pytest.raises(FileExistsError, match="local edits"):
         install_claude_skills(tmp_path)
@@ -548,11 +558,13 @@ def test_install_copilot_skills_removes_managed_prompts_and_router(
     prompts.mkdir(parents=True)
     managed = f"---\nmode: agent\n---\n{_managed_marker()}\n\nbody\n"
     for skill in _LVKIT_SKILLS:
-        (prompts / f"{skill}.prompt.md").write_text(managed)
+        (prompts / f"{skill}.prompt.md").write_text(managed, encoding="utf-8")
     instructions = tmp_path / ".github" / "instructions"
     instructions.mkdir()
     router = instructions / "lvkit.instructions.md"
-    router.write_text(f'---\napplyTo: "**"\n---\n{_managed_marker()}\n')
+    router.write_text(
+        f'---\napplyTo: "**"\n---\n{_managed_marker()}\n', encoding="utf-8"
+    )
 
     install_copilot_skills(tmp_path)
 
@@ -567,14 +579,14 @@ def test_install_copilot_skills_keeps_unmanaged_prompt_files(tmp_path: Path) -> 
     prompts = tmp_path / ".github" / "prompts"
     prompts.mkdir(parents=True)
     edited = prompts / "lvkit-convert.prompt.md"
-    edited.write_text("my own prompt\n")
+    edited.write_text("my own prompt\n", encoding="utf-8")
     foreign = prompts / "review.prompt.md"
-    foreign.write_text("foreign\n")
+    foreign.write_text("foreign\n", encoding="utf-8")
     managed = prompts / "lvkit-describe.prompt.md"
-    managed.write_text(f"{_managed_marker()}\n")
+    managed.write_text(f"{_managed_marker()}\n", encoding="utf-8")
     user_router = tmp_path / ".github" / "instructions" / "lvkit.instructions.md"
     user_router.parent.mkdir()
-    user_router.write_text("hand written\n")
+    user_router.write_text("hand written\n", encoding="utf-8")
 
     install_copilot_skills(tmp_path)
 
@@ -605,11 +617,13 @@ def test_install_copilot_skills_atomic_on_conflict(tmp_path: Path) -> None:
 
     skills_dir = tmp_path / ".github" / "skills"
     (skills_dir / "lvkit-convert").mkdir(parents=True)
-    (skills_dir / "lvkit-convert" / "SKILL.md").write_text("LOCAL EDIT\n")
+    (skills_dir / "lvkit-convert" / "SKILL.md").write_text(
+        "LOCAL EDIT\n", encoding="utf-8"
+    )
     prompts = tmp_path / ".github" / "prompts"
     prompts.mkdir()
     managed = prompts / "lvkit-describe.prompt.md"
-    managed.write_text(f"{_managed_marker()}\n")
+    managed.write_text(f"{_managed_marker()}\n", encoding="utf-8")
 
     with pytest.raises(FileExistsError, match="local edits"):
         install_copilot_skills(tmp_path)
@@ -626,7 +640,7 @@ def test_install_copilot_skills_force_overwrites(tmp_path: Path) -> None:
 
     install_copilot_skills(tmp_path)
     edited = tmp_path / ".github" / "skills" / "lvkit-convert" / "SKILL.md"
-    edited.write_text("LOCAL EDIT\n")
+    edited.write_text("LOCAL EDIT\n", encoding="utf-8")
 
     install_copilot_skills(tmp_path, force=True)
     assert "LOCAL EDIT" not in edited.read_text(encoding="utf-8")
@@ -686,7 +700,7 @@ def test_install_codex_skills_atomic_on_conflict(tmp_path: Path) -> None:
     skills_dir = tmp_path / ".agents" / "skills"
     conflict = skills_dir / "lvkit-convert" / "SKILL.md"
     conflict.parent.mkdir(parents=True)
-    conflict.write_text("LOCAL EDIT\n")
+    conflict.write_text("LOCAL EDIT\n", encoding="utf-8")
 
     with pytest.raises(FileExistsError, match="local edits"):
         install_codex_skills(tmp_path)
@@ -705,7 +719,7 @@ def test_install_codex_skills_force_overwrites(tmp_path: Path) -> None:
 
     install_codex_skills(tmp_path)
     edited = tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md"
-    edited.write_text("LOCAL EDIT\n")
+    edited.write_text("LOCAL EDIT\n", encoding="utf-8")
 
     install_codex_skills(tmp_path, force=True)
     text = edited.read_text(encoding="utf-8")
@@ -728,7 +742,7 @@ def test_detect_ai_editors_recognizes_codex_markers(
     if marker.startswith("."):
         path.mkdir()
     else:
-        path.write_text("# Codex instructions\n")
+        path.write_text("# Codex instructions\n", encoding="utf-8")
     assert _detect_ai_editors(tmp_path) == ["codex"]
 
 
@@ -772,6 +786,7 @@ def test_cli_setup_skills_claude(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         check=True,
+        encoding="utf-8",
     )
     assert "Installed 7 Claude Code skill(s)" in result.stdout
     assert (tmp_path / ".claude" / "skills" / "lvkit-convert" / "SKILL.md").is_file()
@@ -794,6 +809,7 @@ def test_cli_setup_skills_codex(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         check=True,
+        encoding="utf-8",
     )
     assert "Installed 7 Codex skill(s)" in result.stdout
     assert (tmp_path / ".agents" / "skills" / "lvkit-convert" / "SKILL.md").is_file()
@@ -816,6 +832,7 @@ def test_cli_setup_skills_all(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         check=True,
+        encoding="utf-8",
     )
     assert "Installed 7 Claude Code skill(s)" in result.stdout
     assert "Installed 7 Copilot skill(s)" in result.stdout
@@ -883,7 +900,7 @@ def test_mcp_discover_from_vi_file(tmp_path: Path) -> None:
     deep_dir = tmp_path / "lib" / "subdir"
     deep_dir.mkdir(parents=True)
     fake_vi = deep_dir / "Foo.vi"
-    fake_vi.write_text("not a real vi")  # only path matters
+    fake_vi.write_text("not a real vi", encoding="utf-8")  # only path matters
 
     assert project_store_for(str(fake_vi)) == tmp_path / ".lvkit"
 
@@ -917,7 +934,8 @@ def test_mcp_discover_from_directory_path(tmp_path: Path) -> None:
     (store / "primitives.json").write_text(
         json.dumps(
             {"primitives": {"1419": {"name": "MCP-DIR-TEST OVERRIDE", "terminals": []}}}
-        )
+        ),
+        encoding="utf-8",
     )
 
     found = project_store_for(str(lvlib_dir))
@@ -937,7 +955,7 @@ def test_mcp_discover_returns_none_outside_project(tmp_path: Path) -> None:
     # Drop a .git so discovery stops here without finding any .lvkit/
     (tmp_path / ".git").mkdir()
     fake_vi = tmp_path / "Foo.vi"
-    fake_vi.write_text("not a real vi")
+    fake_vi.write_text("not a real vi", encoding="utf-8")
 
     assert project_store_for(str(fake_vi)) is None
 

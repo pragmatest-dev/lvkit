@@ -38,6 +38,7 @@ from lvkit.lv_type_codes import (
 from lvkit.vi_files import is_vi_file
 
 from ..models import (
+    MAP_ACCESS_NODE_TYPE,
     CaseFrame,
     EventFrame,
     FPTerminal,
@@ -311,6 +312,11 @@ def _pane_terminal(
         lv_type=t.lv_type,
         caption=caption,
         caption_visible=caption_visible,
+        starts_hidden=isinstance(t, FPTerminal) and bool(t.starts_hidden),
+        enable_state=(t.enable_state or 0) if isinstance(t, FPTerminal) else 0,
+        mechanical_action=(
+            (t.mechanical_action or 0) if isinstance(t, FPTerminal) else 0
+        ),
         terminal_uid=_fp_terminal_uid(t),
     )
 
@@ -815,6 +821,8 @@ def _is_ipes_border_node_gn(graph: InMemoryVIGraph, node: AnyGraphNode) -> bool:
         return False
     if not graph.get_poser_uid(node.id):
         return False
+    if node.node_type == MAP_ACCESS_NODE_TYPE:
+        return True
     has_list_out = any(
         t.nmux_role == "list" and t.direction == "output" for t in node.terminals
     )
@@ -2713,6 +2721,7 @@ def build_netlist_from_graph(graph: InMemoryVIGraph, vi_name: str) -> NetlistMod
         components=components,
         properties=ctx.properties,
         health=ctx.health,
+        tags=graph.get_vi_tags(vi_name),
         class_context=_build_class_context(graph, vi_name),
         connector_pane=connector_pane,
         dependencies=dependencies,

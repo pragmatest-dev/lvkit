@@ -415,8 +415,8 @@ def test_class_owner_chain_must_end_in_the_class_the_path_names() -> None:
 
 
 def test_files_differing_only_in_case_are_ambiguous(tmp_path: Path) -> None:
-    (tmp_path / "Foo.lvclass").write_text("a")
-    (tmp_path / "FOO.lvclass").write_text("b")
+    (tmp_path / "Foo.lvclass").write_text("a", encoding="utf-8")
+    (tmp_path / "FOO.lvclass").write_text("b", encoding="utf-8")
     if len(list(tmp_path.iterdir())) < 2:
         pytest.skip("case-insensitive filesystem")
     with pytest.raises(AmbiguousVIReferenceError, match="differ only in case"):
@@ -424,8 +424,8 @@ def test_files_differing_only_in_case_are_ambiguous(tmp_path: Path) -> None:
 
 
 def test_the_one_file_differing_in_case_is_the_match(tmp_path: Path) -> None:
-    (tmp_path / "Daqmx Module runtime.lvclass").write_text("a")
-    (tmp_path / "other.lvclass").write_text("b")
+    (tmp_path / "Daqmx Module runtime.lvclass").write_text("a", encoding="utf-8")
+    (tmp_path / "other.lvclass").write_text("b", encoding="utf-8")
     match = _case_insensitive_match(tmp_path, "DAQmx Module Runtime.lvclass")
     assert match == tmp_path / "Daqmx Module runtime.lvclass"
     assert _case_insensitive_match(tmp_path, "missing.lvclass") is None

@@ -73,7 +73,7 @@ _BD_XML = (
 
 def test_describe_and_lvnet_show_the_constant_as_not_decoded(tmp_path: Path) -> None:
     bd_xml = tmp_path / "C_BDHb.xml"
-    bd_xml.write_text(_BD_XML)
+    bd_xml.write_text(_BD_XML, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml)
     name = graph.list_vis()[0]

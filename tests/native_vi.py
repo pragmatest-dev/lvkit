@@ -67,15 +67,15 @@ def generate(
     outputs: dict[str, LVType],
     nodes: list[PrimitiveNode],
     wires: list[tuple[str, str]],
-    constants: dict[str, tuple[object, LVType] | tuple[object, LVType, object]]
-    | None = None,
+    constants: dict[str, tuple[object, ...]] | None = None,
     gaps: list[Gap] | None = None,
 ) -> Generated:
     """``inputs`` / ``outputs`` are the VI's controls and indicators by name;
     ``wires`` connect terminal ids (``in:<name>``, ``out:<name>``,
     ``<node_id>:<index>``); ``constants`` maps a terminal id to the (value, type)
     of a diagram constant wired from it, plus its decoded value as a third item
-    when it has one (``Constant.structured_value``)."""
+    when it has one (``Constant.structured_value``) and the part of it that cannot
+    be written (``Constant.unwritable``) as a fourth."""
     controls = [
         FPTerminal(
             id=f"fp:{name}",
@@ -106,7 +106,11 @@ def generate(
             id=terminal,
             value="" if isinstance(value, ValueNotStored) else value,
             lv_type=lv_type,
-            unwritable=value if isinstance(value, ValueNotStored) else None,
+            unwritable=(
+                spec[3]
+                if len(spec) > 3
+                else (value if isinstance(value, ValueNotStored) else None)
+            ),
             structured_value=(spec[2] if len(spec) > 2 else None),
         )
         for terminal, spec in (constants or {}).items()

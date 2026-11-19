@@ -30,13 +30,13 @@ import networkx as nx
 from lvkit.library_folders import Folders, SearchEntries
 
 from ..cache_paths import LibraryRoots
-from ..embedded_instances import read_instance_sources
+from ..embedded_instances import read_instance_defaults, read_instance_sources
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
 from ..flattened_typedesc import embedded_private_data_copy
 from ..library_folders import is_symbolic_root
 from ..load_mode import LoadMode as LoadMode  # re-export for old call sites
-from ..models import ClusterField, LVType, Terminal
+from ..models import ClusterField, LVType, SavedTag, Terminal
 from ..parser import (
     ParsedBlockDiagram,
     ParsedConnectorPane,
@@ -49,6 +49,7 @@ from ..parser import (
 from ..parser.link_table import SharedVariableLink, SharedVariableRecordFailure
 from ..parser.metadata import parse_vi_metadata, recorded_path_key
 from ..parser.models import ABSOLUTE_PATH_TYPE
+from ..parser.saved_tags import read_vi_tags_beside
 from ..project_folders import project_relative, project_root
 from ..run_report import (
     CacheWriteError,
@@ -426,6 +427,7 @@ class LoadingMixin:
     _vi_properties: dict[str, VIProperties]
     _vi_health: dict[str, VIHealth]
     _vi_dotnet_assemblies: dict[str, VIDotNetAssemblies]
+    _vi_tags: dict[str, list[SavedTag]]
     _vilib_roots: tuple[Path, ...]
     _userlib_roots: tuple[Path, ...]
     _instrlib_roots: tuple[Path, ...]
@@ -502,6 +504,7 @@ class LoadingMixin:
         def class_private_data_key(self, key: str) -> str | None: ...
         def key_label(self, key: str) -> str: ...
         def recorded_type_key(self, file_key: str, lv_type: LVType) -> str | None: ...
+        def is_strict_typedef(self, lv_type: LVType) -> bool: ...
         def _record_members(
             self, container_key: str, members: dict[str, ListedMethod | None]
         ) -> None: ...
@@ -814,6 +817,7 @@ class LoadingMixin:
         types = metadata.type_map.values() if metadata is not None else ()
         for lv_type in type_names(types):
             lv_type.file_key = self.recorded_type_key(file_key, lv_type)
+            lv_type.strict_typedef = self.is_strict_typedef(lv_type)
 
     def _record_key(
         self, ref: ParsedDependencyRef, caller_file: Path
@@ -1188,9 +1192,14 @@ class LoadingMixin:
             name=parent_name + ".lvclass", path_tokens=path_tokens, path_type=path_type
         )
         candidate = self._recorded_path(dep_ref, lvclass_path)
-        if candidate is None:
-            return None, None
-        return self._locate_recorded(candidate, candidate.name), candidate
+        found = (
+            self._locate_recorded(candidate, candidate.name)
+            if candidate is not None
+            else None
+        )
+        if found is None:
+            found = self._search_for(dep_ref, dep_ref.name, lvclass_path)
+        return found, candidate
 
     def _resolve_parent(
         self, cls: LVClass, lvclass_path: Path
@@ -1233,7 +1242,16 @@ class LoadingMixin:
             # as a directory (members read ``../X.vi``), so resolve against
             # ``lvclass_path`` itself — that absorbs the leading ``..``.
             intended = (lvclass_path / cls.parent_url).resolve()
-            return self._locate_recorded(intended, intended.name), intended
+            found = self._locate_recorded(intended, intended.name)
+            if found is None:
+                dep_ref = ParsedDependencyRef(
+                    name=parent + ".lvclass",
+                    path_tokens=[
+                        t for t in cls.parent_url.split("/") if t and t != ".."
+                    ],
+                )
+                found = self._search_for(dep_ref, dep_ref.name, lvclass_path)
+            return found, intended
         if cls.parent_link_path:
             return self._resolve_recorded_class_ref(
                 parent, cls.parent_link_path, lvclass_path, cls.parent_link_path_type
@@ -1641,6 +1659,8 @@ class LoadingMixin:
             )
             self._vi_properties[vi_key] = _build_vi_properties(poly_metadata)
             self._vi_health[vi_key] = _build_vi_health(poly_metadata)
+            if main_xml is not None:
+                self._vi_tags[vi_key] = read_vi_tags_beside(main_xml)
             self._vi_dotnet_assemblies[vi_key] = VIDotNetAssemblies(
                 assemblies=metadata.dotnet_assemblies,
                 unreadable=[
@@ -1711,6 +1731,9 @@ class LoadingMixin:
         # Each malleable-VI call's recorded instance name -> the qualified name
         # of the file it is an instance of (filled while loading dependencies).
         instance_qnames: dict[str, str] = {}
+        # Each embedded instance's unwired control values (see
+        # ``read_instance_defaults``), by the instance's name.
+        instance_defaults: dict[str, dict[int, str | None]] = {}
         # Each dependency's identity (see ``_load_dependency``) by the qualified
         # name the caller's link table records for it.
         dep_keys: dict[str, str] = {}
@@ -1765,6 +1788,11 @@ class LoadingMixin:
             # A malleable-VI call is recorded as an embedded instance named by a
             # GUID; the file it is an instance of is what the call is to.
             instance_sources = read_instance_sources(
+                main_xml.parent, metadata.instance_files, self.cache_roots
+            )
+            # An Express VI's dialog settings are the saved defaults of its
+            # instance's controls.
+            instance_defaults = read_instance_defaults(
                 main_xml.parent, metadata.instance_files, self.cache_roots
             )
 
@@ -1892,8 +1920,29 @@ class LoadingMixin:
             )
         else:
             self._stamp_callee_keys(vi_key, iuse_to_callee_key, poly_to_callee_key)
+        self._stamp_instance_defaults(
+            vi_key, metadata.iuse_to_qualified_name, instance_defaults
+        )
 
         return vi_key
+
+    def _stamp_instance_defaults(
+        self,
+        vi_key: str,
+        iuse_to_qname: dict[str, str],
+        instance_defaults: dict[str, dict[int, str | None]],
+    ) -> None:
+        """Give each call of an embedded instance in a VI the values its unwired
+        controls hold (``VINode.instance_defaults``)."""
+        if not instance_defaults:
+            return
+        for node_id in sorted(self._vi_nodes[vi_key]):
+            node = self._graph.nodes[node_id].get("node")
+            if not isinstance(node, VINode) or node.id == node.vi_path:
+                continue
+            qname = iuse_to_qname.get(node_id.rsplit("::", 1)[-1])
+            if qname is not None:
+                node.instance_defaults = instance_defaults.get(qname.rsplit(":", 1)[-1])
 
     def _stamp_callee_keys(
         self,
@@ -1969,6 +2018,12 @@ class LoadingMixin:
             # The types the control's records are applied to
             # (``_store_type_records``) are the ones its root and fields are.
             type_map = parsed.metadata.type_map
+            if parsed.file_metadata is not None:
+                # The control's own properties: its type-definition kind (plain
+                # or strict) is what an instance of it is told by.
+                self._vi_properties[str(ctl_path.resolve())] = _build_vi_properties(
+                    parsed.file_metadata
+                )
         except (RuntimeError, OSError, ValueError, ET.ParseError) as exc:
             # Only an unreadable file is "unreadable"; anything else (a malformed
             # extraction, a parse bug) is an lvkit error. Either way the control's

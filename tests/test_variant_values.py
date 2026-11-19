@@ -277,8 +277,8 @@ def test_a_variant_made_for_a_typed_wire_is_not_copied_before_it_is_changed(
     package = project.generate(NAME)
     assert "copy.copy(Variant(" not in package.source
     out = package.function(7, "a", "b")
-    variants = package.variants
     assert out.shown == 7
-    assert out.result == variants.Variant(
-        7, variants.LV_I32, {"a": variants.Variant("b", variants.LV_String)}
-    )
+    assert out.result.value == 7
+    assert out.result.name == "x"
+    attribute = out.result.attributes["a"]
+    assert (attribute.value, attribute.name) == ("b", "content")

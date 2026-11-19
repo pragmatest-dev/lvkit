@@ -25,6 +25,7 @@ from typing import Literal
 import hightime
 from pydantic import BaseModel
 
+from .control_classes import vi_server_class
 from .conversion_gap import ConversionGap
 from .dotnet_types import DotNetType
 from .lv_type_codes import (
@@ -36,6 +37,7 @@ from .lv_type_codes import (
     is_int32_type_name,
     is_string_type_name,
 )
+from .picture_records import PictureData
 from .string_literal import quote_string
 from .timestamp_value import TIMESTAMP_FLAVOR, timestamp_value_text
 from .type_names import derive_python_name, is_enum_member_name
@@ -76,8 +78,9 @@ class ValuesNotKept:
 
 @dataclass(frozen=True)
 class UndecodedPicture:
-    """A Picture value that holds drawing data. The drawing is read past (its
-    length is stored) but not turned into a value."""
+    """A Picture value whose stored drawing does not read as records (their
+    lengths do not end where the Picture's stored length does). The drawing is
+    read past (its length is stored) but not turned into a value."""
 
     byte_count: int
 
@@ -85,7 +88,10 @@ class UndecodedPicture:
         return f"<Picture, {self.byte_count} bytes of drawing not decoded>"
 
     def reason(self) -> str:
-        return f"a Picture of {self.byte_count} bytes whose drawing is not decoded"
+        return (
+            f"a Picture of {self.byte_count} bytes whose records do not add up "
+            "to its stored length"
+        )
 
 
 @dataclass(frozen=True)
@@ -137,7 +143,12 @@ class UnreadPath:
 
 
 UnwritableValue = (
-    ValuesNotKept | UndecodedPicture | UnreadPrivateData | ValueNotStored | UnreadPath
+    ValuesNotKept
+    | UndecodedPicture
+    | PictureData
+    | UnreadPrivateData
+    | ValueNotStored
+    | UnreadPath
 )
 
 
@@ -152,6 +163,32 @@ class VariantData:
     value_type: LVType | None
     value: object
     attributes: tuple[tuple[str, VariantData], ...] = ()
+
+
+@dataclass(frozen=True)
+class SavedTag:
+    """A tag a VI, a library or a class saves with its file: its ``name`` and its
+    ``value``, the Variant the Tag methods of the VI Server read and write. A value
+    lvkit does not decode has no ``value``, and ``undecoded`` says why (the tag is
+    still listed, and reading it at run time is an error naming it)."""
+
+    name: str
+    value: VariantData | None
+    undecoded: str | None = None
+
+    def type_text(self) -> str | None:
+        """The type of the value the tag holds, None for an empty Variant or a
+        value that is not decoded."""
+        held = self.value.value_type if self.value is not None else None
+        return held.type_descriptor() if held is not None else None
+
+    def value_text(self) -> str | None:
+        """The value as the views show it (a string as its quoted literal), None
+        for a value that is not decoded."""
+        if self.value is None:
+            return None
+        shown = plain_structured(self.value)
+        return shown if isinstance(shown, str) else str(shown)
 
 
 def plain_structured(value: object) -> object:
@@ -180,13 +217,20 @@ _UNWRITABLE_TYPES = (
 )
 
 
-def find_unwritable(value: object) -> UnwritableValue | None:
+def find_unwritable(
+    value: object, *, writes_pictures: bool = False
+) -> UnwritableValue | None:
     """The first part of a decoded value (an array's elements, a cluster's fields,
-    recursively) that holds no value code generation could write, else None."""
+    recursively) that holds no value code generation could write, else None.
+    ``writes_pictures`` is true for a diagram constant, which is written as an
+    image when its drawing is decoded; a control's saved default holding a
+    drawn Picture is never written."""
     if isinstance(value, _UNWRITABLE_TYPES):
         return value
+    if isinstance(value, PictureData):
+        return None if writes_pictures and value.undecoded() is None else value
     if isinstance(value, VariantData):
-        return find_unwritable(value.value)
+        return find_unwritable(value.value, writes_pictures=writes_pictures)
     if isinstance(value, dict):
         children: Iterable[object] = value.values()
     elif isinstance(value, list):
@@ -194,7 +238,7 @@ def find_unwritable(value: object) -> UnwritableValue | None:
     else:
         return None
     for child in children:
-        found = find_unwritable(child)
+        found = find_unwritable(child, writes_pictures=writes_pictures)
         if found is not None:
             return found
     return None
@@ -380,6 +424,10 @@ class LVType:
     # for. Every lookup of a class's or typedef's fields, wire style or private
     # data reads this key, never the name.
     file_key: str | None = field(default=None, compare=False)
+    # True when the typedef file ``file_key`` names is a strict type definition
+    # (its ``StrictTypeDefVI``); stamped with ``file_key``. ``compare=False``: it
+    # is what the file is, not type identity.
+    strict_typedef: bool = field(default=False, compare=False)
     description: str | None = None
     # Why this type could not be read from the file, when the VI records a
     # descriptor that did not decode; None for a type that read cleanly.
@@ -737,6 +785,8 @@ class ClusterField:
 
     name: str
     type: LVType | None = None
+    # False when the element has no label in the VI and `name` is a placeholder.
+    labelled: bool = True
 
 
 # LabVIEW's error cluster: these three fields, in this order. The typedef a
@@ -803,13 +853,9 @@ class TypeResolutionNeeded(ConversionGap):
     The type is referenced but not loaded in the dep_graph.
     """
 
-    def __init__(self, type_name: str, context: str = ""):
+    def __init__(self, type_name: str):
         self.type_name = type_name
-        self.context = context
-        msg = f"Type resolution needed for '{type_name}'"
-        if context:
-            msg += f" (referenced by {context})"
-        super().__init__(msg)
+        super().__init__(f"Type resolution needed for '{type_name}'")
 
 
 class TerminalDirection(StrEnum):
@@ -933,6 +979,11 @@ def bundle_unbundle_name(
     return "Bundle" if bundling else "Unbundle"
 
 
+# The XML class of the Map Get / Replace Value border node of an In Place Element
+# structure (both halves).
+MAP_ACCESS_NODE_TYPE = "Class018D"
+
+
 class InPlaceBorderSide(StrEnum):
     """Which half of an In Place Element Structure's border a tile is: the READ
     tile takes the element out of the data, the WRITE tile puts it back."""
@@ -956,7 +1007,19 @@ def inplace_border_side(
       out); the write tile replaces (array back OUT). An array-kind OUTPUT means
       the write tile.
 
+    - ``Class018D`` (Map Get / Replace Value) -- the map is the INPUT on the
+      read tile (it looks a key up) and the OUTPUT on the write tile (the
+      resulting map).
+
     Returns ``None`` when the discriminating terminal isn't present."""
+    if node_type == MAP_ACCESS_NODE_TYPE:
+        for t in terminals:
+            lt = t.lv_type
+            if lt is not None and lt.underlying_type == "Map":
+                if t.direction == "input":
+                    return InPlaceBorderSide.READ
+                return InPlaceBorderSide.WRITE
+        return None
     if node_type == "decomposeClusterNode":
         fields = [t for t in terminals if t.nmux_role == "list"]
         if not fields:
@@ -990,14 +1053,17 @@ _INPLACE_BORDER_NAMES = {
     ("decomposeDataValRefNode", InPlaceBorderSide.WRITE): "DVR Write",
     ("decomposeArrayNode", InPlaceBorderSide.READ): "Array Index",
     ("decomposeArrayNode", InPlaceBorderSide.WRITE): "Array Replace",
+    (MAP_ACCESS_NODE_TYPE, InPlaceBorderSide.READ): "Map Get Value",
+    (MAP_ACCESS_NODE_TYPE, InPlaceBorderSide.WRITE): "Map Replace Value",
 }
 
 
 def inplace_border_name(node_type: str, terminals: list[Terminal]) -> str | None:
-    """Faithful per-tile name for the two IN-PLACE-ELEMENT-STRUCTURE border
+    """Faithful per-tile name for the IN-PLACE-ELEMENT-STRUCTURE border
     nodes that carry no field shape (unlike ``decomposeClusterNode``, which
-    goes through :func:`bundle_unbundle_name`): "DVR Read" / "DVR Write" and
-    "Array Index" / "Array Replace", from :func:`inplace_border_side`.
+    goes through :func:`bundle_unbundle_name`): "DVR Read" / "DVR Write",
+    "Array Index" / "Array Replace" and "Map Get Value" / "Map Replace Value",
+    from :func:`inplace_border_side`.
 
     Returns ``None`` when the discriminating type isn't present (leave the
     node's fallback name untouched). Public NI docs: the border nodes are the
@@ -1026,7 +1092,21 @@ class FPTerminal(Terminal):
     # its label) and whether it is shown. The label stays the identity.
     caption: str | None = None
     caption_visible: bool = False
+    # How the control starts, from its front-panel flags (``parser/flags.py``):
+    # whether it is hidden (Visible False), and its Disabled property's value
+    # (0 enabled, 2 disabled and greyed out). None: the file does not record it
+    # (no front panel, or flags that leave the Disabled value open).
+    starts_hidden: bool | None = None
+    enable_state: int | None = None
+    # A Boolean control's Mechanical Action (0-5, NI's order); None for any other
+    # control, or when the flags name none.
+    mechanical_action: int | None = None
     control_type: str | None = None
+    # For an array control: the front-panel class of its element control and a
+    # Boolean element's Mechanical Action (what the Array Element property's
+    # reference reads); None for any other control.
+    element_control_type: str | None = None
+    element_mechanical_action: int | None = None
     # The FRONT-PANEL DCO uid this BD terminal references — the BD↔FP bridge
     # (``fPTerm/<dco>@uid`` == the ``fPDCO@uid`` of the owning control). Unlike
     # ``id`` (which carries the BD ``fPTerm`` heap uid), this is the front-panel
@@ -1041,6 +1121,9 @@ class FPTerminal(Terminal):
     tab_index: int | None = None
     default_value: ScalarValue = None
     enum_values: list[str] = []
+    # A Combo Box saved with this many drop-down strings whose form is not decoded
+    # (0: none, or not a Combo Box).
+    undecoded_strings: int = 0
     # Structure containment for a SPECIFIC on-diagram GLYPH of this control —
     # set only when the heap places this terminal inside a case/event/disable
     # frame or a stacked-sequence frame via an sRN's termList (a control used
@@ -1053,6 +1136,24 @@ class FPTerminal(Terminal):
     # mirrors that shape instead (see render/scene.py's frame-path lookup).
     parent: str | None = None
     frame: str | int | None = None
+
+    @property
+    def vi_server_class(self) -> str | None:
+        """The VI Server class of this control (Digital, Ring, Enum, ...) from its
+        front-panel class and its type's kind (``control_classes.json``); None for
+        a front-panel class with no recorded VI Server class."""
+        kind = self.lv_type.kind if self.lv_type is not None else None
+        return vi_server_class(self.control_type, kind)
+
+    @property
+    def element_vi_server_class(self) -> str | None:
+        """The VI Server class of this array control's element (what the Array
+        Element property's reference is), by the element's front-panel class and its
+        type's kind; None for a control that is no array, or an element whose
+        front-panel class has no recorded VI Server class."""
+        element = self.lv_type.element_type if self.lv_type is not None else None
+        kind = element.kind if element is not None else None
+        return vi_server_class(self.element_control_type, kind)
 
 
 class DisableStructureKind(StrEnum):
@@ -1237,6 +1338,24 @@ class SelectorRange(BaseModel):
         return self.start == self.end and not self.open_start and not self.open_end
 
 
+class StringRange(BaseModel):
+    """One range of a string selector, ``"a".."c"``.
+
+    NI's help (https://www.ni.com/docs/en-US/bundle/labview/page/lvhowto/case_selector_values.html,
+    "String ranges"): "A range of a..c includes all strings beginning with a or
+    b, but not c. String ranges are case sensitive ... LabVIEW uses ASCII values
+    to determine a string range." The forum thread quoting the help adds "A range
+    of a..c,c includes the ending value of c"
+    (https://forums.ni.com/t5/LabVIEW/Range-of-strings-as-a-case-element-is-not-inclusive/m-p/1305758),
+    and https://lavag.org/topic/20011-string-case-selector-range/ shows the
+    string ``"9"`` missing ``"0".."9"``. So a string matches when
+    ``start <= string < end``, compared by character code. ``None`` is an open
+    side: no bound there."""
+
+    start: str | None
+    end: str | None
+
+
 class Frame(BaseModel):
     """Base frame — common fields for any structure frame."""
 
@@ -1267,6 +1386,9 @@ class CaseFrame(Frame):
     # the default frame — there ``selector_value``/``selector_ranges`` carry
     # the token. ``selector_value`` holds the first string as the unique key.
     selector_strings: list[str] = []
+    # The ranges (``"0".."9"``) of a STRING selector frame, beside its single
+    # strings above.
+    selector_string_ranges: list[StringRange] = []
     # For a Boolean selector: the value this frame matches (True or False). None
     # for every other selector type.
     boolean_value: bool | None = None

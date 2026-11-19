@@ -20,7 +20,7 @@ from lvkit.primitive_resolver import (
     TerminalResolutionNeeded,
 )
 from lvkit.python_numeric import UNSIGNED_INTEGERS, fixed_width
-from lvkit.terminal_default import DefaultBehavior
+from lvkit.terminal_default import DefaultBehavior, default_for_wiring
 
 from ..ast_utils import (
     paren_if_compound,
@@ -36,7 +36,11 @@ from ..error_path import PRIM_ID_MERGE_ERRORS
 from ..errors import CodeGenError, TerminalNotOnCall, UnknownDefault
 from ..fragment import CodeFragment
 from ..output_binding import bind_output
-from ..timestamp_templates import TIMESTAMP_IMPORTS, timestamp_template
+from ..timestamp_templates import (
+    timestamp_gap,
+    timestamp_imports,
+    timestamp_template,
+)
 from .template_inputs import template_reads
 
 
@@ -101,6 +105,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         # Fall through if node_type resolved but has no code -- unless it carries
         # an ``op`` tag, whose generator-owned handler supplies python_code below.
         if resolved and not resolved.python_code and not resolved.op:
+            if resolved.gap_reason:
+                raise_unknown(node, prim_id, ctx, resolved.gap_reason)
             resolved = None
     if not resolved and prim_id is not None:
         resolved = resolver.resolve(
@@ -177,8 +183,11 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     # A timestamp operand: the number functions' code for timestamps.
     timestamp_code = timestamp_template(node)
+    timestamp_reason = timestamp_gap(node)
+    if timestamp_reason is not None:
+        raise ConversionGap(timestamp_reason, node)
     if timestamp_code is not None:
-        resolved.imports = [*(resolved.imports or []), *TIMESTAMP_IMPORTS]
+        resolved.imports = [*(resolved.imports or []), *timestamp_imports(node)]
         if isinstance(resolved.python_code, dict) and resolved.python_code:
             key = next(iter(resolved.python_code))
             resolved.python_code = {key: timestamp_code}
@@ -297,15 +306,17 @@ NO_ERROR = "None"
 
 
 def _catalog_default(
-    terminal: PrimitiveTerminal, resolved: ResolvedPrimitive
+    terminal: PrimitiveTerminal, resolved: ResolvedPrimitive, wired: set[int]
 ) -> str | None:
     """The Python expression for what the catalog says an unwired input holds: its
-    documented value, or the expression the primitive's own generator writes for
-    its documented behaviour; None when the catalog gives neither."""
+    documented value (which can depend on which other inputs are in ``wired``), or
+    the expression the primitive's own generator writes for its documented
+    behaviour; None when the catalog gives neither."""
     if terminal.type == "ErrorCluster":
         return NO_ERROR
-    if terminal.default is not None:
-        return terminal_default_expression(terminal.default, terminal.type)
+    value = default_for_wiring(terminal, wired)
+    if value is not None:
+        return terminal_default_expression(value, terminal.type)
     if terminal.default_behavior is not None:
         from .ops import get_op_behavior
 
@@ -356,20 +367,26 @@ def _build_input_map(
     # function's other inputs (``in_<index>``).
     behavior_written: set[int] = set()
     expandable_indices: set[int] = set()
+    # The inputs something is wired to, for a default that depends on them.
+    wired_indices = {
+        t.index for t in node.terminals if t.direction == "input" and ctx.is_wired(t.id)
+    }
     # Inputs that take only the status of an error cluster wired to them.
     status_inputs: set[int] = set()
     if resolved and resolved.terminals:
         python_names = catalog_python_names(resolved.terminals)
         for rt in resolved.terminals:
             if rt.direction == TerminalDirection.INPUT:
-                default = _catalog_default(rt, resolved)
+                default = _catalog_default(rt, resolved, wired_indices)
                 resolved_inputs[rt.index] = (
                     python_names.get((rt.direction, rt.index), ""),
                     default,
                 )
                 input_labels[rt.index] = rt.name or ""
                 behaviors[rt.index] = rt.default_behavior
-                if rt.default is None and default is not None:
+                if default_for_wiring(rt, wired_indices) is None and (
+                    default is not None
+                ):
                     behavior_written.add(rt.index)
                 if getattr(rt, "expandable", False):
                     expandable_indices.add(rt.index)

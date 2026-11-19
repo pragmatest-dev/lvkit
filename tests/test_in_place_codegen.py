@@ -69,9 +69,11 @@ def _mk_ipes(
 
 
 def _cluster_type(*field_names: str) -> LVType:
-    """Build a cluster LVType with named fields."""
+    """Build a typedef cluster LVType with named fields."""
     return LVType(
-        kind=LVTypeKind.CLUSTER, fields=[ClusterField(name=n) for n in field_names]
+        kind=LVTypeKind.CLUSTER,
+        typedef_name="T.ctl",
+        fields=[ClusterField(name=n) for n in field_names],
     )
 
 
@@ -647,6 +649,7 @@ class TestIPESBorderDataFlowIds:
         ctx.bind("wy", "new_y")
         cluster = LVType(
             kind=LVTypeKind.CLUSTER,
+            typedef_name="T.ctl",
             fields=[ClusterField(name="x"), ClusterField(name="y")],
         )
         tiles = [
@@ -707,7 +710,7 @@ class TestIPESBorderDataFlowIds:
         assert frag.bindings["out_a"] == "obj_a"
         assert frag.bindings["out_b"] == "obj_b"
 
-    def _array_structure(self, *, second_index: bool = False):
+    def _array_structure(self, *, second_index: bool = False, wire_first: bool = True):
         ctx = make_ctx(
             "arr",
             "idx",
@@ -721,7 +724,8 @@ class TestIPESBorderDataFlowIds:
             "w_arr",
         )
         ctx.bind("arr", "items")
-        ctx.bind("idx", "i")
+        if wire_first:
+            ctx.bind("idx", "i")
         ctx.bind("new", "replacement")
         array = LVType(kind=LVTypeKind.ARRAY, dimensions=2 if second_index else 1)
         indexes = [_term("t_idx", "input", 2, dco="IDX", role="list", field=0)]
@@ -760,10 +764,12 @@ class TestIPESBorderDataFlowIds:
             ports.append(_term("idx2", "input", 3, dco="IDX2"))
         return ctx, _ipes_with_tiles(ctx, ports, tiles)
 
-    def _run_array_structure(self, items, index, replacement):
-        ctx, node = self._array_structure()
+    def _run_array_structure(self, items, index, replacement, *, second_index=None):
+        ctx, node = self._array_structure(second_index=second_index is not None)
         frag = in_place.generate(node, ctx)
         namespace = {"items": items, "i": index, "replacement": replacement}
+        if second_index is not None:
+            namespace["j"] = second_index
         for stmt in frag.statements:
             module = ast.Module(body=[ast.fix_missing_locations(stmt)], type_ignores=[])
             exec(compile(module, "<generated>", "exec"), namespace)
@@ -781,11 +787,144 @@ class TestIPESBorderDataFlowIds:
             ctx, _frag, namespace = self._run_array_structure([10, 20, 30], index, 99)
             assert eval(ctx.resolve("elem"), namespace) is None
 
-    def test_an_index_for_each_of_two_dimensions_is_a_gap(self):
-        # NI: the border node gains an index for each dimension of the array;
-        # only one index is generated, so two are a gap rather than a row read.
-        ctx, node = self._array_structure(second_index=True)
-        with pytest.raises(ConversionGap, match="each of 2 dimensions"):
+    def test_an_index_for_each_of_two_dimensions_reads_one_element(self):
+        # NI: the border node gains an index for each dimension of the array.
+        rows = [[1, 2, 3], [4, 5, 6]]
+        ctx, _frag, namespace = self._run_array_structure(rows, 1, 0, second_index=2)
+        assert eval(ctx.resolve("elem"), namespace) == 6
+
+    def test_a_two_dimensional_index_outside_either_dimension_reads_the_default(self):
+        rows = [[1, 2, 3], [4, 5, 6]]
+        for i, j in ((2, 0), (-1, 0), (0, 3), (0, -1), (5, 9)):
+            ctx, _frag, namespace = self._run_array_structure(
+                rows, i, 0, second_index=j
+            )
+            assert eval(ctx.resolve("elem"), namespace) is None
+
+    def test_a_two_dimensional_write_replaces_one_element_in_a_new_array(self):
+        rows = [[1, 2, 3], [4, 5, 6]]
+        _ctx, frag, namespace = self._run_array_structure(rows, 1, 99, second_index=2)
+        assert namespace[frag.bindings["arr_out"]] == [[1, 2, 3], [4, 5, 99]]
+        assert rows == [[1, 2, 3], [4, 5, 6]]
+
+    def test_a_two_dimensional_write_outside_either_dimension_changes_nothing(self):
+        for i, j in ((2, 0), (-1, 0), (0, 3), (0, -1)):
+            rows = [[1, 2, 3], [4, 5, 6]]
+            _ctx, frag, namespace = self._run_array_structure(
+                rows, i, 99, second_index=j
+            )
+            assert namespace[frag.bindings["arr_out"]] == [[1, 2, 3], [4, 5, 6]]
+            assert rows == [[1, 2, 3], [4, 5, 6]]
+
+    def test_a_three_dimensional_write_is_built_from_the_nested_slices(self):
+        from lvkit.codegen.native_array import guarded_indexes, replaced_elements
+
+        cube = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+        namespace = {"c": cube, "a": 1, "b": 0, "d": 1}
+        read = eval(guarded_indexes("c", ["a", "b", "d"], "None"), namespace)
+        assert read == 6
+        new = eval(replaced_elements("c", ["a", "b", "d"], "60"), namespace)
+        assert new == [[[1, 2], [3, 4]], [[5, 60], [7, 8]]]
+        assert cube == [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+        namespace["d"] = 2
+        assert eval(replaced_elements("c", ["a", "b", "d"], "60"), namespace) == cube
+
+    def test_an_index_wired_after_one_that_is_not_stays_a_gap(self):
+        # NI does not say which dimension a lone second index picks.
+        ctx, node = self._array_structure(second_index=True, wire_first=False)
+        with pytest.raises(ConversionGap, match="wired after one that is not"):
+            in_place.generate(node, ctx)
+
+    def test_a_tile_with_two_elements_of_a_one_dimensional_array_swaps_them(self):
+        # Array Index with two index inputs and two element outputs of a 1-D
+        # array (JSONtext Format JSON Array Text.vi): each element has its own
+        # index, and the replace tile writes both back.
+        ctx = make_ctx(
+            "arr", "i0", "i1", "arr_out", "t_arr", "e0", "e1", "t_i0", "t_i1",
+            "n0", "n1", "w_arr",
+        )  # fmt: skip
+        ctx.bind("arr", "items")
+        ctx.bind("i0", "a")
+        ctx.bind("i1", "b")
+        ctx.bind("n0", "second")
+        ctx.bind("n1", "first")
+        array = LVType(kind=LVTypeKind.ARRAY, dimensions=1)
+        tiles = [
+            _tile(
+                "index",
+                "decomposeArrayNode",
+                "p",
+                [
+                    _term("t_arr", "input", dco="ARR", lv_type=array),
+                    _term("e0", "output", 1, role="agg"),
+                    _term("t_i0", "input", 2, dco="I0", role="list"),
+                    _term("e1", "output", 3, role="list"),
+                    _term("t_i1", "input", 4, dco="I1", role="list"),
+                ],
+            ),
+            _tile(
+                "replace",
+                "decomposeArrayNode",
+                "p",
+                [
+                    _term("w_arr", "output", dco="ARR2", lv_type=array),
+                    _term("n0", "input", 1, role="agg"),
+                    _term("n1", "input", 3, role="list"),
+                ],
+            ),
+        ]
+        ports = [
+            _term("arr", "input", 0, dco="ARR"),
+            _term("i0", "input", 1, dco="I0"),
+            _term("i1", "input", 2, dco="I1"),
+            _term("arr_out", "output", 3, dco="ARR2"),
+        ]
+        node = _ipes_with_tiles(ctx, ports, tiles)
+        frag = in_place.generate(node, ctx)
+        namespace = {
+            "items": ["x", "y", "z"],
+            "a": 0,
+            "b": 2,
+            "second": "Z2",
+            "first": "X2",
+        }
+        for stmt in frag.statements:
+            module = ast.Module(body=[ast.fix_missing_locations(stmt)], type_ignores=[])
+            exec(compile(module, "<generated>", "exec"), namespace)
+        assert eval(ctx.resolve("e0"), namespace) == "x"
+        assert eval(ctx.resolve("e1"), namespace) == "z"
+        assert namespace[frag.bindings["arr_out"]] == ["Z2", "y", "X2"]
+        assert namespace["items"] == ["x", "y", "z"]
+
+    def test_an_element_wired_out_with_no_index_wired_is_a_gap(self, monkeypatch):
+        # A second element whose output feeds the body but whose index input is
+        # unwired: which element it reads is not generated, so it is a gap
+        # naming that, never an output left with no variable.
+        ctx = make_ctx("arr", "i0", "t_arr", "e0", "e1", "t_i0", "t_i1")
+        ctx.bind("arr", "items")
+        ctx.bind("i0", "a")
+        monkeypatch.setattr(ctx, "is_wired", lambda terminal_id: terminal_id == "e1")
+        array = LVType(kind=LVTypeKind.ARRAY, dimensions=1)
+        tiles = [
+            _tile(
+                "index",
+                "decomposeArrayNode",
+                "p",
+                [
+                    _term("t_arr", "input", dco="ARR", lv_type=array),
+                    _term("e0", "output", 1, role="agg"),
+                    _term("t_i0", "input", 2, dco="I0", role="list"),
+                    _term("e1", "output", 3, role="list"),
+                    _term("t_i1", "input", 4, role="list"),
+                ],
+            ),
+        ]
+        ports = [
+            _term("arr", "input", 0, dco="ARR"),
+            _term("i0", "input", 1, dco="I0"),
+        ]
+        node = _ipes_with_tiles(ctx, ports, tiles)
+        with pytest.raises(ConversionGap, match="output is wired and whose indexes"):
             in_place.generate(node, ctx)
 
     def test_array_write_leaves_the_array_another_reader_holds_unchanged(self):
@@ -938,3 +1077,129 @@ def test_a_border_tile_error_out_is_the_error_out_of_its_port():
 
     assert frag.bindings["err_read"] == "None"
     assert frag.bindings["err_write"] == "None"
+
+
+# ---------------------------------------------------------------------------
+# The form of the cluster: tuple, named cluster, waveform
+# ---------------------------------------------------------------------------
+
+
+def _code(frag) -> str:
+    return "\n".join(ast.unparse(ast.fix_missing_locations(s)) for s in frag.statements)
+
+
+class TestIPESClusterForms:
+    def test_an_anonymous_cluster_is_read_and_written_by_position(self):
+        anonymous = LVType(
+            kind=LVTypeKind.CLUSTER,
+            fields=[ClusterField(name="a"), ClusterField(name="b")],
+        )
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_b", "rec_b", "rec_agg_out")
+        ctx.bind("cluster_in", "data")
+        ctx.bind("rec_b", "new_b")
+        dec = _dec_op("p1", "dec_agg", "dec_b", lv_type=anonymous)
+        dec.terminals[1].nmux_field_index = 1
+        rec = _rec_op("p1", "rec_agg_out", "rec_b", lv_type=anonymous)
+        rec.terminals[0].nmux_field_index = 1
+        node = _mk_ipes(
+            ctx,
+            terminals=[Terminal(id="cluster_in", index=0, direction="input")],
+            decompose_ops=[dec],
+            recompose_ops=[rec],
+        )
+        frag = in_place.generate(node, ctx)
+        assert ctx.resolve("dec_b") == "(data)[1]"
+        assert "data = data[:1] + (new_b,) + data[2:]" in _code(frag)
+
+    def test_an_anonymous_cluster_given_as_an_expression_gets_a_variable(self):
+        anonymous = LVType(
+            kind=LVTypeKind.CLUSTER,
+            fields=[ClusterField(name="a"), ClusterField(name="b")],
+        )
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_b", "rec_b", "rec_agg_out")
+        ctx.bind("cluster_in", "(Variant(), Variant())")
+        ctx.bind("rec_b", "new_b")
+        dec = _dec_op("p1", "dec_agg", "dec_b", lv_type=anonymous)
+        dec.terminals[1].nmux_field_index = 1
+        rec = _rec_op("p1", "rec_agg_out", "rec_b", lv_type=anonymous)
+        rec.terminals[0].nmux_field_index = 1
+        node = _mk_ipes(
+            ctx,
+            terminals=[
+                Terminal(id="cluster_in", index=0, direction="input", lv_type=anonymous)
+            ],
+            decompose_ops=[dec],
+            recompose_ops=[rec],
+        )
+        frag = in_place.generate(node, ctx)
+        code = _code(frag)
+        assert "cluster = (Variant(), Variant())" in code
+        assert "cluster = cluster[:1] + (new_b,) + cluster[2:]" in code
+
+    def test_a_field_inside_a_typedef_cluster_of_an_anonymous_one(self):
+        inner = _cluster_type("left", "right")
+        outer = LVType(
+            kind=LVTypeKind.CLUSTER,
+            fields=[ClusterField(name="mark"), ClusterField(name="box", type=inner)],
+        )
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_r", "rec_r", "rec_agg_out")
+        ctx.bind("cluster_in", "data")
+        ctx.bind("rec_r", "new_r")
+        dec = _dec_op("p1", "dec_agg", "dec_r", lv_type=outer)
+        dec.terminals[1].nmux_field_index = 3
+        rec = _rec_op("p1", "rec_agg_out", "rec_r", lv_type=outer)
+        rec.terminals[0].nmux_field_index = 3
+        node = _mk_ipes(
+            ctx,
+            terminals=[Terminal(id="cluster_in", index=0, direction="input")],
+            decompose_ops=[dec],
+            recompose_ops=[rec],
+        )
+        frag = in_place.generate(node, ctx)
+        assert ctx.resolve("dec_r") == "(data)[1].right"
+        code = _code(frag)
+        assert "cluster_part = copy.copy(data[1])" in code
+        assert "cluster_part.right = new_r" in code
+        assert "import copy" in ctx.imports
+
+    def test_a_waveform_component_is_read_and_the_waveform_rebuilt(self):
+        waveform = LVType(
+            kind=LVTypeKind.PRIMITIVE,
+            underlying_type="Waveform",
+            measure_flavor="Float64Waveform",
+        )
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_dt", "rec_dt", "rec_agg_out")
+        ctx.bind("cluster_in", "wave")
+        ctx.bind("rec_dt", "new_dt")
+        ctx.is_wired = lambda _terminal_id: True
+        dec = _dec_op("p1", "dec_agg", "dec_dt", lv_type=waveform)
+        dec.terminals[1].nmux_field_index = 1
+        rec = _rec_op("p1", "rec_agg_out", "rec_dt", lv_type=waveform)
+        rec.terminals[0].nmux_field_index = 1
+        node = _mk_ipes(
+            ctx,
+            terminals=[Terminal(id="cluster_in", index=0, direction="input")],
+            decompose_ops=[dec],
+            recompose_ops=[rec],
+        )
+        frag = in_place.generate(node, ctx)
+        assert "wave" in (ctx.resolve("dec_dt") or "")
+        assert "new_dt" in _code(frag)
+        assert ctx.resolve("rec_agg_out") not in (None, "wave")
+        assert (
+            "create_with_regular_interval(nitypes.bintime.TimeDelta(new_dt)"
+            in _code(frag)
+        )
+
+    def test_an_unwired_element_that_selects_no_field_reads_nothing(self):
+        empty = LVType(kind=LVTypeKind.CLUSTER, typedef_name="Empty.ctl", fields=[])
+        ctx = make_ctx("cluster_in", "dec_agg", "dec_f")
+        ctx.bind("cluster_in", "data")
+        dec = _dec_op("p1", "dec_agg", "dec_f", lv_type=empty)
+        node = _mk_ipes(
+            ctx,
+            terminals=[Terminal(id="cluster_in", index=0, direction="input")],
+            decompose_ops=[dec],
+        )
+        in_place.generate(node, ctx)
+        assert ctx.resolve("dec_f") is None

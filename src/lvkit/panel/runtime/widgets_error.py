@@ -16,6 +16,7 @@ from typing import Any
 from nicegui import ui
 
 from .port import Port, bind_control, bind_indicator
+from .properties import DISABLED, disabled_applier
 from .view import PanelWidgets
 from .widgets import CAPTION_CLS, caption
 
@@ -38,7 +39,7 @@ def as_error(status: bool, code: Any, source: str) -> Any:
 def error_port(*, readonly: bool) -> Port:
     port: Port
     status = False
-    with ui.column().classes("w-full gap-1 p-2 border rounded"):
+    with ui.column().classes("w-full gap-1 p-2 border rounded") as root:
         caption("status")
         if readonly:
             light = ui.icon("circle", size="28px").classes(LIGHT_OFF)
@@ -82,7 +83,7 @@ def error_port(*, readonly: bool) -> Port:
         message.set_text(note)
         message.set_visibility(bool(note))
 
-    port = Port(get, show)
+    port = Port(get, show, {DISABLED: disabled_applier(root)})
     return port
 
 

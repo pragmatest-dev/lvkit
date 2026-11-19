@@ -243,6 +243,8 @@ class PrimitiveResolver:
                     icon=_collect_icon(prim),
                     doc_url=prim.get("doc_url"),
                     runs_on_error=prim.get("runs_on_error", False),
+                    live_io=prim.get("live_io", False),
+                    live_io_when_input=prim.get("live_io_when_input"),
                 )
                 alternatives = [
                     [TerminalAlias.model_validate(a) for a in alias_set]
@@ -341,6 +343,7 @@ class PrimitiveResolver:
                 inputs_error_cluster_status=info.get(
                     "inputs_error_cluster_status", False
                 ),
+                gap_reason=info.get("gap_reason"),
             )
         return None
 

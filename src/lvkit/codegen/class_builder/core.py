@@ -36,6 +36,7 @@ from ..errors import CodeGenError
 from ..gaps import Gap, gap_of
 from ..import_cycles import in_import_cycle
 from ..import_resolver import ImportResolver, NameImport
+from ..nodes.class_name import class_name_statement
 from ..type_constants import share_type_constants
 from ..type_fields import annotation_imports
 from .config import ClassConfig
@@ -137,6 +138,7 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
             body.append(
                 ast.Expr(value=ast.Constant(value=f"Class {Path(class_key).name}."))
             )
+        body.append(class_name_statement(graph, class_key))
         body.extend(self._field_annotations(model, fields, spell))
         body.append(self._build_init(model, fields, base is not None, parent_gap))
         if base is None:

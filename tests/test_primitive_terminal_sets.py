@@ -61,7 +61,7 @@ def _bd_xml(slots: list[tuple[int, str]]) -> str:
 
 def _graph(tmp_path: Path, slots: list[tuple[int, str]]) -> tuple[InMemoryVIGraph, str]:
     bd_xml = tmp_path / "VD_BDHb.xml"
-    bd_xml.write_text(_bd_xml(slots))
+    bd_xml.write_text(_bd_xml(slots), encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(bd_xml, layout=True)
     return graph, graph.list_vis()[0]

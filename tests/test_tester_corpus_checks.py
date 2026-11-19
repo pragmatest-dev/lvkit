@@ -121,6 +121,7 @@ def _generate(vi: Path, out: Path, *extra: str) -> subprocess.CompletedProcess[s
         capture_output=True,
         text=True,
         check=False,
+        encoding="utf-8",
     )
 
 
@@ -152,6 +153,7 @@ def test_private_data_warnings_are_captured() -> None:
         capture_output=True,
         text=True,
         check=False,
+        encoding="utf-8",
     )
     assert run.returncode == 0
     assert "Block b'" not in run.stderr
@@ -182,6 +184,7 @@ def _describe_cli(vi: Path, *extra: str) -> subprocess.CompletedProcess[str]:
         capture_output=True,
         text=True,
         check=False,
+        encoding="utf-8",
     )
 
 

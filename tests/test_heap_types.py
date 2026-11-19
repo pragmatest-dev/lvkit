@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.cache_paths import LibraryRoots
+from lvkit.lv_type_codes import MEASURE_DATA_FLAVOR
 from lvkit.models import LVTypeKind
 from lvkit.parser.heap_types import HeapTypes, decode_heap_types
 from lvkit.parser.node_types import _build_nmux_dco_maps
@@ -281,3 +282,26 @@ def test_lv82_case_selector_is_found_and_named_in_lvnet():
     )
     assert "case ? :" not in text
     assert "case Bundle/Unbundle_By_Name_510::image depth :" in text
+
+
+def test_a_measure_data_descriptor_keeps_its_flavor_and_label():
+    """Type 0x54 is a waveform or digital-data type: ``u16`` flavor, then the
+    label; the flavor is named as pylabview names it in the extracted XML."""
+    dynamic = MEASURE_DATA_FLAVOR.Dynamicdata
+    waveform = MEASURE_DATA_FLAVOR.Float64Waveform
+    pool = TdPool(
+        read_td_list(
+            struct.pack(">I", 3)
+            + _td(0x54, struct.pack(">H", dynamic.value) + _pstr("signal"))
+            + _td(0x54, struct.pack(">H", waveform.value), flags=0)
+            + _td(0x54, struct.pack(">H", 0x7F), flags=0)
+        ).tds
+    )
+    assert pool.failures == {}
+    assert [t.underlying_type for t in pool.lvtypes] == ["MeasureData"] * 3
+    assert [t.measure_flavor for t in pool.lvtypes] == [
+        "Dynamicdata",
+        "Float64Waveform",
+        "127",
+    ]
+    assert pool.names == ["signal", None, None]

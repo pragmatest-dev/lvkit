@@ -28,6 +28,7 @@ from tests.error_diagrams import (  # noqa: F401
     project,
 )
 from tests.panel_diagrams import NAME, counting_vi
+from tests.panel_harness import until
 
 STEM = "panel_demo"
 
@@ -83,7 +84,7 @@ def test_the_panel_imports_only_nicegui_the_controls_and_the_logic_module(
 ) -> None:
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
-    source = (package.root / f"{STEM}_panel.py").read_text()
+    source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
     compile(source, "panel", "exec")
     root = package.root.name
     imported = {
@@ -100,7 +101,7 @@ def test_the_panel_imports_only_nicegui_the_controls_and_the_logic_module(
     }
     assert f"from {root}.{STEM} import {STEM} as vi_function, PanelDemoValue" in source
     for helper in (package.root / "controls").glob("*.py"):
-        text = helper.read_text()
+        text = helper.read_text(encoding="utf-8")
         assert "lvkit" not in text.replace("``lvkit.panel.write``", "")
 
 
@@ -109,7 +110,7 @@ def test_controls_are_stacked_in_rows_and_columns_in_the_order_of_their_bounds(
 ) -> None:
     project.add(counting_vi())
     package = project.generate(NAME, panel=True)
-    source = (package.root / f"{STEM}_panel.py").read_text()
+    source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
     # Stop (40, 20, 70, 120) and Count (40, 160, 62, 300) share the first row,
     # Stop on the left; Offset (110, 20, 132, 160) is a second row.
     assert "position:absolute" not in source
@@ -236,16 +237,14 @@ def test_run_calls_the_function_and_paints_the_result_when_it_returns(
 
     async def scenario(user: User) -> None:
         user.find(marker="Run").click()
-        await asyncio.sleep(0.35)
-        await user.should_see("running")
-        user.find(kind=ui.switch).click()
-        for _ in range(30):
-            await asyncio.sleep(0.1)
-            if "done" in " ".join(
-                str(e.text) for e in user.find(kind=ui.label).elements
-            ):
+        await until(user, "running")
+        for _ in range(200):
+            counted = [e.value for e in user.find(kind=ui.input).elements if e.value]
+            if counted and int(counted[0]) >= 3:
                 break
-        await user.should_see("done")
+            await asyncio.sleep(0.05)
+        user.find(kind=ui.switch).click()
+        await until(user, "done", seconds=10.0)
         counted = [e.value for e in user.find(kind=ui.input).elements if e.value]
         assert counted and int(counted[0]) >= 3
 
@@ -292,7 +291,7 @@ def test_a_control_the_panel_has_no_widget_for_is_a_gap_that_raises_when_built(
     assert package.gaps[0].reason == (
         "the panel has no widget for a stdSlide control of type int"
     )
-    source = (package.root / f"{STEM}_panel.py").read_text()
+    source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
     assert "raise NotImplementedError(" in source
     panel = _panel(package)
     with pytest.raises(NotImplementedError, match="stdSlide control of type int"):

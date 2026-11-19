@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
-from lvkit.codegen.gaps import UNSUPPORTED_CONTROL, Gap
+from lvkit.codegen.gaps import UNSUPPORTED_CONTROL, UNSUPPORTED_CONTROL_PROPERTY, Gap
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
 from lvkit.codegen.panel_hooks import PanelHooks
 from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
@@ -53,6 +53,27 @@ def _gap_of(vi_name: str, control: PanelControl) -> Gap:
     )
 
 
+def _property_gaps_of(vi_name: str, control: PanelControl) -> list[Gap]:
+    """A gap for each property the VI sets or reads on ``control``, or the file
+    stores it in, that the widget of its kind cannot show."""
+    return [
+        Gap(
+            vi=vi_name,
+            node_id=None,
+            node_name=control.label,
+            kind=UNSUPPORTED_CONTROL_PROPERTY,
+            identifier=prop,
+            name=control.label,
+            reason=(
+                f"The panel's widget for {control.label!r} cannot show its "
+                f"{prop!r} property"
+            ),
+            detail="",
+        )
+        for prop in control.unshown_properties
+    ]
+
+
 def write_panel(
     graph: InMemoryVIGraph,
     vi_name: str,
@@ -71,6 +92,7 @@ def write_panel(
     for control in controls:
         if control.gap is not None:
             gaps.append(_gap_of(vi_name, control))
+        gaps.extend(_property_gaps_of(vi_name, control))
     in_package = logic_path.relative_to(package_root)
     source = panel_source(
         PanelSource(

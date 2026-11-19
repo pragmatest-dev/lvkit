@@ -62,6 +62,7 @@ from .lvnet_grammar import (
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
     _LVNET_LIBRARY_UNREADABLE,
+    _LVNET_MECH_ACTION_WORDS,
     _LVNET_NAME_CAP,
     _LVNET_NETWORK_PUBLISHED,
     _LVNET_NUMBER_ITEM_RE,
@@ -75,6 +76,8 @@ from .lvnet_grammar import (
     _LVNET_RING_OPEN,
     _LVNET_SCOPE_ID_PREFIX,
     _LVNET_SCRIPT_KINDS,
+    _LVNET_STARTS_ENABLE_WORDS,
+    _LVNET_STARTS_HIDDEN_WORD,
     _LVNET_STRUCTURE_NET_TEXT_RE,
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_CAP,
@@ -110,6 +113,7 @@ from .netlist_models import (
     ReferenceTarget,
 )
 from .op_walk import _format_error_cluster
+from .selector_text import quote_selector_value
 
 # ============================================================
 # render_lvnet -- the lvnet surface (docs/_internal/design/netlist-language.md)
@@ -1423,7 +1427,7 @@ def _lvnet_case_header(values: tuple[str, ...], is_default: bool) -> str:
     """A case frame's header text, between ``frame `` and `` :`` (§8): the
     quoted selector values, then the bare ``default`` keyword when the frame is
     the structure's default (the sole entry when it has no values)."""
-    entries = [lvnet_literal_token(v) for v in values]
+    entries = [quote_selector_value(v, lvnet_literal_token) for v in values]
     if is_default:
         entries.append(_LVNET_DEFAULT_KEYWORD)
     return ", ".join(entries)
@@ -1973,6 +1977,12 @@ def _lvnet_boundary_trailing(
         requirement = _lvnet_requirement_trailing(pane)
         if requirement is not None:
             parts.append(requirement)
+        if pane.starts_hidden:
+            parts.append(_LVNET_STARTS_HIDDEN_WORD)
+        if pane.enable_state in _LVNET_STARTS_ENABLE_WORDS:
+            parts.append(_LVNET_STARTS_ENABLE_WORDS[pane.enable_state])
+        if pane.mechanical_action in _LVNET_MECH_ACTION_WORDS:
+            parts.append(_LVNET_MECH_ACTION_WORDS[pane.mechanical_action])
         if pane.default is not None:
             parts.append(
                 f"{_LVNET_DEFAULT_KEYWORD} "

@@ -3555,113 +3555,82 @@
       "name": "Draw Point",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-point-vi.html",
       "category": "Graphics & Sound",
-      "description": "Sets a pixel in a picture to a specified color. Functions 2058 ni.com",
+      "description": "Sets a pixel in a picture to a specified color.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "picture",
-          "index": null,
+          "index": 0,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
-          "description": "picture is the picture to which you want to add a pixel. The default is an empty picture."
+          "description": "picture is the picture to which you want to add a pixel. The default is an empty picture.",
+          "default_behavior": "empty picture"
         },
         {
           "name": "point(x,y)",
-          "index": null,
+          "index": 2,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "point",
-          "description": "point(x,y) is the coordinate of the pixel to set in the resulting picture relative to the current location of the origin."
-        },
-        {
-          "name": "y",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "y",
-          "description": "y is the vertical coordinate that increases to the bottom."
+          "description": "point(x,y) is the coordinate of the pixel to set."
         },
         {
           "name": "color(black)",
-          "index": null,
+          "index": 4,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
-          "description": "color is the color of the pixel. The default is black."
+          "description": "color is the color of the pixel. The default is black.",
+          "default": 0
         },
         {
           "name": "pen",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
-          "description": "pen sets the width and style of the pen the VI uses to draw the picture."
-        },
-        {
-          "name": "Style",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "style",
-          "description": "Style sets the style of the line the VI uses to draw the picture."
+          "description": "pen sets the width (pixels) and style (0 Solid, 1 Dash, 2 Dot, 3 DashDot, 4 DashDotDot) of the pen the VI uses to draw the picture.",
+          "default_behavior": "default pen"
         },
         {
           "name": "new picture",
-          "index": null,
+          "index": 6,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
-          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture."
+          "description": "new picture is the picture that contains the new image."
         }
-      ]
+      ],
+      "op": "PICTURE_DRAW_POINT",
+      "inline": true
     },
     {
       "name": "Move Pen",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/move-pen-vi.html",
       "category": "Graphics & Sound",
-      "description": "Changes the current pen location of a picture to the specified position or by the specified amount if the position is relative.",
+      "description": "Changes the current pen location of a picture.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
-          "name": "picture",
-          "index": null,
-          "direction": "input",
+          "name": "new picture",
+          "index": 2,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "picture",
-          "description": "picture is the picture whose current pen location you want to move. The default is an empty picture."
-        },
-        {
-          "name": "new position",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "new_position",
-          "description": "new position is the point to which the pen moves in the new picture ."
-        },
-        {
-          "name": "y",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "y",
-          "description": "y is the vertical coordinate that increases to the bottom."
+          "python_param": "new_picture",
+          "description": "new picture is the picture that contains the new pen location."
         },
         {
           "name": "absolute coordinates?(T)",
@@ -3670,25 +3639,37 @@
           "type": null,
           "enum_values": null,
           "python_param": "absolute_coordinates",
-          "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates.",
+          "description": "absolute coordinates? specifies whether new position is absolute (TRUE, the default) or relative to the current pen location.",
           "default": true
         },
         {
-          "name": "new picture",
-          "index": null,
-          "direction": "output",
+          "name": "new position",
+          "index": 4,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "new_picture",
-          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture."
+          "python_param": "new_position",
+          "description": "new position is the point the pen moves to."
+        },
+        {
+          "name": "picture",
+          "index": 5,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "picture",
+          "description": "picture is the picture to which you want to move the pen in. The default is an empty picture.",
+          "default_behavior": "empty picture"
         }
-      ]
+      ],
+      "op": "PICTURE_MOVE_PEN",
+      "inline": true
     },
     {
       "name": "Draw Line",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-line-vi.html",
       "category": "Graphics & Sound",
-      "description": "Draws a line from the current pen position to the specified location in a picture. Functions © National Instruments 2061 The end point is either absolute or relative to the current position, depending on the value of the absolute coordinates? input.",
+      "description": "Draws a line from the current pen position to the specified location in a picture.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -3696,30 +3677,22 @@
       "terminals": [
         {
           "name": "picture",
-          "index": null,
+          "index": 0,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
-          "description": "picture is the picture to which you want to add the line. The default is an empty picture."
+          "description": "picture is the picture to which you want to add the line. The default is an empty picture.",
+          "default_behavior": "empty picture"
         },
         {
           "name": "end point",
-          "index": null,
+          "index": 2,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "end_point",
-          "description": "end point is the end point of the new line."
-        },
-        {
-          "name": "y",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "y",
-          "description": "y is the vertical coordinate that increases to the bottom."
+          "description": "end point is the end point of the line."
         },
         {
           "name": "absolute coordinates?(T)",
@@ -3728,37 +3701,41 @@
           "type": null,
           "enum_values": null,
           "python_param": "absolute_coordinates",
-          "description": "absolute coordinates? specifies whether the point new position is in absolute or relative coordinates.",
+          "description": "absolute coordinates? specifies whether the end point is absolute (TRUE, the default) or relative to the pen position.",
           "default": true
         },
         {
           "name": "color(black)",
-          "index": null,
+          "index": 4,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
-          "description": "color is the color of the pixel. The default is black."
+          "description": "color is the color of the line. The default is black.",
+          "default": 0
         },
         {
           "name": "pen",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
-          "description": "pen sets the width and style of the pen the VI uses to draw the picture."
+          "description": "pen sets the width (pixels) and style (0 Solid, 1 Dash, 2 Dot, 3 DashDot, 4 DashDotDot) of the pen the VI uses to draw the picture.",
+          "default_behavior": "default pen"
         },
         {
           "name": "new picture",
-          "index": null,
+          "index": 6,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
-          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture."
+          "description": "new picture is the picture that contains the new image."
         }
-      ]
+      ],
+      "op": "PICTURE_DRAW_LINE",
+      "inline": true
     },
     {
       "name": "Draw Multiple Lines",
@@ -3848,95 +3825,73 @@
       "name": "Draw Rectangle",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-rectangle-vi.html",
       "category": "Graphics & Sound",
-      "description": "Draws a rectangle, optionally filling the interior. Functions © National Instruments 2065",
+      "description": "Draws a rectangle, optionally filling the interior.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
           "name": "picture",
-          "index": null,
+          "index": 0,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
-          "description": "picture is the picture to which you want to add the rectangle. The default is an empty picture."
+          "description": "picture is the picture to which you want to add to. The default is an empty picture.",
+          "default_behavior": "empty picture"
         },
         {
           "name": "rect",
-          "index": null,
+          "index": 2,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
-          "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "description": "rect is the cluster (left, top, right, bottom) of the outer edges of the rectangle."
         },
         {
           "name": "fill?(F)",
-          "index": null,
+          "index": 3,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "fill",
-          "description": "fill? specifies whether to fill the interior.",
+          "description": "fill? specifies whether to fill the interior. The default is FALSE.",
           "default": false
         },
         {
           "name": "color(black)",
-          "index": null,
+          "index": 4,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
-          "description": "color is the color of the lines."
+          "description": "color is the color of the lines (and of the interior if filled). The default is black.",
+          "default": 0
         },
         {
           "name": "pen",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
-          "description": "pen sets the width and style of the pen the VI uses to draw the picture."
+          "description": "pen sets the width (pixels) and style (0 Solid, 1 Dash, 2 Dot, 3 DashDot, 4 DashDotDot) of the pen the VI uses to draw the picture.",
+          "default_behavior": "default pen"
         },
         {
           "name": "new picture",
-          "index": null,
+          "index": 6,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
-          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture."
+          "description": "new picture is the picture that contains the new image."
         }
-      ]
+      ],
+      "op": "PICTURE_DRAW_RECT",
+      "inline": true
     },
     {
       "name": "Draw Grayed Out Rect",
@@ -4137,7 +4092,7 @@
       "name": "Draw Oval",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-oval-vi.html",
       "category": "Graphics & Sound",
-      "description": "Draws an oval in the rectangle you specify, optionally filling the interior. Functions © National Instruments 2071",
+      "description": "Draws an oval in the rectangle you specify, optionally filling the interior.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -4145,48 +4100,22 @@
       "terminals": [
         {
           "name": "picture",
-          "index": null,
+          "index": 0,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "picture",
-          "description": "picture is the picture to which you want to add the oval. The default is an empty picture."
+          "description": "picture is the picture to which you want to add to. The default is an empty picture.",
+          "default_behavior": "empty picture"
         },
         {
           "name": "rect",
-          "index": null,
+          "index": 2,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
-          "description": "rect is a cluster that contains four numeric controls that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "description": "rect is the cluster (left, top, right, bottom) of the outer edges of the rectangle the oval is drawn in."
         },
         {
           "name": "fill?(F)",
@@ -4195,46 +4124,41 @@
           "type": null,
           "enum_values": null,
           "python_param": "fill",
-          "description": "fill? specifies whether to fill the interior.",
+          "description": "fill? specifies whether to fill the interior. The default is FALSE.",
           "default": false
         },
         {
           "name": "color(black)",
-          "index": null,
+          "index": 4,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "color",
-          "description": "color is the color of the lines."
+          "description": "color is the color of the lines (and of the interior if filled). The default is black.",
+          "default": 0
         },
         {
           "name": "pen",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "pen",
-          "description": "pen sets the width and style of the pen the VI uses to draw the picture."
-        },
-        {
-          "name": "Style",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "style",
-          "description": "Style sets the style of the line the VI uses to draw the picture."
+          "description": "pen sets the width (pixels) and style (0 Solid, 1 Dash, 2 Dot, 3 DashDot, 4 DashDotDot) of the pen the VI uses to draw the picture.",
+          "default_behavior": "default pen"
         },
         {
           "name": "new picture",
-          "index": null,
+          "index": 6,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
-          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture."
+          "description": "new picture is the picture that contains the new image."
         }
-      ]
+      ],
+      "op": "PICTURE_DRAW_OVAL",
+      "inline": true
     },
     {
       "name": "Draw Arc",
@@ -4360,83 +4284,59 @@
       "name": "Draw Text at Point",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-text-at-point-vi.html",
       "category": "Graphics & Sound",
-      "description": "Draws a string into a picture. This VI automatically calculates the bounding rectangle of the text and positions the text with respect to the point you specify. Functions 2076 ni.com",
+      "description": "Draws a string into a picture, positioned with respect to a point.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
+          "name": "text orientation",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "text_orientation",
+          "description": "text orientation: 0 None (default), 1 Stacked, 2 Clockwise, 3 Counterclockwise.",
+          "default": 0
+        },
+        {
+          "name": "text rect",
+          "index": 2,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "text_rect",
+          "description": "text rect is the (left, top, right, bottom) of the text."
+        },
+        {
+          "name": "new picture",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "new_picture",
+          "description": "new picture is the picture that contains the new image."
+        },
+        {
+          "name": "BG color(transparent)",
+          "index": 4,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "bg_color",
+          "description": "BG color is the color of the background of the text. The default is transparent.",
+          "default": 16777216
+        },
+        {
           "name": "[user-specified font]",
-          "index": null,
+          "index": 5,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "user_specified_font",
-          "description": "[user-specified font] specifies the specific font characteristics for the text to draw."
-        },
-        {
-          "name": "Size",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "size",
-          "description": "Size specifies the size of the font in points."
-        },
-        {
-          "name": "Strikeout?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "strikeout",
-          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout."
-        },
-        {
-          "name": "Italic?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "italic",
-          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics."
-        },
-        {
-          "name": "Underline?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "underline",
-          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined."
-        },
-        {
-          "name": "Outline?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "outline",
-          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined."
-        },
-        {
-          "name": "Shadow?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "shadow",
-          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow."
-        },
-        {
-          "name": "Bold?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bold",
-          "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold."
+          "description": "[user-specified font] specifies the font characteristics; the VI ignores it unless desired font is User-specified Font.",
+          "default_behavior": "ignored"
         },
         {
           "name": "desired font(Application)",
@@ -4445,21 +4345,41 @@
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
-          "description": "desired font specifies the text font.",
+          "description": "desired font specifies the text font (0 User-specified, 1 Application, 2 System, 3 Dialog). The default is Application.",
           "default": 1
         },
         {
-          "name": "picture",
-          "index": null,
+          "name": "text color(black)",
+          "index": 6,
           "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "picture",
-          "description": "picture is the picture to which you want to add the text string. The default is an empty picture."
+          "python_param": "text_color",
+          "description": "text color is the color of the text. The default is black.",
+          "default": 0
+        },
+        {
+          "name": "text",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "text",
+          "description": "text is the string to draw in the picture."
+        },
+        {
+          "name": "alignment(left, top)",
+          "index": 9,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "alignment",
+          "description": "alignment (horizontal 0 left, 1 center, 2 right; vertical 0 top, 1 center, 2 bottom) of the text relative to the origin.",
+          "default_behavior": "(0, 0)"
         },
         {
           "name": "origin",
-          "index": null,
+          "index": 10,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -4467,197 +4387,38 @@
           "description": "origin is the coordinate of the starting point of the text."
         },
         {
-          "name": "y",
-          "index": null,
+          "name": "picture",
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "y",
-          "description": "y is the vertical coordinate that increases to the bottom."
-        },
-        {
-          "name": "alignment(left, top)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "alignment",
-          "description": "alignment specifies the location of the text relative to the origin you specify."
-        },
-        {
-          "name": "vertical",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "vertical",
-          "description": "vertical sets the vertical position of the text with respect to the origin."
-        },
-        {
-          "name": "text",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "text",
-          "description": "text is the string to draw in the picture ."
-        },
-        {
-          "name": "text color(black)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "text_color",
-          "description": "text color is the color of the text. The default is black."
-        },
-        {
-          "name": "BG color(transparent)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bg_color",
-          "description": "BG color is the color of the background of the text."
-        },
-        {
-          "name": "text orientation",
-          "index": 0,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "text_orientation",
-          "description": "text orientation sets the orientation of the text to draw.",
-          "default": 0
-        },
-        {
-          "name": "new picture",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "new_picture",
-          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture."
-        },
-        {
-          "name": "text rect",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "text_rect",
-          "description": "text rect is a cluster that contains coordinates that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "python_param": "picture",
+          "description": "picture is the picture to which you want to add the text. The default is an empty picture.",
+          "default_behavior": "empty picture"
         }
-      ]
+      ],
+      "op": "PICTURE_DRAW_TEXT",
+      "inline": true
     },
     {
       "name": "Get Text Rect",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/get-text-rect-vi.html",
       "category": "Graphics & Sound",
-      "description": "Returns a cluster that contains the left, top, right, and bottom dimensions, in pixels, of a string. Functions 2080 ni.com",
+      "description": "Returns a cluster that contains the left, top, right, and bottom dimensions, in pixels, of a string.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
-          "name": "[user-specified font]",
-          "index": null,
+          "name": "alignment(left, top)",
+          "index": 0,
           "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "user_specified_font",
-          "description": "[user-specified font] specifies the specific font characteristics for the text to draw."
-        },
-        {
-          "name": "Size",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "size",
-          "description": "Size specifies the size of the font in points."
-        },
-        {
-          "name": "Strikeout?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "strikeout",
-          "description": "Strikeout? specifies if the text appears in strikeout. If Strikeout? is TRUE, the text appears in strikeout."
-        },
-        {
-          "name": "Italic?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "italic",
-          "description": "Italic? specifies if the text appears in italics. If Italic? is TRUE, the text appears in italics."
-        },
-        {
-          "name": "Underline?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "underline",
-          "description": "Underline? specifies if the text is underlined. If Underline? is TRUE, the text appears underlined."
-        },
-        {
-          "name": "Outline?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "outline",
-          "description": "Outline? specifies if the text is outlined. If Outline? is TRUE, the text appears outlined."
-        },
-        {
-          "name": "Shadow?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "shadow",
-          "description": "Shadow? specifies if the text has a shadow. If Shadow? is TRUE, the text appears in shadow."
-        },
-        {
-          "name": "Bold?",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bold",
-          "description": "Bold? specifies if the text is bold. If Bold? is TRUE, the text appears bold."
+          "python_param": "alignment",
+          "description": "alignment of the text relative to the origin.",
+          "default_behavior": "(0, 0)"
         },
         {
           "name": "desired font(Application)",
@@ -4666,53 +4427,27 @@
           "type": null,
           "enum_values": null,
           "python_param": "desired_font",
-          "description": "desired font specifies the text font.",
+          "description": "desired font specifies the text font. The default is Application.",
           "default": 1
         },
         {
-          "name": "alignment(left, top)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "alignment",
-          "description": "alignment specifies the location of the text relative to the origin you specify."
-        },
-        {
-          "name": "vertical",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "vertical",
-          "description": "vertical sets the vertical position of the text with respect to the origin."
-        },
-        {
           "name": "origin(0,0)",
-          "index": null,
+          "index": 2,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "origin",
-          "description": "origin is the coordinate of the starting point of the text."
-        },
-        {
-          "name": "vertical",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "vertical",
-          "description": "vertical is the y-axis coordinate that increases to the bottom."
+          "description": "origin is the coordinate of the starting point of the text.",
+          "default_behavior": "(0, 0)"
         },
         {
           "name": "text",
-          "index": null,
+          "index": 3,
           "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "text",
-          "description": "text is the string to draw in the picture ."
+          "description": "text is the string to measure."
         },
         {
           "name": "text orientation",
@@ -4721,46 +4456,31 @@
           "type": null,
           "enum_values": null,
           "python_param": "text_orientation",
-          "description": "text orientation sets the orientation of the text for which you want the bounding rectangle.",
+          "description": "text orientation: 0 None (default), 1 Stacked, 2 Clockwise, 3 Counterclockwise.",
           "default": 0
         },
         {
+          "name": "[user-specified font]",
+          "index": 5,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "user_specified_font",
+          "description": "[user-specified font] is ignored unless desired font is User-specified Font.",
+          "default_behavior": "ignored"
+        },
+        {
           "name": "rect",
-          "index": null,
+          "index": 7,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "rect",
-          "description": "rect is a cluster that contains coordinates that describe the left, top, right, and bottom coordinates of the outer edges of the rectangle."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "description": "rect is the (left, top, right, bottom) of the text."
         }
-      ]
+      ],
+      "op": "PICTURE_GET_TEXT_RECT",
+      "inline": true
     },
     {
       "name": "Draw Text in Rect",
@@ -5150,118 +4870,49 @@
       "name": "Draw Flattened Pixmap",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-flattened-pixmap-vi.html",
       "category": "Graphics & Sound",
-      "description": "Draws a 1-, 4-, or 8-bit pixmap or a 24-bit RGB pixmap into a picture. This VI takes a 1D array of bytes as input and assumes the user completes all packing and padding.",
+      "description": "Draws a 1-, 4-, or 8-bit pixmap or a 24-bit RGB pixmap into a picture.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "picture",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "picture",
-          "description": "picture is the picture to which you want to add the array of data. The default is an empty picture."
-        },
-        {
-          "name": "image data",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data describes the image you want to draw or manipulate."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle in which you want to draw the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
           "name": "new picture",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "new_picture",
-          "description": "new picture is the picture that contains the new image. You can wire this output to any other picture input to add more drawing instructions to the picture."
+          "description": "new picture is the picture that contains the new image."
+        },
+        {
+          "name": "image data",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
+        },
+        {
+          "name": "picture",
+          "index": 9,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "picture",
+          "description": "picture is the picture to which you want to add the array of data. The default is an empty picture.",
+          "default_behavior": "empty picture"
         }
-      ]
+      ],
+      "op": "PICTURE_DRAW_FLATTENED",
+      "inline": true
     },
     {
       "name": "Create Mask",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/pictutil-llb/create-mask-vi.html",
       "category": "Graphics & Sound",
-      "description": "Applies a mask to an image and returns the mask information in the mask element of image data. This VI is useful if you want to make a certain color in an image transparent before writing the image to a 2D picture control.",
+      "description": "Applies a mask to an image and returns the mask information in the mask element of image data.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
@@ -5269,103 +4920,12 @@
       "terminals": [
         {
           "name": "image data",
-          "index": null,
-          "direction": "input",
+          "index": 3,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data returns information about the image so you can use the Draw Flattened Pixmap VI to draw it as a picture."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
-          "name": "Mask Color (Black)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask_color",
-          "description": "Mask Color is the color in the image you want to appear transparent for 24-bit, 8-bit, and 4-bit images."
-        },
-        {
-          "name": "1-Bit Mask Value (T)",
-          "index": 9,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "var_1_bit_mask_value",
-          "description": "If 1-Bit Mask Value is TRUE (default), the VI draws all elements in the image array with an index of 1 as transparent. If FALSE, the VI draws all elements with an index of 0 as transparent.",
-          "default": true
+          "python_param": "image_data_out",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
         },
         {
           "name": "Combine Masks? (F)",
@@ -5374,146 +4934,79 @@
           "type": null,
           "enum_values": null,
           "python_param": "combine_masks",
-          "description": "If Combine Masks? is TRUE, the VI combines any existing mask information for the image and the mask information you wire to this VI and applies all the mask information to the image. If FALSE (default), the VI applies only the mask information you wire to this VI.",
+          "description": "Combine Masks? combines the existing mask with the new one. The default is FALSE.",
           "default": false
         },
         {
+          "name": "1-Bit Mask Value (T)",
+          "index": 9,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "mask_value_1bit",
+          "description": "1-Bit Mask Value TRUE (default) draws elements with an index of 1 as transparent.",
+          "default": true
+        },
+        {
+          "name": "Mask Color (Black)",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "mask_color",
+          "description": "Mask Color is the color that appears transparent. The default is black.",
+          "default": 0
+        },
+        {
           "name": "image data",
-          "index": null,
-          "direction": "output",
+          "index": 11,
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
-          "description": "image data describes the image you want to draw or manipulate."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle in which you want to draw the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
         }
-      ]
+      ],
+      "op": "PICTURE_CREATE_MASK",
+      "inline": true
     },
     {
       "name": "Picture to Pixmap",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/pictutil-llb/picture-to-pixmap-vi.html",
       "category": "Graphics & Sound",
-      "description": "Converts a picture to a cluster of image data you can use to perform certain tasks with the image, such as save it to a file using the Graphics Formats VIs. Functions © National Instruments 2105",
+      "description": "Converts a picture to a cluster of image data.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
-          "name": "picture",
-          "index": null,
-          "direction": "input",
+          "name": "image data",
+          "index": 2,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "picture",
-          "description": "picture is the picture you want to convert to a pixmap."
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
         },
         {
-          "name": "rect",
-          "index": null,
-          "direction": "input",
+          "name": "new picture",
+          "index": 3,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "rect",
-          "description": "rect is a cluster that contains coordinates that describe the bounding rectangle of the image you want to convert."
+          "python_param": "new_picture",
+          "description": "new picture returns picture unchanged."
         },
         {
-          "name": "top",
-          "index": null,
+          "name": "Background Color",
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "python_param": "background_color",
+          "description": "Background Color sets the background color of the image. NI states no default; unwired it is its number type's default, 0 (black, 0x000000), by the maintainer's decision (2026-11-16).",
+          "default": 0
         },
         {
           "name": "depth",
@@ -5522,355 +5015,82 @@
           "type": null,
           "enum_values": null,
           "python_param": "depth",
-          "description": "depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel.",
+          "description": "depth is the color depth of the image: 1, 4, 8 or 24 bits per pixel. The default is 24.",
           "default": 24
         },
         {
-          "name": "Background Color",
-          "index": null,
+          "name": "rect",
+          "index": 10,
           "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "background_color",
-          "description": "Background Color sets the background color of the image."
+          "python_param": "rect",
+          "description": "rect is the (left, top, right, bottom) of the image to convert. The default is the entire image.",
+          "default_behavior": "entire image"
         },
         {
-          "name": "new picture",
-          "index": null,
-          "direction": "output",
+          "name": "picture",
+          "index": 11,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "new_picture",
-          "description": "new picture returns picture unchanged."
-        },
-        {
-          "name": "image data",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data returns information about the pixmap so you can use the Graphics Formats VIs to save the pixmap to a file."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "python_param": "picture",
+          "description": "picture is the picture to which you want to convert to a pixmap. The default is an empty picture.",
+          "default_behavior": "empty picture"
         }
-      ]
+      ],
+      "op": "PICTURE_TO_PIXMAP",
+      "inline": true
     },
     {
       "name": "Get Image Subset",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/pictutil-llb/get-image-subset-vi.html",
       "category": "Graphics & Sound",
-      "description": "Returns a subset of a source image instead of the entire image. Use the Picture to Pixmap VI to convert a picture to a cluster you can wire to image data. If you wire 32-bit image data to this VI, the VI strips the alpha channel and returns 24-bit image data.",
+      "description": "Returns a subset of a source image.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "image data",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data describes the image you want to draw or manipulate."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle in which you want to draw the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
-          "name": "subset rect",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "subset_rect",
-          "description": "subset rect is a cluster that contains coordinates that describe the bounding rectangle of the image subset."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
-          "name": "image subset",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_subset",
-          "description": "image subset returns information about the image subset so you can use the Draw Flattened Pixmap VI to draw the image as a picture or use the Graphics Formats VIs to save the image to a file."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
           "name": "true subset rect",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "true_subset_rect",
-          "description": "true subset rect is a cluster that contains coordinates that describe the bounding rectangle of the image subset returned by the VI."
+          "description": "true subset rect is the bounding rectangle of the image subset returned."
         },
         {
-          "name": "top",
-          "index": null,
+          "name": "image subset",
+          "index": 2,
           "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
+          "python_param": "image_subset",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
         },
         {
-          "name": "right",
-          "index": null,
-          "direction": "output",
+          "name": "subset rect",
+          "index": 4,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
+          "python_param": "subset_rect",
+          "description": "subset rect is the bounding rectangle of the image subset."
         },
         {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
+          "name": "image data",
+          "index": 6,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
         }
-      ]
+      ],
+      "op": "PICTURE_GET_IMAGE_SUBSET",
+      "inline": true
     },
     {
       "name": "Empty Picture VI",
@@ -6054,124 +5274,24 @@
       "name": "Write JPEG File",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/jpeg-llb/write-jpeg-file-vi.html",
       "category": "Graphics & Sound",
-      "description": "Writes a JPEG file. If you want to write a pixmap to a file, use the Flatten Pixmap VI to convert the data to an image data cluster before using this VI. If you want to write a picture to a file, use the Picture to Pixmap VI to convert the data to an image data cluster before using this VI. Functions 2118 ni.com",
+      "description": "Writes a JPEG file.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
-          "name": "quality (80)",
-          "index": 5,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "quality",
-          "description": "quality specifies the level of quality you want for the JPEG using the IJG JPEG library scale, which ranges from 0 to 100. The default is 80 .",
-          "default": 80
-        },
-        {
-          "name": "path to JPEG file",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "path_to_jpeg_file",
-          "description": "path to JPEG file specifies the path to and name of the JPEG file to write."
-        },
-        {
-          "name": "image data",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data describes the image you want to draw or manipulate."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255. In the Write File VIs (BMP, JPEG, and PNG), LabVIEW does not have an automatic color table. Use the colors input even for image depth of lower bit value to ensure the best performance of the Write File VIs."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+          "python_param": "error_out",
+          "description": "error out contains error information."
         },
         {
           "name": "path",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -6179,13 +5299,57 @@
           "description": "path specifies the path to the JPEG file."
         },
         {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
+          "name": "quality (80)",
+          "index": 5,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "quality",
+          "description": "quality is the IJG JPEG library scale, 0 to 100. The default is 80.",
+          "default": 80
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs."
+        },
+        {
+          "name": "image data",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
+        },
+        {
+          "name": "path to JPEG file",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "path_to_jpeg_file",
+          "description": "path to JPEG file specifies the file to write."
+        }
+      ],
+      "op": "PICTURE_WRITE_JPEG",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
         }
       ]
     },
@@ -6193,124 +5357,24 @@
       "name": "Write PNG File",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/png-llb/write-png-file-vi.html",
       "category": "Graphics & Sound",
-      "description": "Writes a PNG file. If you want to write a pixmap to a file, use the Flatten Pixmap VI to convert the data to an image data cluster before using this VI. If you want to write a picture to a file, use the Picture to Pixmap VI to convert the data to an image data cluster before using this VI.",
+      "description": "Writes a PNG file.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
-          "name": "compression (default)",
-          "index": 5,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "compression",
-          "description": "compression specifies the level of file compression you want for the PNG file.",
-          "default": -1
-        },
-        {
-          "name": "path to PNG file",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "path_to_png_file",
-          "description": "path to PNG file specifies the path to and name of the PNG file to write."
-        },
-        {
-          "name": "image data",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data describes the image you want to draw or manipulate."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255. In the Write File VIs (BMP, JPEG, and PNG), LabVIEW does not have an automatic color table. Use the colors input even for image depth of lower bit value to ensure the best performance of the Write File VIs."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+          "python_param": "error_out",
+          "description": "error out contains error information."
         },
         {
           "name": "path",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -6318,13 +5382,57 @@
           "description": "path specifies the path to the PNG file."
         },
         {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
+          "name": "compression (default)",
+          "index": 5,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "python_param": "compression",
+          "description": "compression: -1 good compression and speed (default), 0 none, 1 best speed, 9 best compression.",
+          "default": -1
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs."
+        },
+        {
+          "name": "image data",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
+        },
+        {
+          "name": "path to PNG file",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "path_to_png_file",
+          "description": "path to PNG file specifies the file to write."
+        }
+      ],
+      "op": "PICTURE_WRITE_PNG",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
         }
       ]
     },
@@ -6332,128 +5440,72 @@
       "name": "Write BMP File",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/bmp-llb/write-bmp-file-vi.html",
       "category": "Graphics & Sound",
-      "description": "Writes a Windows bitmap file. If you want to write a pixmap to a file, use the Flatten Pixmap VI to convert the data to an image data cluster before using this VI. If you want to write a picture to a file, use the Picture to Pixmap VI to convert the data to an image data cluster before using this VI.",
+      "description": "Writes a BMP file.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "path to BMP file",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "path_to_bmp_file",
-          "description": "path to BMP file specifies the path to and name of the bitmap file to write."
-        },
-        {
-          "name": "image data",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data describes the image you want to draw or manipulate."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255. In the Write File VIs (BMP, JPEG, and PNG), LabVIEW does not have an automatic color table. Use the colors input even for image depth of lower bit value to ensure the best performance of the Write File VIs."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
-        },
-        {
-          "name": "path",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "path",
-          "description": "path specifies the path of the pixmap."
-        },
-        {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "description": "error out contains error information."
+        },
+        {
+          "name": "path",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "path",
+          "description": "path specifies the path to the BMP file."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs."
+        },
+        {
+          "name": "image data",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
+        },
+        {
+          "name": "path to BMP file",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "path_to_bmp_file",
+          "description": "path to BMP file specifies the file to write."
+        }
+      ],
+      "op": "PICTURE_WRITE_BMP",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
+        },
+        {
+          "exception": "PermissionError",
+          "code": 8
+        },
+        {
+          "exception": "OSError",
+          "code": 6
         }
       ]
     },
@@ -6461,29 +5513,38 @@
       "name": "Read JPEG File",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/jpeg-llb/read-jpeg-file-vi.html",
       "category": "Graphics & Sound",
-      "description": "Reads a JPEG file and creates the data necessary to display the file in a picture control. Use the Draw Flattened Pixmap VI to display the bitmap you acquire with this VI. Use the Unflatten Pixmap VI to work with the data as a 2D array.",
+      "description": "Reads a JPEG file and creates the image data to display it.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
       "status": "resolved",
       "terminals": [
         {
-          "name": "path to JPEG file",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "path_to_jpeg_file",
-          "description": "path to JPEG file specifies the path to and name of the JPEG file to read."
+          "python_param": "error_out",
+          "description": "error out contains error information."
         },
         {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
+          "name": "image data",
+          "index": 2,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
+        },
+        {
+          "name": "path",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "path",
+          "description": "path specifies the path of the pixmap."
         },
         {
           "name": "use 8 bit color table",
@@ -6492,107 +5553,42 @@
           "type": null,
           "enum_values": null,
           "python_param": "use_8_bit_color_table",
-          "description": "use 8 bit color table reads the JPEG file at an 8 bit per pixel image depth instead of 24 bit per pixel image depth . The default value is FALSE.",
+          "description": "use 8 bit color table (the data is read as 24-bit either way).",
           "default": false
         },
         {
-          "name": "path",
-          "index": null,
-          "direction": "output",
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "path",
-          "description": "path specifies the path of the pixmap."
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs."
         },
         {
-          "name": "image data",
-          "index": null,
-          "direction": "output",
+          "name": "path to JPEG file",
+          "index": 11,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data returns information about the image so you can use the Draw Flattened Pixmap VI to draw it as a picture."
+          "python_param": "path_to_jpeg_file",
+          "description": "path to JPEG file specifies the file to read."
+        }
+      ],
+      "op": "PICTURE_READ_JPEG",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
         },
         {
-          "name": "image depth",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
+          "exception": "PermissionError",
+          "code": 8
         },
         {
-          "name": "image",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. In this VI, the mask array is always empty."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "exception": "OSError",
+          "code": 6
         }
       ]
     },
@@ -6600,42 +5596,33 @@
       "name": "Read PNG File",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/png-llb/read-png-file-vi.html",
       "category": "Graphics & Sound",
-      "description": "Reads a PNG file and creates the data necessary to display the file in a picture control. Use the Draw Flattened Pixmap VI to display the bitmap you acquire with this VI. Use the Unflatten Pixmap VI to work with the data as a 2D array.",
+      "description": "Reads a PNG file and creates the image data to display it.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "path to PNG file",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "path_to_png_file",
-          "description": "path to PNG file specifies the path to and name of the PNG file to read."
+          "python_param": "error_out",
+          "description": "error out contains error information."
         },
         {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
+          "name": "image data",
+          "index": 2,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
-        },
-        {
-          "name": "Transparency Thresh",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "transparency_thresh",
-          "description": "Transparency Thresh incorporates alpha information for a 32-bit PNG image into the mask of the resulting image data . LabVIEW treats as opaque any alpha values equal to or greater than Transparency Thresh . LabVIEW treats all other alpha values as fully transparent. The value of Transparency Thresh must be between 0 and 255."
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
         },
         {
           "name": "path",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -6643,94 +5630,48 @@
           "description": "path specifies the path of the pixmap."
         },
         {
-          "name": "image data",
-          "index": null,
-          "direction": "output",
+          "name": "Transparency Thresh",
+          "index": 6,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data returns information about the image so you can use the Draw Flattened Pixmap VI to draw it as a picture."
+          "python_param": "transparency_thresh",
+          "description": "Transparency Thresh: alpha values equal to or greater than it are opaque; all others are fully transparent (0 to 255). NI states no default; 127 is what NI forum answers give (forums.ni.com/t5/LabVIEW/problem-with-READ-PNG-FILE/m-p/804500).",
+          "default": 127
         },
         {
-          "name": "image depth",
-          "index": null,
-          "direction": "output",
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , 24 , and 32 bits per pixel."
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs."
         },
         {
-          "name": "image",
-          "index": null,
-          "direction": "output",
+          "name": "path to PNG file",
+          "index": 11,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output."
+          "python_param": "path_to_png_file",
+          "description": "path to PNG file specifies the file to read."
+        }
+      ],
+      "op": "PICTURE_READ_PNG",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
         },
         {
-          "name": "mask",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
+          "exception": "PermissionError",
+          "code": 8
         },
         {
-          "name": "colors",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "exception": "OSError",
+          "code": 6
         }
       ]
     },
@@ -6738,33 +5679,33 @@
       "name": "Read BMP File",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/bmp-llb/read-bmp-file-vi.html",
       "category": "Graphics & Sound",
-      "description": "Reads a Windows bitmap file and creates the data necessary to display the file in a picture control. Use the Draw Flattened Pixmap VI to display the bitmap you acquire with this VI. Use Functions 2134 ni.com the Unflatten Pixmap VI to work with the data as a 2D array.",
+      "description": "Reads a BMP file and creates the image data to display it.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "path to BMP file",
-          "index": null,
-          "direction": "input",
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "path_to_bmp_file",
-          "description": "path to BMP file specifies the path to and name of the bitmap file to read."
+          "python_param": "error_out",
+          "description": "error out contains error information."
         },
         {
-          "name": "error in (no error)",
-          "index": null,
-          "direction": "input",
+          "name": "image data",
+          "index": 2,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "error_in",
-          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
         },
         {
           "name": "path",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -6772,94 +5713,38 @@
           "description": "path specifies the path of the pixmap."
         },
         {
-          "name": "image data",
-          "index": null,
-          "direction": "output",
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data returns information about the image so you can use the Draw Flattened Pixmap VI to draw it as a picture."
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs."
         },
         {
-          "name": "image depth",
-          "index": null,
-          "direction": "output",
+          "name": "path to BMP file",
+          "index": 11,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
+          "python_param": "path_to_bmp_file",
+          "description": "path to BMP file specifies the file to read."
+        }
+      ],
+      "op": "PICTURE_READ_BMP",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "FileNotFoundError",
+          "code": 7
         },
         {
-          "name": "image",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output."
+          "exception": "PermissionError",
+          "code": 8
         },
         {
-          "name": "mask",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on. In this VI, the mask array is always empty."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this output."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
-        },
-        {
-          "name": "error out",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "error_out",
-          "description": "error out contains error information. This output provides standard error out functionality."
+          "exception": "OSError",
+          "code": 6
         }
       ]
     },
@@ -6867,331 +5752,180 @@
       "name": "Flatten Pixmap",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/pixmap-llb/flatten-pixmap-vi.html",
       "category": "Graphics & Sound",
-      "description": "Converts pixmap data from a 2D array to a 1D array. You can write the resulting 1D array to a file or use the low-level Draw Flattened Pixmap VI to view it. Functions © National Instruments 2137",
+      "description": "Converts pixmap data from a 2D array to image data.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "top left",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top_left",
-          "description": "top left specifies in coordinates where to place the top-left corner of the image."
-        },
-        {
-          "name": "y",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "y",
-          "description": "y is the vertical coordinate that increases to the bottom."
-        },
-        {
-          "name": "24-bit pixmap",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "var_24_bit_pixmap",
-          "description": "24-bit pixmap is the 2D array of data to convert to image data."
-        },
-        {
-          "name": "8-bit pixmap",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "var_8_bit_pixmap",
-          "description": "8-bit pixmap is the 2D array of data to convert to image data."
-        },
-        {
-          "name": "4-bit pixmap",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "var_4_bit_pixmap",
-          "description": "4-bit pixmap is the 2D array of data to convert to image data."
-        },
-        {
-          "name": "1-bit pixmap",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "var_1_bit_pixmap",
-          "description": "1-bit pixmap is the 2D array of data to convert to image data."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in the pixmap input you wire. Which pixmap input you wire determines how LabVIEW interprets the value of this input."
-        },
-        {
-          "name": "mask",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is a 1D array that describes mask information for each pixel."
-        },
-        {
           "name": "image data",
-          "index": null,
+          "index": 2,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "image_data",
-          "description": "image data returns information about the pixmap so you can use the Draw Flattened Pixmap VI to draw the pixmap as a picture or use the Graphics Formats VIs to save the pixmap to a file."
-        },
-        {
-          "name": "image depth",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
-        },
-        {
-          "name": "image",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this output."
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
         },
         {
           "name": "mask",
-          "index": null,
-          "direction": "output",
+          "index": 4,
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
+          "description": "mask describes mask information for each pixel.",
+          "default_behavior": "empty array"
         },
         {
           "name": "colors",
-          "index": null,
-          "direction": "output",
+          "index": 6,
+          "direction": "input",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this output."
+          "description": "colors is the array of RGB color values the pixmap indexes.",
+          "default_behavior": "empty array"
         },
         {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "output",
+          "name": "top left",
+          "index": 7,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
+          "python_param": "top_left",
+          "description": "top left specifies in coordinates where to place the top-left corner of the image.",
+          "default_behavior": "(0, 0)"
         },
         {
-          "name": "top",
-          "index": null,
-          "direction": "output",
+          "name": "1-bit pixmap  ",
+          "index": 8,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
+          "python_param": "pixmap_1bit",
+          "description": "1-bit pixmap is the 2D array to convert.",
+          "default_behavior": "empty array"
         },
         {
-          "name": "right",
-          "index": null,
-          "direction": "output",
+          "name": "4-bit pixmap",
+          "index": 9,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
+          "python_param": "pixmap_4bit",
+          "description": "4-bit pixmap is the 2D array to convert.",
+          "default_behavior": "empty array"
         },
         {
-          "name": "bottom",
-          "index": null,
-          "direction": "output",
+          "name": "8-bit pixmap",
+          "index": 10,
+          "direction": "input",
           "type": null,
           "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "python_param": "pixmap_8bit",
+          "description": "8-bit pixmap is the 2D array to convert.",
+          "default_behavior": "empty array"
+        },
+        {
+          "name": "24-bit pixmap",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "pixmap_24bit",
+          "description": "24-bit pixmap is the 2D array to convert.",
+          "default_behavior": "empty array"
         }
-      ]
+      ],
+      "op": "PICTURE_FLATTEN",
+      "inline": true
     },
     {
       "name": "Unflatten Pixmap",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/pixmap-llb/unflatten-pixmap-vi.html",
       "category": "Graphics & Sound",
-      "description": "Converts a cluster of image data into a 2D array. Functions © National Instruments 2141",
+      "description": "Converts image data to the 2D array of its pixels.",
       "vi_path": null,
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "resolved",
       "terminals": [
         {
-          "name": "image data",
-          "index": null,
-          "direction": "input",
+          "name": "1-bit pixmap  ",
+          "index": 0,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "image_data",
-          "description": "image data describes the image you want to draw or manipulate."
+          "python_param": "pixmap_1bit",
+          "description": "1-bit pixmap is the 2D array of a 1-bit image."
         },
         {
-          "name": "image depth",
-          "index": null,
-          "direction": "input",
+          "name": "4-bit pixmap",
+          "index": 1,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "image_depth",
-          "description": "image depth specifies the color depth of the image, which is the number of bits to use to describe the color of each pixel in the image. Valid values include 1 , 4 , 8 , and 24 bits per pixel."
+          "python_param": "pixmap_4bit",
+          "description": "4-bit pixmap is the 2D array of a 4-bit image."
         },
         {
-          "name": "image",
-          "index": null,
-          "direction": "input",
+          "name": "8-bit pixmap",
+          "index": 2,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "image",
-          "description": "image is an array of bytes that describes the color of each pixel in the image in raster order. The value of image depth determines how LabVIEW interprets the value of this input."
+          "python_param": "pixmap_8bit",
+          "description": "8-bit pixmap is the 2D array of an 8-bit image."
         },
         {
-          "name": "mask",
-          "index": null,
-          "direction": "input",
+          "name": "24-bit pixmap",
+          "index": 3,
+          "direction": "output",
           "type": null,
           "enum_values": null,
-          "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
+          "python_param": "pixmap_24bit",
+          "description": "24-bit pixmap is the 2D array of a 24-bit image."
         },
         {
           "name": "colors",
-          "index": null,
-          "direction": "input",
+          "index": 4,
+          "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in image . The value of image depth determines how LabVIEW interprets the value of this input. colors stores 32-bit RGB values where the most-significant byte is zero, followed in order by red, green, and blue values. Valid values include 0 through 255."
-        },
-        {
-          "name": "Rectangle",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "rectangle",
-          "description": "Rectangle is a cluster that contains coordinates that describe the bounding rectangle of the image."
-        },
-        {
-          "name": "top",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "top",
-          "description": "top is the vertical coordinate of the top edge of the rectangle."
-        },
-        {
-          "name": "right",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "right",
-          "description": "right is the horizontal coordinate of the right edge of the rectangle."
-        },
-        {
-          "name": "bottom",
-          "index": null,
-          "direction": "input",
-          "type": null,
-          "enum_values": null,
-          "python_param": "bottom",
-          "description": "bottom is the vertical coordinate of the bottom edge of the rectangle."
+          "description": "colors is the array of RGB color values the pixmap indexes."
         },
         {
           "name": "top left",
-          "index": null,
+          "index": 5,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "top_left",
-          "description": "top left is a cluster that contains a horizontal ( x ) and a vertical ( y ) component."
-        },
-        {
-          "name": "y",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "y",
-          "description": "y is the vertical coordinate that increases to the bottom."
-        },
-        {
-          "name": "24-bit pixmap",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "var_24_bit_pixmap",
-          "description": "24-bit pixmap returns the 2D array of data to draw as a pixmap."
-        },
-        {
-          "name": "8-bit pixmap",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "var_8_bit_pixmap",
-          "description": "8-bit pixmap returns the 2D array of data to draw as a pixmap."
-        },
-        {
-          "name": "4-bit pixmap",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "var_4_bit_pixmap",
-          "description": "4-bit pixmap returns the 2D array of data to draw as a pixmap."
-        },
-        {
-          "name": "1-bit pixmap",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "var_1_bit_pixmap",
-          "description": "1-bit pixmap returns the 2D array of data to draw as a bitmap."
-        },
-        {
-          "name": "colors",
-          "index": null,
-          "direction": "output",
-          "type": null,
-          "enum_values": null,
-          "python_param": "colors",
-          "description": "colors is an array of RGB color values that correspond to the values in the pixmap output."
+          "description": "top left is the (x, y) of the image."
         },
         {
           "name": "mask",
-          "index": null,
+          "index": 6,
           "direction": "output",
           "type": null,
           "enum_values": null,
           "python_param": "mask",
-          "description": "mask is an array of bytes in which each bit describes mask information for a pixel. The first byte describes the first eight pixels, the second byte describes the next eight pixels, and so on."
+          "description": "mask is the mask of the image."
+        },
+        {
+          "name": "image data",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "image_data",
+          "description": "image data is the cluster (image type, image depth, image, mask, colors, rectangle) NI's Picture to Pixmap page describes."
         }
-      ]
+      ],
+      "op": "PICTURE_UNFLATTEN",
+      "inline": true
     },
     {
       "name": "Beep (Windows)",
@@ -7335,6 +6069,267 @@
           "python_param": "error_out"
         }
       ]
+    },
+    {
+      "name": "Empty Picture",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/empty-picture.html",
+      "category": "Graphics & Sound",
+      "description": "Returns an empty picture.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "empty picture",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "empty_picture",
+          "description": "empty picture is the output."
+        }
+      ],
+      "op": "PICTURE_EMPTY",
+      "inline": true
+    },
+    {
+      "name": "Draw Rect",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-rectangle-vi.html",
+      "category": "Graphics & Sound",
+      "description": "Draws a rectangle, optionally filling the interior.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "picture",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "picture",
+          "description": "picture is the picture to which you want to add to. The default is an empty picture.",
+          "default_behavior": "empty picture"
+        },
+        {
+          "name": "rect",
+          "index": 2,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "rect",
+          "description": "rect is the cluster (left, top, right, bottom) of the outer edges of the rectangle."
+        },
+        {
+          "name": "fill?(F)",
+          "index": 3,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "fill",
+          "description": "fill? specifies whether to fill the interior. The default is FALSE.",
+          "default": false
+        },
+        {
+          "name": "color(black)",
+          "index": 4,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "color",
+          "description": "color is the color of the lines (and of the interior if filled). The default is black.",
+          "default": 0
+        },
+        {
+          "name": "pen",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "pen",
+          "description": "pen sets the width (pixels) and style (0 Solid, 1 Dash, 2 Dot, 3 DashDot, 4 DashDotDot) of the pen the VI uses to draw the picture.",
+          "default_behavior": "default pen"
+        },
+        {
+          "name": "new picture",
+          "index": 6,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "new_picture",
+          "description": "new picture is the picture that contains the new image."
+        }
+      ],
+      "op": "PICTURE_DRAW_RECT",
+      "inline": true
+    },
+    {
+      "name": "Draw True-Color Pixmap",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-true-color-pixmap-vi.html",
+      "category": "Graphics & Sound",
+      "description": "Converts a pixmap into a picture.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "picture",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "picture",
+          "description": "picture is the picture to which you want to add the pixmap. The default is an empty picture.",
+          "default_behavior": "empty picture"
+        },
+        {
+          "name": "top left point(0, 0)",
+          "index": 2,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "top_left",
+          "description": "top left point is where to place the top-left corner of the image.",
+          "default_behavior": "(0, 0)"
+        },
+        {
+          "name": "data (RGB format)",
+          "index": 3,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "data",
+          "description": "data is a 2D array of 32-bit unsigned integers of the color of each pixel."
+        },
+        {
+          "name": "mask",
+          "index": 4,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "mask",
+          "description": "mask describes mask information for each pixel.",
+          "default_behavior": "empty array"
+        },
+        {
+          "name": "new picture",
+          "index": 6,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "new_picture",
+          "description": "new picture is the picture that contains the new image."
+        }
+      ],
+      "op": "PICTURE_DRAW_TRUE_COLOR",
+      "inline": true
+    },
+    {
+      "name": "Bit-array To Byte-array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/pictutil-llb/bit-array-to-byte-array-vi.html",
+      "category": "Graphics & Sound",
+      "description": "Packs the rows of a 2D Boolean array into bytes, the first element of each eight in the high bit of its byte.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "byte array",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "byte_array",
+          "description": "byte array is the packed bytes."
+        },
+        {
+          "name": "bit array",
+          "index": 1,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "bit_array",
+          "description": "bit array is the 2D Boolean array."
+        }
+      ],
+      "op": "PICTURE_BITARRAY_TO_BYTEARRAY",
+      "inline": true
+    },
+    {
+      "name": "Draw 8-Bit Pixmap",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/picture/picture-llb/draw-8-bit-pixmap-vi.html",
+      "category": "Graphics & Sound",
+      "description": "Converts an 8-bit pixmap into a picture.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "picture",
+          "index": 0,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "picture",
+          "description": "picture is the picture to which you want to add the pixmap. The default is an empty picture.",
+          "default_behavior": "empty picture"
+        },
+        {
+          "name": "top left point(0, 0)",
+          "index": 2,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "top_left",
+          "description": "top left point is where to place the top-left corner of the image.",
+          "default_behavior": "(0, 0)"
+        },
+        {
+          "name": "data",
+          "index": 3,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "data",
+          "description": "data is a 2D array of 8-bit unsigned integers, each an index into color table."
+        },
+        {
+          "name": "color table",
+          "index": 4,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "color_table",
+          "description": "color table is an array of up to 256 colors (0x00RRGGBB). If unwired, NI's default 256-color palette, which NI does not publish.",
+          "default_behavior": "empty array"
+        },
+        {
+          "name": "new picture",
+          "index": 6,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "new_picture",
+          "description": "new picture is the picture that contains the new image."
+        },
+        {
+          "name": "mask",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "mask",
+          "description": "mask describes mask information for each pixel.",
+          "default_behavior": "empty array"
+        }
+      ],
+      "op": "PICTURE_DRAW_8_BIT",
+      "inline": true
     }
   ]
 }

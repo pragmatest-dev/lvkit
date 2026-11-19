@@ -7,9 +7,12 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.error_path import is_error_wire_vi
 from lvkit.codegen.nodes import subvi
+from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.models import VINode
 from lvkit.vilib_resolver import get_resolver
@@ -72,8 +75,8 @@ def _terminal_names(tmp_path: Path, tokens: list[str]) -> list[str | None]:
         strings,
     )
     assert main != base._MAIN_XML
-    (tmp_path / "Caller_BDHb.xml").write_text(base._BD_XML)
-    (tmp_path / "Caller.xml").write_text(main)
+    (tmp_path / "Caller_BDHb.xml").write_text(base._BD_XML, encoding="utf-8")
+    (tmp_path / "Caller.xml").write_text(main, encoding="utf-8")
     graph = InMemoryVIGraph()
     graph.load_vi(tmp_path / "Caller_BDHb.xml")
     vi = graph.list_vis()[0]
@@ -129,8 +132,8 @@ def test_call_relative_to_a_vilib_caller_gets_the_catalog_terminals(
         "<String />\n<String>Error Cluster From Error Code.vi</String>",
     )
     assert main != base._MAIN_XML
-    (tmp_path / "Caller_BDHb.xml").write_text(base._BD_XML)
-    (tmp_path / "Caller.xml").write_text(main)
+    (tmp_path / "Caller_BDHb.xml").write_text(base._BD_XML, encoding="utf-8")
+    (tmp_path / "Caller.xml").write_text(main, encoding="utf-8")
 
     def names(caller_path: list[str] | None) -> list[str | None]:
         graph = InMemoryVIGraph()
@@ -145,3 +148,41 @@ def test_call_relative_to_a_vilib_caller_gets_the_catalog_terminals(
     in_vilib = names(["<vilib>", "Utility", "error.llb", "Caller.vi"])
     assert "error code (0)" in in_vilib
     assert names(None) == [None] * len(in_vilib)
+
+
+GRPC_START = "<vilib>/gRPC/LabVIEW gRPC Library/Server API/Server/Start Server.vi"
+SERVICER_START = "<vilib>/gRPC/gRPC-servicer.lvlib/Start Server.vi"
+
+
+def test_an_entry_that_records_its_path_describes_only_the_vi_at_that_path() -> None:
+    resolver = get_resolver()
+    entry = resolver.resolve_recorded(GRPC_START)
+    assert entry is not None and entry.vi_path is not None
+    # The gRPC library's catalog entry is that library's VI only: a library's own
+    # VI of the same file name, at another path, is not described by it.
+    assert resolver.resolve_recorded(SERVICER_START) is None
+    assert resolver.resolve_call(SERVICER_START) is None
+    # The same file name in another folder of vi.lib is another VI.
+    assert resolver.resolve_recorded(GRPC_START.replace("Server/", "Other/")) is None
+    # The folder an installation names does not change which VI it is.
+    assert resolver.resolve_recorded(GRPC_START.replace("<vilib>", "<userlib>")) is None
+    # An entry with no path of its own is found by file name, as before.
+    assert resolver.resolve_recorded(VILIB_PATH.replace("Utility", "Elsewhere"))
+
+
+def test_same_named_vis_of_two_libraries_are_not_one_call() -> None:
+    def start(path: str) -> list[str]:
+        node = VINode(
+            id="w",
+            vi_path="caller.vi",
+            name="Start Server.vi",
+            node_type="iUse",
+            qualified_path=path,
+            callee_key="/proj/Servicer/Start Server.vi",
+        )
+        fragment = subvi.generate(node, CodeGenContext())
+        return [ast.unparse(ast.fix_missing_locations(s)) for s in fragment.statements]
+
+    assert start(SERVICER_START) == ["start_server_result = start_server()"]
+    with pytest.raises(ConversionGap, match="no server is wired"):
+        start(GRPC_START)

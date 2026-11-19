@@ -23,6 +23,9 @@ from collections.abc import Mapping
 
 # Operators and conversion calls that apply to every element of an array.
 _UNARY_CALLS = frozenset({"int", "float", "bool", "round", "abs"})
+# ``max(a, b)`` / ``min(a, b)`` of two or more values pick per element when a
+# value is an array (``max(arr)`` of one argument is a reduction, not this).
+_PICK_CALLS = frozenset({"max", "min"})
 _UNARY_OPS = (ast.USub, ast.UAdd, ast.Not, ast.Invert)
 _COMPARE_OPS = (ast.Gt, ast.Lt, ast.GtE, ast.LtE, ast.Eq, ast.NotEq)
 _BINARY_OPS = (
@@ -59,8 +62,9 @@ def _is_list_shaped(node: ast.expr) -> bool:
 
 
 def _unary_call(node: ast.AST) -> bool:
-    """A conversion of one value (``int(x)``, ``round(x)``, …) or a ``math``
-    function of its arguments (``math.log10(x)``, ``math.copysign(a, b)``)."""
+    """A conversion of one value (``int(x)``, ``round(x)``, …), ``max``/``min`` of
+    several values, or a ``math`` function of its arguments (``math.log10(x)``,
+    ``math.copysign(a, b)``)."""
     if not (
         isinstance(node, ast.Call)
         and node.args
@@ -70,7 +74,9 @@ def _unary_call(node: ast.AST) -> bool:
         return False
     func = node.func
     if isinstance(func, ast.Name):
-        return func.id in _UNARY_CALLS and len(node.args) == 1
+        return (func.id in _UNARY_CALLS and len(node.args) == 1) or (
+            func.id in _PICK_CALLS and len(node.args) >= 2
+        )
     return (
         isinstance(func, ast.Attribute)
         and isinstance(func.value, ast.Name)
@@ -133,7 +139,10 @@ class _Ranks:
         if isinstance(node, ast.Compare):
             return max(self(node.left), *(self(c) for c in node.comparators))
         if isinstance(node, ast.IfExp):
-            return max(self(node.test), self(node.body), self(node.orelse))
+            # The test is a truthiness check of a whole value unless the
+            # expression applies per element.
+            branches = max(self(node.body), self(node.orelse))
+            return max(self(node.test), branches) if self.conditionals else branches
         if _unary_call(node):
             assert isinstance(node, ast.Call)
             return max(self(a) for a in node.args)
@@ -163,7 +172,7 @@ def _applies_per_element(
     if isinstance(node, ast.UnaryOp):
         return isinstance(node.op, _UNARY_OPS)
     if isinstance(node, ast.Compare):
-        return len(node.ops) == 1 and isinstance(node.ops[0], _COMPARE_OPS)
+        return all(isinstance(op, _COMPARE_OPS) for op in node.ops)
     if isinstance(node, ast.IfExp):
         return ranks.conditionals
     return _unary_call(node) or _fixed_width_value(node) is not None
@@ -175,7 +184,7 @@ def _operands(node: ast.expr) -> list[ast.expr]:
     if isinstance(node, ast.UnaryOp):
         return [node.operand]
     if isinstance(node, ast.Compare):
-        return [node.left, node.comparators[0]]
+        return [node.left, *node.comparators]
     if isinstance(node, ast.IfExp):
         return [node.test, node.body, node.orelse]
     conversion = _fixed_width_value(node)

@@ -12,17 +12,31 @@ from lvkit.control_properties import (
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
-from lvkit.models import PropertyDef, Terminal
+from lvkit.graph.vi_reference import is_on_vi_reference
+from lvkit.models import FPTerminal, PropertyDef, Terminal
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..called_vi import run_call
 from ..context import CodeGenContext
+from ..control_property_state import (
+    assign_state,
+    saved_value,
+    starting_state,
+    state_expression,
+)
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
-from ..panel_hooks import property_stmt
+from ..panel_hooks import get_property_stmt, property_stmt
 from ..variant_values import is_variant_type
-from . import class_property_node, panel_reference, vi_reference
+from . import (
+    class_property_node,
+    front_panel_bounds,
+    front_panel_title,
+    own_window_properties,
+    panel_reference,
+    vi_reference,
+)
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
@@ -66,6 +80,11 @@ def _default_object_expression(
 ) -> str:
     """``value.python`` with the generating VI's function and callees written in."""
     expression = value.python.replace("{function}", ctx.this_vi_expression())
+    if "{in_packed_library}" in expression:
+        packed = ctx.graph is not None and ctx.graph.is_in_packed_library(
+            ctx.vi_name or ""
+        )
+        expression = expression.replace("{in_packed_library}", repr(packed))
     if "{callees}" in expression:
         expression = expression.replace("{callees}", _callees(ctx))
     return expression
@@ -96,6 +115,71 @@ def _default_object_read(
     return value
 
 
+def _unsupported_reason(
+    class_name: str,
+    rows: list[tuple[PropertyDef, Terminal | None]],
+    bound: FPTerminal | None,
+    has_value: bool,
+) -> str | None:
+    """Why a Property Node bound to a control or indicator of the VI cannot be
+    generated, naming the control, the property and whether it is read or
+    written; None when every row is supported. ``has_value`` is whether the bound
+    control or indicator has a variable to read and write."""
+    if bound is None:
+        return "The Property Node is not bound to a control or indicator of the VI"
+    if not rows:
+        return f"The Property Node of {bound.name!r} has no property rows"
+    kind = "indicator" if bound.is_indicator else "control"
+    subject = f"the Property Node of {kind} {bound.name!r}"
+    for row, term in rows:
+        codes = [seg.code for seg in row.segments]
+        written = term is not None and term.direction == "input"
+        verb = "writes" if written else "reads"
+        if not row.name and not any(codes):
+            return (
+                f"{subject} {verb} a property the VI file does not name: a "
+                "Property Node saved by an older LabVIEW records neither the "
+                "name nor the code of the property, only its data type, which "
+                "several properties of the control share"
+            )
+        if is_value_row(class_name, codes):
+            if not has_value:
+                return (
+                    f"{subject} {verb} 'Value', and the indicator is not held "
+                    "in a variable of the function"
+                )
+        elif is_value_signaling_row(class_name, codes):
+            if not has_value:
+                return (
+                    f"{subject} {verb} 'Value (Signaling)', and the indicator is "
+                    "not held in a variable of the function"
+                )
+            if not written:
+                return f"{subject} reads 'Value (Signaling)', which is write only"
+        elif (listed := control_property(class_name, codes)) is None:
+            return (
+                f"{subject} {verb} {row.name!r}, which lvkit does not yet know "
+                "how to carry out while the VI runs"
+            )
+        elif not listed.settable_while_running:
+            if written:
+                return (
+                    f"{subject} writes {row.name!r}, which NI's page says cannot "
+                    f"be set while the VI runs ({listed.doc_url})"
+                )
+            if saved_value(bound, listed.member) is None:
+                return (
+                    f"{subject} reads {row.name!r}, and the file does not record "
+                    "it for this control"
+                )
+        elif not written and starting_state(bound, listed.member) is None:
+            return (
+                f"{subject} reads {row.name!r}, and the file does not record "
+                "the starting state of the control"
+            )
+    return None
+
+
 def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     """A Property Node bound to a control or indicator of the VI whose rows are
     each ``Value`` or a write of a listed control property
@@ -113,7 +197,10 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     (Signaling)`` write of such an indicator assigns it the same way and fires its
     Value Change event as for a control. A node with any other row, a ``Value`` or
     ``Value (Signaling)`` row of an indicator that is not held, or a read of
-    ``Value (Signaling)`` (write only), is a gap."""
+    ``Value (Signaling)`` (write only), is a gap. A read of ``Visible`` or
+    ``Disabled`` reads the module variable that holds the property's state
+    (``control_property_state``), when the file records the control's starting
+    state."""
     graph = ctx.graph
     bound = graph.bound_terminal(node) if graph is not None else None
     control = graph.bound_control(node) if graph is not None else None
@@ -121,41 +208,15 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     rows = correlate_property_terminals(
         node.properties, node.terminals, node.property_value_terminal_ids
     )
-    supported = bound is not None and bool(rows)
     # An indicator held in a variable (``local_indicators``) has a Value.
     held = (
         bound is not None
         and bound.is_indicator
         and bound.id in ctx.local_indicators.variables
     )
-    for row, term in rows:
-        codes = [seg.code for seg in row.segments]
-        if is_value_row(class_name, codes):
-            supported = supported and (control is not None or held)
-        elif is_value_signaling_row(class_name, codes):
-            supported = (
-                supported
-                and (control is not None or held)
-                and term is not None
-                and term.direction == "input"
-            )
-        else:
-            listed = control_property(class_name, codes)
-            supported = (
-                supported
-                and listed is not None
-                and term is not None
-                and term.direction == "input"
-            )
-    if bound is None or not supported:
-        raise ConversionGap(
-            "Implicit property reference requires a binding model: only a Property "
-            "Node of a control or indicator of the VI whose rows are Value (of a "
-            "control, or of an indicator the function holds), Value (Signaling) "
-            "(written) and the listed "
-            "control properties (written) is supported",
-            node,
-        )
+    reason = _unsupported_reason(class_name, rows, bound, control is not None or held)
+    if bound is None or reason is not None:
+        raise ConversionGap(reason or "The Property Node is not bound", node)
     variable = ctx.resolve(control.id) if control is not None else None
     if control is not None and variable is None:
         raise ConversionGap(f"The control {control.name!r} has no variable", node)
@@ -199,9 +260,7 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     old = ctx.make_output_var("old_value", node.id, term.id)
                     statements.append(build_assign(old, parse_expr(indicator)))
                     statements += ctx.local_indicators.write(bound.id, value)
-                    statements += signal_value_change(
-                        ctx, bound.id, indicator, old
-                    )
+                    statements += signal_value_change(ctx, bound.id, indicator, old)
                 else:
                     statements += ctx.local_indicators.write(bound.id, value)
                 continue
@@ -219,12 +278,38 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             hooks = ctx.panel_hooks
             if listed is None:
                 raise CodeGenError("Property row is not a listed property", node)
+            if not listed.settable_while_running:
+                saved = saved_value(bound, listed.member)
+                if term.direction != "output" or saved is None:
+                    raise CodeGenError("Saved property has no value to read", node)
+                read = ctx.make_output_var(listed.member, node.id, term.id)
+                statements.append(build_assign(read, state_expression(saved)))
+                bindings[term.id] = read
+                continue
+            if term.direction == "output":
+                state = ctx.property_states.get((bound.id, listed.member))
+                if state is None:
+                    raise CodeGenError("Property state has no variable", node)
+                read = ctx.make_output_var(listed.member, node.id, term.id)
+                if (
+                    hooks is not None
+                    and bound.id in hooks.names
+                    and listed.member in hooks.property_members
+                ):
+                    statements.append(
+                        get_property_stmt(hooks, bound.id, listed, state, read)
+                    )
+                else:
+                    statements.append(build_assign(read, parse_expr(state)))
+                bindings[term.id] = read
+                continue
             if hooks is None or bound.id not in hooks.names:
                 raise ConversionGap(
                     f"The {listed.name!r} property of {bound.name!r} is written, "
                     "and this function has no panel hooks to report it to",
                     node,
                 )
+            statements += assign_state(ctx, bound.id, listed.member, parse_expr(value))
             statements.append(property_stmt(hooks, bound.id, listed, value))
     return CodeFragment(statements=statements, bindings=bindings)
 
@@ -234,9 +319,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     A row on a wired reference is Python only where Python has the value: a VI
     reference's Name, Path, Description and Exec.State
-    (``vi_reference.vi_property_read``) and the rows of the front panel's own
+    (``vi_reference.vi_property_read``), its Front Panel Window:Title (a read
+    and a write: ``front_panel_title``), its Front Panel Window:Window Bounds
+    (``front_panel_bounds``) and the rows of the front panel's own
     references (``panel_reference``: Panel, Controls[], a control's Value,
-    Indicator and Label.Text, and a write of a control's Value); every other read,
+    Indicator and Label.Text, and a write of a control's Value; and a Combo Box's
+    Strings[], read and written through the panel); every other read,
     and every other write, is a gap naming the property and the reference's
     class. Implicit control bindings are rejected unless the node is bound to a
     control of the VI. Error-cluster terminals are not read here: the node's error
@@ -255,6 +343,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         return _bound_value(node, ctx)
     if ctx.graph is not None and class_property_node.is_class_property_node(node):
         return class_property_node.generate(node, ctx)
+    if ctx.graph is not None and ctx.graph.acts_on_own_window_properties(
+        node, ctx.vi_name or ""
+    ):
+        return own_window_properties.generate(node, ctx)
     fixed = [term for term in node.terminals if term.id not in value_ids]
     default_class = unwired_ref_class(node, ctx)
     ref_var = "" if default_class else resolve_ref_input(node, ctx)
@@ -276,8 +368,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 f"{node.object_name or 'unnamed'} class records no property name and "
                 "no property code, only its data type "
                 f"({term.lv_type.to_python() if term.lv_type else 'unknown'}), as "
-                "Property Nodes saved in LabVIEW 8.2 do, so which property it is "
-                "cannot be told from the file",
+                "and the class's reference type (the same for every property of the "
+                "class), as Property Nodes saved in LabVIEW 8.2 do, so which "
+                "property it is cannot be told from the file",
                 node,
             )
         attr_name = to_var_name("_".join(segment_names))
@@ -300,13 +393,19 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
             row = panel_reference.panel_row(node, prop)
-            if row is not None:
+            listed = panel_reference.property_row(node, prop)
+            if listed is not None:
+                reflected = panel_reference.read_property(listed, ref_var, ctx)
+                panel_read = True
+            elif row is not None:
                 reflected = panel_reference.read(
                     row, ref_var, ctx, is_variant_type(term.lv_type)
                 )
                 panel_read = True
             else:
-                reflected = vi_reference.vi_property_read(node, prop, ref_var, ctx)
+                reflected = vi_reference.vi_property_read(
+                    node, prop, ref_var, ctx, term.lv_type
+                )
                 if reflected is None:
                     raise _no_python_equivalent(node, prop)
                 panel_read = panel_read or vi_reference.reads_panel(node, prop)
@@ -323,14 +422,48 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     "Unwired property write default is unqualified", node
                 )
             row = panel_reference.panel_row(node, prop)
-            if row is None or not panel_reference.is_writable(row):
+            listed = panel_reference.property_row(node, prop)
+            if listed is not None and not listed.settable_while_running:
+                raise ConversionGap(
+                    f"Property '{prop.name}' on a {node.object_name} reference "
+                    "is written, and NI's page says it cannot be set while the "
+                    f"VI runs ({listed.doc_url})",
+                    node,
+                )
+            title = is_on_vi_reference(
+                node
+            ) and front_panel_title.is_title_row(prop)
+            bounds = is_on_vi_reference(node) and front_panel_bounds.is_bounds_row(
+                prop
+            )
+            if (
+                not title
+                and not bounds
+                and listed is None
+                and (row is None or not panel_reference.is_writable(row))
+            ):
                 raise _no_python_equivalent(node, prop)
             value = ctx.wired_input(term.id, node)
             if value is None:
                 raise CodeGenError("Property write value is unresolved", node)
+            if listed is not None:
+                statements.append(
+                    panel_reference.write_property(listed, ref_var, value, ctx)
+                )
+                panel_read = True
+                continue
+            if title:
+                statements.append(front_panel_title.write(ref_var, value))
+                continue
+            if bounds:
+                statements.extend(
+                    front_panel_bounds.write(ref_var, value, term.lv_type, node)
+                )
+                continue
+            assert row is not None
             statements.append(
                 panel_reference.write(
-                    ref_var, value, ctx, is_variant_type(term.lv_type)
+                    row, ref_var, value, ctx, is_variant_type(term.lv_type)
                 )
             )
             panel_read = True

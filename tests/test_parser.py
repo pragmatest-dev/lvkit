@@ -91,7 +91,8 @@ def test_owning_libraries_from_libn_chain(tmp_path):
         "<Library>NI Measurement Plug-In SDK.lvlib</Library>"
         "<Library>Measure Call Context.lvclass</Library>"
         "</Section></LIBN>"
-        "</RSRC>"
+        "</RSRC>",
+        encoding="utf-8",
     )
     m = parse_vi_metadata(xml)
     assert m["owning_libraries"] == [
@@ -1316,7 +1317,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
@@ -1337,7 +1338,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
@@ -1362,7 +1363,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
@@ -1391,7 +1392,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
@@ -1425,7 +1426,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         nodes = {n.uid: n for n in vi.block_diagram.nodes}
@@ -1501,7 +1502,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         nodes = {n.uid: n for n in vi.block_diagram.nodes}
@@ -1535,7 +1536,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         graph = InMemoryVIGraph()
         vi_key = graph.load_vi(xml_file, LoadMode.NONE)
@@ -1616,7 +1617,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         bd_file = tmp_path / "test_BDHb.xml"
-        bd_file.write_text(bd_xml)
+        bd_file.write_text(bd_xml, encoding="utf-8")
 
         vi = parse_vi(bd_xml=bd_file)
         nodes = {n.uid: n for n in vi.block_diagram.nodes}
@@ -1715,9 +1716,9 @@ class TestParseVI:
     </ddo>
 </root>"""
         bd_file = tmp_path / "test_BDHb.xml"
-        bd_file.write_text(bd_xml)
+        bd_file.write_text(bd_xml, encoding="utf-8")
         fp_file = tmp_path / "test_FPHb.xml"
-        fp_file.write_text(fp_xml)
+        fp_file.write_text(fp_xml, encoding="utf-8")
 
         vi = parse_vi(bd_xml=bd_file, fp_xml=fp_file)
         nodes = {n.uid: n for n in vi.block_diagram.nodes}
@@ -1791,9 +1792,9 @@ class TestParseVI:
     </ddo>
 </root>"""
         bd_file = tmp_path / "test_BDHb.xml"
-        bd_file.write_text(bd_xml)
+        bd_file.write_text(bd_xml, encoding="utf-8")
         fp_file = tmp_path / "test_FPHb.xml"
-        fp_file.write_text(fp_xml)
+        fp_file.write_text(fp_xml, encoding="utf-8")
 
         vi = parse_vi(bd_xml=bd_file, fp_xml=fp_file)
         nodes = {n.uid: n for n in vi.block_diagram.nodes}
@@ -1863,7 +1864,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         bd_file = tmp_path / "test_BDHb.xml"
-        bd_file.write_text(bd_xml)
+        bd_file.write_text(bd_xml, encoding="utf-8")
 
         vi = parse_vi(bd_xml=bd_file)
         nodes = {n.uid: n for n in vi.block_diagram.nodes}
@@ -1889,7 +1890,7 @@ class TestParseVI:
     </signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
@@ -1913,7 +1914,7 @@ class TestParseVI:
     </signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
@@ -1939,7 +1940,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
@@ -1980,7 +1981,7 @@ class TestParseVI:
     <signalList></signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
@@ -2011,7 +2012,7 @@ class TestParseVI:
     </signalList>
 </root>"""
         xml_file = tmp_path / "test_BDHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         vi = parse_vi(bd_xml=xml_file)
         bd = vi.block_diagram
@@ -2046,7 +2047,7 @@ class TestParseConnectorPane:
     </conPane>
 </root>"""
         xml_file = tmp_path / "test_FPHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         pane = parse_connector_pane(xml_file)
         assert pane is not None
@@ -2062,7 +2063,7 @@ class TestParseConnectorPane:
         xml_content = """<?xml version="1.0"?>
 <root></root>"""
         xml_file = tmp_path / "test_FPHb.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         pane = parse_connector_pane(xml_file)
         assert pane is None
@@ -2095,9 +2096,9 @@ class TestParseSubviPaths:
     </LIvi>
 </root>"""
         bd_file = tmp_path / "test_BDHb.xml"
-        bd_file.write_text(self._MIN_BD)
+        bd_file.write_text(self._MIN_BD, encoding="utf-8")
         main_file = tmp_path / "test.xml"
-        main_file.write_text(main_xml_content)
+        main_file.write_text(main_xml_content, encoding="utf-8")
 
         refs = parse_vi(bd_xml=bd_file, main_xml=main_file).metadata.dependency_refs
         assert len(refs) == 1
@@ -2123,9 +2124,9 @@ class TestParseSubviPaths:
     </LIvi>
 </root>"""
         bd_file = tmp_path / "test_BDHb.xml"
-        bd_file.write_text(self._MIN_BD)
+        bd_file.write_text(self._MIN_BD, encoding="utf-8")
         main_file = tmp_path / "test.xml"
-        main_file.write_text(main_xml_content)
+        main_file.write_text(main_xml_content, encoding="utf-8")
 
         refs = parse_vi(bd_xml=bd_file, main_xml=main_file).metadata.dependency_refs
         assert len(refs) == 1
@@ -2146,7 +2147,7 @@ class TestParseViMetadata:
     <LIvi><Section><LVIN Unk1="TestLib:My Test VI.vi"/></Section></LIvi>
 </root>"""
         xml_file = tmp_path / "test.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         metadata = parse_vi_metadata(xml_file)
         assert metadata["name"] == "My Test VI.vi"
@@ -2161,7 +2162,7 @@ class TestParseViMetadata:
     <DSTM><Section><String>This is a test VI</String></Section></DSTM>
 </root>"""
         xml_file = tmp_path / "test.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         metadata = parse_vi_metadata(xml_file)
         assert metadata["description"] == "This is a test VI"
@@ -2177,7 +2178,7 @@ class TestParsePolymorphicInfo:
     <VCTP><Section><TypeDesc Type="Function"/></Section></VCTP>
 </root>"""
         xml_file = tmp_path / "test.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         tree = ET.parse(xml_file)
         root = tree.getroot()
@@ -2205,7 +2206,7 @@ class TestParsePolymorphicInfo:
     </Section></LIvi>
 </root>"""
         xml_file = tmp_path / "test.xml"
-        xml_file.write_text(xml_content)
+        xml_file.write_text(xml_content, encoding="utf-8")
 
         tree = ET.parse(xml_file)
         root = tree.getroot()
@@ -2357,12 +2358,18 @@ def test_every_registered_handler_is_reachable_by_extraction() -> None:
     termList, not in any allowlist) -- confirmed end to end against real
     corpus FPGA VIs, not just by this handler's registration.
 
-    "extFunc" (a Call Library Function Node) is reached the same way; its
-    handler only supplies the display name."""
+    "extFunc" (a Call Library Function Node) and "interLeave" (Interleave 1D
+    Arrays) are reached the same way; their handlers only supply the display
+    name."""
     from lvkit.parser.constants import OPERATION_NODE_CLASSES
     from lvkit.parser.node_types import NODE_HANDLERS
 
-    reachable = set(OPERATION_NODE_CLASSES) | {"commentNode", "xNode", "extFunc"}
+    reachable = set(OPERATION_NODE_CLASSES) | {
+        "commentNode",
+        "xNode",
+        "extFunc",
+        "interLeave",
+    }
     unreachable = sorted(set(NODE_HANDLERS) - reachable)
     assert not unreachable, (
         f"Node handlers registered but not in OPERATION_NODE_CLASSES "

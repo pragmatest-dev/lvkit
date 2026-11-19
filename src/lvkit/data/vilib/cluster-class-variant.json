@@ -1,6 +1,6 @@
 {
   "category": "Cluster, Class, & Variant",
-  "count": 23,
+  "count": 24,
   "entries": [
     {
       "name": "Related Information",
@@ -367,18 +367,21 @@
       ]
     },
     {
-      "name": "Get LV Class Default Value",
+      "name": "Get LV Class Default Value.vi",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/lvclass/get-lv-class-default-value-vi.html",
       "category": "Cluster, Class, & Variant",
       "description": "Returns the class data for the class whose path you wire to the class path input. If the class is not in memory, LabVIEW attempts to load it from disk. If any dependencies are missing, LabVIEW searches for the missing dependencies. If LabVIEW cannot find the dependency, LabVIEW assumes the dependency is missing and does not prompt the user to browse to the needed file. Use this VI to dynamically create class objects, including class objects that are unknown at edit time. Related Information Crea",
-      "vi_path": null,
+      "vi_path": "vi.lib/Utility/LVClass/Get LV Class Default Value.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "resolved",
+      "status": "complete",
+      "op": "GET_LV_CLASS_DEFAULT_VALUE",
+      "inline": true,
+      "imports": [],
       "terminals": [
         {
           "name": "class path",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -397,7 +400,7 @@
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -406,7 +409,7 @@
         },
         {
           "name": "object",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -415,7 +418,7 @@
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -529,14 +532,17 @@
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/lvclass/get-lv-class-name-vi.html",
       "category": "Cluster, Class, & Variant",
       "description": "Returns the name of the class of the object.",
-      "vi_path": null,
+      "vi_path": "vi.lib/Utility/LVClass/Get LV Class Name.vi",
       "is_polymorphic": false,
       "python_hint": null,
-      "status": "docs_enriched",
+      "status": "complete",
+      "op": "GET_LV_CLASS_NAME",
+      "inline": true,
+      "imports": [],
       "terminals": [
         {
           "name": "object",
-          "index": null,
+          "index": 11,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -545,7 +551,7 @@
         },
         {
           "name": "error in (no error)",
-          "index": null,
+          "index": 8,
           "direction": "input",
           "type": null,
           "enum_values": null,
@@ -554,7 +560,7 @@
         },
         {
           "name": "class name",
-          "index": null,
+          "index": 3,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -563,7 +569,7 @@
         },
         {
           "name": "error out",
-          "index": null,
+          "index": 0,
           "direction": "output",
           "type": null,
           "enum_values": null,
@@ -979,6 +985,401 @@
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
+    },
+    {
+      "name": "Get Type Information.vi",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-type-information-vi.html",
+      "vi_path": "vi.lib/Utility/Data Type/Get Type Information.vi",
+      "category": "Cluster, Class, & Variant",
+      "description": "Retrieves data type information from the data type stored in variant.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "type definition",
+          "index": 1,
+          "direction": "output",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "type_definition",
+          "description": "type definition returns TRUE when the data type stored in variant is an instance of a type definition."
+        },
+        {
+          "name": "name",
+          "index": 2,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "name",
+          "description": "name returns the name of the data type stored in variant."
+        },
+        {
+          "name": "type",
+          "index": 3,
+          "direction": "output",
+          "type": "UnitUInt8",
+          "enum_values": null,
+          "python_param": "type",
+          "description": "type returns the data type stored in variant."
+        },
+        {
+          "name": "type definition info",
+          "index": 4,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "type_definition_info",
+          "description": "type definition info returns the type definition information only if type definition is TRUE."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "variant",
+          "index": 11,
+          "direction": "input",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "variant",
+          "description": "variant specifies the variant data from which you want to retrieve data type information."
+        }
+      ],
+      "status": "complete",
+      "op": "GET_TYPE_INFORMATION",
+      "inline": true,
+      "imports": []
+    },
+    {
+      "name": "Get Array Information.vi",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-array-information-vi.html",
+      "vi_path": "vi.lib/Utility/Data Type/Get Array Information.vi",
+      "category": "Cluster, Class, & Variant",
+      "description": "Retrieves array information from the data type stored in variant. This VI returns an error if variant does not contain an array.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "array element data type",
+          "index": 1,
+          "direction": "output",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "array_element_data_type",
+          "description": "array element data type returns the data type of elements of the array stored in variant."
+        },
+        {
+          "name": "array lengths",
+          "index": 2,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "array_lengths",
+          "description": "array lengths returns the type and length of each dimension of the array stored in variant."
+        },
+        {
+          "name": "number of dimensions",
+          "index": 3,
+          "direction": "output",
+          "type": "NumInt32",
+          "enum_values": null,
+          "python_param": "number_of_dimensions",
+          "description": "number of dimensions returns the dimensionality of the array stored in variant."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "variant",
+          "index": 11,
+          "direction": "input",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "variant",
+          "description": "variant specifies the variant data from which you want to retrieve data type information."
+        }
+      ],
+      "status": "complete",
+      "op": "GET_ARRAY_INFORMATION",
+      "inline": true,
+      "imports": [],
+      "errors": [
+        {
+          "exception": "ValueError"
+        }
+      ]
+    },
+    {
+      "name": "Get Cluster Information.vi",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-cluster-information-vi.html",
+      "vi_path": "vi.lib/Utility/Data Type/Get Cluster Information.vi",
+      "category": "Cluster, Class, & Variant",
+      "description": "Retrieves cluster information from the data type stored in variant. This VI returns an error if variant does not contain a cluster.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "cluster elements",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "cluster_elements",
+          "description": "cluster elements returns an array which contains the data types of cluster elements stored in variant."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "variant",
+          "index": 11,
+          "direction": "input",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "variant",
+          "description": "variant specifies the variant data from which you want to retrieve data type information."
+        }
+      ],
+      "status": "complete",
+      "op": "GET_CLUSTER_INFORMATION",
+      "inline": true,
+      "imports": [],
+      "errors": [
+        {
+          "exception": "ValueError"
+        }
+      ]
+    },
+    {
+      "name": "Get Numeric Information.vi",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-numeric-information-vi.html",
+      "vi_path": "vi.lib/Utility/Data Type/Get Numeric Information.vi",
+      "category": "Cluster, Class, & Variant",
+      "description": "Retrieves numeric information from the data type stored in variant. This VI returns an error if variant does not contain a numeric.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "representation",
+          "index": 1,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "representation",
+          "description": "representation returns the numeric representation of the data type stored in variant."
+        },
+        {
+          "name": "units",
+          "index": 2,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "units",
+          "description": "units returns the unit type and exponent when the numeric data type stored in variant has units."
+        },
+        {
+          "name": "enum names",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "enum_names",
+          "description": "enum names returns the enumerated values when the numeric data type stored in variant is an enum."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "variant",
+          "index": 11,
+          "direction": "input",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "variant",
+          "description": "variant specifies the variant data from which you want to retrieve data type information."
+        }
+      ],
+      "status": "complete",
+      "op": "GET_NUMERIC_INFORMATION",
+      "inline": true,
+      "imports": [],
+      "errors": [
+        {
+          "exception": "ValueError"
+        }
+      ]
+    },
+    {
+      "name": "Get Refnum Information.vi",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-refnum-information-vi.html",
+      "vi_path": "vi.lib/Utility/Data Type/Get Refnum Information.vi",
+      "category": "Cluster, Class, & Variant",
+      "description": "Retrieves refnum information from the data type stored in variant. This VI returns an error if variant does not contain a refnum.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "VI Server generic type",
+          "index": 1,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "vi_server_generic_type",
+          "description": "VI Server generic type returns the specific VI Server class type. VI Server generic type is valid only if reference type is LVObjUnknown."
+        },
+        {
+          "name": "strict type",
+          "index": 2,
+          "direction": "output",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "strict_type",
+          "description": "strict type returns the strict type of the refnum stored in variant."
+        },
+        {
+          "name": "reference type",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "reference_type",
+          "description": "reference type returns the data type of the refnum stored in variant."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "variant",
+          "index": 11,
+          "direction": "input",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "variant",
+          "description": "variant specifies the variant data from which you want to retrieve data type information."
+        }
+      ],
+      "status": "complete",
+      "op": "GET_REFNUM_INFORMATION",
+      "inline": true,
+      "imports": [],
+      "errors": [
+        {
+          "exception": "ValueError"
+        }
+      ]
+    },
+    {
+      "name": "Get Waveform Information.vi",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/data-type/get-waveform-information-vi.html",
+      "vi_path": "vi.lib/Utility/Data Type/Get Waveform Information.vi",
+      "category": "Cluster, Class, & Variant",
+      "description": "Retrieves waveform information from the data type stored in variant. This VI returns an error if variant does not contain a waveform.",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        },
+        {
+          "name": "Y array type",
+          "index": 3,
+          "direction": "output",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "y_array_type",
+          "description": "Y array type returns the data type of the Y array element of the waveform stored in variant."
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in",
+          "description": "error in describes error conditions that occur before this node runs. This input provides standard error in functionality."
+        },
+        {
+          "name": "variant",
+          "index": 11,
+          "direction": "input",
+          "type": "LVVariant",
+          "enum_values": null,
+          "python_param": "variant",
+          "description": "variant specifies the variant data from which you want to retrieve data type information."
+        }
+      ],
+      "status": "complete",
+      "op": "GET_WAVEFORM_INFORMATION",
+      "inline": true,
+      "imports": []
     },
     {
       "name": "Data Type Parsing",

@@ -161,6 +161,7 @@ def test_a_program_that_aborts_a_panel_run_exits(
         text=True,
         timeout=30,
         check=True,
+        encoding="utf-8",
     )
     assert finished.stdout.strip() == "aborted True"
 
