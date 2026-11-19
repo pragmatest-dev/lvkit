@@ -927,6 +927,7 @@ def test_non_verbose_output_omits_all_new_verbose_fields():
         "caption_visible": False,
         "starts_hidden": False,
         "enable_state": 0,
+        "mechanical_action": 0,
     }
 
 

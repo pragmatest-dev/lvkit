@@ -834,6 +834,9 @@ class ConnectorPaneTerminal:
     # grayed out).
     starts_hidden: bool = False
     enable_state: int = 0
+    # A Boolean's Mechanical Action (``FPTerminal.mechanical_action``, NI's 0-5;
+    # 0 Switch When Pressed, also for every control that is not a Boolean).
+    mechanical_action: int = 0
     # The control's or indicator's terminal on the block diagram -- see
     # ``BoundaryOutput``.
     terminal_uid: str | None = None

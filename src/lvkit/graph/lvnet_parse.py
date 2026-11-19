@@ -73,6 +73,7 @@ from .lvnet_grammar import (
     _LVNET_LIBRARY_UNREADABLE,
     _LVNET_LOOP_CONDITION_TERMINAL,
     _LVNET_LOOP_COUNT_TERMINAL,
+    _LVNET_MECH_ACTION_WORDS,
     _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
@@ -419,6 +420,7 @@ class ParsedBoundaryTerminal:
     # a ``starts-disabled`` (1) / ``starts-grayed-out`` (2) word (0 with neither).
     starts_hidden: bool = False
     enable_state: int = 0
+    mechanical_action: int = 0
     # The ` (id <uid>)` after the name, when the label is shared (verbose text).
     uid: str | None = None
 
@@ -485,6 +487,7 @@ class _BoundaryTail(NamedTuple):
     index: int | None
     starts_hidden: bool = False
     enable_state: int = 0
+    mechanical_action: int = 0
 
 
 def _split_trailing_caption(raw: str, line_no: int) -> tuple[str, str | None, bool]:
@@ -582,6 +585,11 @@ def _split_type_requirement_default(
             _validate_if_quoted(default, line_no)
 
     type_str = _collapse_padding(raw)
+    mech_action = 0
+    head, _, last = type_str.rpartition(" ")
+    for value, word in _LVNET_MECH_ACTION_WORDS.items():
+        if last == word:
+            mech_action, type_str = value, head
     enable_state = 0
     head, _, last = type_str.rpartition(" ")
     for value, word in _LVNET_STARTS_ENABLE_WORDS.items():
@@ -610,6 +618,7 @@ def _split_type_requirement_default(
         index,
         starts_hidden,
         enable_state,
+        mech_action,
     )
 
 
@@ -2216,6 +2225,7 @@ def _parse_boundary_terminal_line(
         caption_visible=split.caption_visible,
         starts_hidden=split.starts_hidden,
         enable_state=split.enable_state,
+        mechanical_action=split.mechanical_action,
         uid=uid,
     )
 
@@ -2677,6 +2687,7 @@ BoundarySignatureEntry = tuple[
     bool,
     bool,
     int,
+    int,
 ]
 
 
@@ -2721,6 +2732,7 @@ def boundary_signature(
                 t.caption_visible,
                 t.starts_hidden,
                 t.enable_state,
+                t.mechanical_action,
             )
             for t in module_or_parsed.boundary
         )
@@ -2754,6 +2766,7 @@ def boundary_signature(
                 pane.caption_visible,
                 pane.starts_hidden,
                 pane.enable_state,
+                pane.mechanical_action,
             )
             for inp, pane in zip(module.inputs, input_panes, strict=True)
         ]
@@ -2771,6 +2784,7 @@ def boundary_signature(
                 pane.caption_visible,
                 pane.starts_hidden,
                 pane.enable_state,
+                pane.mechanical_action,
             )
             for o, pane in zip(module.outputs, output_panes, strict=True)
         ]
@@ -2788,6 +2802,7 @@ def boundary_signature(
                 pane.caption_visible,
                 pane.starts_hidden,
                 pane.enable_state,
+                pane.mechanical_action,
             )
             for pane in off_panes
         ]

@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 
 from ..models import DisableStructureKind, TunnelMode
+from ..parser.flags import MECHANICAL_ACTION_NAMES
 from .netlist_models import NetlistInstanceKind, ReferenceTargetKind
 
 # ------------------------------------------------------------------
@@ -125,6 +126,14 @@ _LVNET_CAPTION_HIDDEN_KEYWORD = "hidden"
 # of 1 / 2 (``FPTerminal.starts_hidden`` / ``enable_state``).
 _LVNET_STARTS_HIDDEN_WORD = "starts-hidden"
 _LVNET_STARTS_ENABLE_WORDS = {1: "starts-disabled", 2: "starts-grayed-out"}
+# A Boolean's Mechanical Action other than Switch When Pressed (0), written after
+# the start-state words: ``mech-switch-when-released`` ...
+# ``mech-latch-until-released`` for the values 1-5 (``FPTerminal.mechanical_action``).
+_LVNET_MECH_ACTION_WORDS = {
+    value: "mech-" + name.lower().replace(" ", "-")
+    for value, name in enumerate(MECHANICAL_ACTION_NAMES)
+    if value
+}
 # The drive-position `(default <Type>)` form's own prefix (§4) -- derived
 # from ``_LVNET_DEFAULT_KEYWORD`` rather than re-spelled, so the two can
 # never drift apart.

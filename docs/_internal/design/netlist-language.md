@@ -78,7 +78,7 @@ vi <VIName.vi> :
     <kind> <qualified-identity>   [; <stored-path>]   [(missing)] [(found <path>)]   # marks: verbose only
   front-panel :                          # OPTIONAL -- omitted when there is nothing to show at all
     pattern : <conId>                    # ConnectorPane.pattern_id, OMITTED when unknown
-    in   <name> : <Type> [<requirement>] [starts-hidden] [starts-disabled|starts-grayed-out] [default <value>] [caption [hidden] "<text>"] @<index>   # on-pane boundary terminal (§3)
+    in   <name> : <Type> [<requirement>] [starts-hidden] [starts-disabled|starts-grayed-out] [mech-<action>] [default <value>] [caption [hidden] "<text>"] @<index>   # on-pane boundary terminal (§3)
     out  <name> : <Type>                                   @<index>
     in   <name> : <Type>                                              # OFF-pane terminal -- no `@<index>`
   block-diagram :                        # ALWAYS present
@@ -114,7 +114,7 @@ vi <VIName.vi> :
   off-pane terminals (a top-level/main VI with an empty connector pane and
   no front-panel objects). A boundary input whose default is notable
   renders it into the name: `in error in (no error) : Error`.
-  A row's trailing clauses, in order, are `[<requirement>]`, the start state (`starts-hidden`, then `starts-disabled` or `starts-grayed-out`, for a control hidden / disabled / disabled and grayed out when the VI starts; verbose) and
+  A row's trailing clauses, in order, are `[<requirement>]`, the start state (`starts-hidden`, then `starts-disabled` or `starts-grayed-out`, for a control hidden / disabled / disabled and grayed out when the VI starts; verbose), a Boolean's non-default Mechanical Action (`mech-switch-when-released` ... `mech-latch-until-released`; verbose) and
   `default <value>` (verbose), then the front-panel caption (verbose), then
   the `@<index>` column. The caption clause is `caption "<text>"` for a
   caption that is shown and `caption hidden "<text>"` for one that is set but

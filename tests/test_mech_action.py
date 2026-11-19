@@ -12,7 +12,10 @@ from typing import Any
 import pytest
 
 from lvkit.codegen.gaps import Gap
+from lvkit.graph.lvnet_parse import ParsedLvnet, netlist_signature, parse_lvnet
+from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.models import GraphNode, VIContext
+from lvkit.graph.netlist import render_lvnet
 from lvkit.models import FPTerminal, LVType, LVTypeKind
 from lvkit.parser.flags import MECHANICAL_ACTION_NAMES, mechanical_action
 from tests.class_graphs import INT, Project, pane, wire
@@ -87,6 +90,52 @@ def test_the_parser_reads_the_action_and_describe_shows_it(
         "  stop: TF (required) (latch when released)",
         "  n: I32 (required)",
     ]
+
+
+def test_json_and_lvnet_carry_the_action_and_the_round_trip_keeps_it(
+    xml_project: XmlProject,  # noqa: F811
+) -> None:
+    vi = Vi(NAME)
+    vi.control("plain", BOOL, REQUIRED, ddo_class="stdBool")
+    vi.control("stop", BOOL, REQUIRED, ddo_class="stdBool", ddo_flags=LATCH | RELEASED)
+    vi.control("go", BOOL, REQUIRED, ddo_class="stdBool", ddo_flags=RELEASED | 0x8)
+    vi.control("n", I32, REQUIRED, ddo_flags=LATCH | RELEASED)
+    vi.indicator("out", I32)
+    xml_project.add(vi)
+    views = xml_project.views(NAME)
+    terminals = views.json["connector_pane"]["terminals"]
+    assert [(t["name"], t["mechanical_action"]) for t in terminals] == [
+        ("plain", 0),
+        ("stop", 4),
+        ("go", 1),
+        ("n", 0),
+        ("out", 0),
+    ]
+    rows = {
+        line.split(" : ")[0].split()[1]: line.split(" : ", 1)[1]
+        for line in views.lvnet.split("  block-diagram :")[0].splitlines()
+        if line.strip().startswith(("in ", "out ")) and " : " in line
+    }
+    assert rows == {
+        "plain": "TF  required @0",
+        "stop": "TF  required mech-latch-when-released @1",
+        "go": "TF  required starts-hidden mech-switch-when-released @2",
+        "n": "I32 required @3",
+        "out": "I32 recommended @4",
+    }
+    assert "mech-" not in views.terse
+    parsed = parse_lvnet(views.lvnet)
+    assert isinstance(parsed, ParsedLvnet)
+    assert {t.name: t.mechanical_action for t in parsed.boundary} == {
+        "plain": 0,
+        "stop": 4,
+        "go": 1,
+        "n": 0,
+        "out": 0,
+    }
+    rebuilt = reconstruct_module(parsed)
+    assert render_lvnet(rebuilt, display_name=NAME, verbose=True) == views.lvnet
+    assert netlist_signature(rebuilt) == netlist_signature(parsed)
 
 
 def test_a_read_of_the_vis_own_boolean_gives_its_action(
