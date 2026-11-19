@@ -1093,6 +1093,10 @@ def _render_lvnet_instance(
     header = f"{indent}{header_kw} {handle}"
     if component is not None:
         header += f"{_LVNET_TYPE_SEP}{component}"
+    # Compound Arithmetic mode (and/or/add/multiply/xor): every mode shares one
+    # display name, so the mode is a trailing annotation on the header.
+    if instance.operation:
+        header += f"{_LVNET_ANNOTATION_SEP}op={instance.operation}"
     lines.append(header)
 
     entries: list[_TermLine] = []
