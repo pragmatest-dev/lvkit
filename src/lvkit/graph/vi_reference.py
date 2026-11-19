@@ -66,6 +66,25 @@ VI_FP_CLOSE_METHOD_CODE = 1061
 # Node records beside that name (553 in every such node of the corpus).
 VI_FP_TITLE_PROPERTY_CODE = 553
 
+# The Front Panel Window:Window Bounds property (FP.WinBounds; NI:
+# properties-and-methods/vi-server/vi/fpwinbounds.html), by the code a Property
+# Node records beside that name (536 in every such node of the corpus), and the
+# Front Panel:Center method (FP.Center; NI: .../vi/centerfrontpanel.html), by the
+# method code every Invoke Node of the corpus records beside that name.
+VI_FP_BOUNDS_PROPERTY_CODE = 536
+VI_FP_CENTER_METHOD_CODE = 1089
+
+# The methods of the VI class that act on a front panel window.
+_WINDOW_METHOD_CODES = (
+    VI_FP_OPEN_METHOD_CODE,
+    VI_FP_CLOSE_METHOD_CODE,
+    VI_FP_CENTER_METHOD_CODE,
+)
+
+# The properties of the VI's own window that ``acts_on_own_window_properties``
+# covers: Title and Window Bounds.
+_OWN_WINDOW_PROPERTY_CODES = (VI_FP_TITLE_PROPERTY_CODE, VI_FP_BOUNDS_PROPERTY_CODE)
+
 # The Property Node's VI reference input.
 _PROPERTY_REFERENCE_INDEX = 0
 # An Invoke Node's VI reference output.
@@ -146,42 +165,49 @@ class VIReferenceMixin(WireOriginMixin):
         )
 
     def acts_on_own_front_panel_window(self, node: AnyGraphNode, vi_name: str) -> bool:
-        """Whether ``node`` is an Invoke Node of FP.Open or FP.Close on the front
-        panel window of the VI ``vi_name`` that holds it: the node's reference is
-        unwired (the default VI object, the VI containing the node, as NI documents
-        for an Invoke Node of the VI class) or wired from "This VI". FP.Open or
-        FP.Close on the reference of another VI, or on one only known when the
+        """Whether ``node`` is an Invoke Node of FP.Open, FP.Close or FP.Center on
+        the front panel window of the VI ``vi_name`` that holds it: the node's
+        reference is unwired (the default VI object, the VI containing the node, as
+        NI documents for an Invoke Node of the VI class) or wired from "This VI".
+        The method on the reference of another VI, or on one only known when the
         diagram runs, is not."""
         return (
             isinstance(node, PrimitiveNode)
             and node.object_name == VI_CLASS
-            and node.method_code in (VI_FP_OPEN_METHOD_CODE, VI_FP_CLOSE_METHOD_CODE)
+            and node.method_code
+            in (
+                VI_FP_OPEN_METHOD_CODE,
+                VI_FP_CLOSE_METHOD_CODE,
+                VI_FP_CENTER_METHOD_CODE,
+            )
             and self._reference_is_own(node, vi_name)
         )
 
-    def acts_on_own_window_title(self, node: AnyGraphNode, vi_name: str) -> bool:
+    def acts_on_own_window_properties(self, node: AnyGraphNode, vi_name: str) -> bool:
         """Whether ``node`` is a Property Node whose every row is Front Panel
-        Window:Title (code 553), on the VI ``vi_name`` that holds it: its reference
-        is unwired or wired from "This VI". The Title of another VI's reference,
-        or of one only known when the diagram runs, is not."""
+        Window:Title (code 553) or Front Panel Window:Window Bounds (code 536), on
+        the VI ``vi_name`` that holds it: its reference is unwired or wired from
+        "This VI". The same rows on another VI's reference, or on one only known
+        when the diagram runs, are not."""
         return (
             isinstance(node, PrimitiveNode)
             and node.object_name == VI_CLASS
             and bool(node.properties)
             and all(
                 len(p.segments) == 1
-                and p.segments[0].code == VI_FP_TITLE_PROPERTY_CODE
+                and p.segments[0].code in _OWN_WINDOW_PROPERTY_CODES
                 for p in node.properties
             )
             and self._reference_is_own(node, vi_name)
         )
 
-    def writes_own_window_title(self, node: AnyGraphNode, vi_name: str) -> bool:
-        """Whether ``node`` writes the Title of the VI's own window
-        (``acts_on_own_window_title`` with a row that takes a value in)."""
+    def writes_own_window_properties(self, node: AnyGraphNode, vi_name: str) -> bool:
+        """Whether ``node`` writes the Title or the Window Bounds of the VI's own
+        window (``acts_on_own_window_properties`` with a row that takes a value
+        in)."""
         return (
             isinstance(node, PrimitiveNode)
-            and self.acts_on_own_window_title(node, vi_name)
+            and self.acts_on_own_window_properties(node, vi_name)
             and any(
                 t.id in node.property_value_terminal_ids and t.direction == "input"
                 for t in node.terminals
@@ -384,13 +410,13 @@ def _is_vi_reference(const: ConstantNode) -> bool:
 
 
 def _is_front_panel_window_output(node: AnyGraphNode, source: WireEnd) -> bool:
-    """Whether ``source`` is the reference out of an FP.Open or FP.Close Invoke
-    Node of the VI class: the reference it was given (the default VI object, the
-    VI holding the node, when none is wired)."""
+    """Whether ``source`` is the reference out of an FP.Open, FP.Close or FP.Center
+    Invoke Node of the VI class: the reference it was given (the default VI
+    object, the VI holding the node, when none is wired)."""
     return (
         isinstance(node, PrimitiveNode)
         and node.object_name == VI_CLASS
-        and node.method_code in (VI_FP_OPEN_METHOD_CODE, VI_FP_CLOSE_METHOD_CODE)
+        and node.method_code in _WINDOW_METHOD_CODES
         and any(
             t.id == source.terminal_id and t.index == _REFERENCE_OUT_INDEX
             for t in node.terminals

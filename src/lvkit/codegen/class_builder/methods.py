@@ -34,6 +34,7 @@ from ..gaps import Gap, gap_of, raise_statement, vi_body
 from ..import_cycles import imports_inside
 from ..import_resolver import ImportResolver
 from ..nodes.call_chain import vi_name_statement
+from ..nodes.front_panel_bounds import window_bounds_statement
 from ..nodes.front_panel_title import window_title_statement
 from ..nodes.tag_methods import tags_statements
 from ..panel_description import NamedTerminal, panel_statements
@@ -223,6 +224,7 @@ class _MethodBuilderMixin:
             target += ".fget" if accessor is PropertyRole.GETTER else ".fset"
         return [
             window_title_statement(ctx, ctx.vi_name or vi_context.name, target),
+            window_bounds_statement(ctx, ctx.vi_name or vi_context.name, target),
             vi_name_statement(ctx, ctx.vi_name or vi_context.name, target),
             *tags_statements(ctx, ctx.vi_name or vi_context.name, target),
             *panel_statements(

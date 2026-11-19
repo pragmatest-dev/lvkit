@@ -508,6 +508,11 @@ class PanelView:
         """The running VI set the property ``prop`` (the name of the property) of
         the control or indicator ``name``."""
 
+    def defer_updates_changed(self, deferred: bool) -> None:
+        """The running VI set the panel's Defer Panel Updates: True, the view draws
+        what is pending and then holds new changes back; False, it draws every
+        change as it comes."""
+
     def run_started(self) -> None:
         """A run of the VI began."""
 
@@ -631,6 +636,21 @@ class PanelValues:
         self._values: MutableMapping[str, Any] = {} if storage is None else storage
         self._views: list[PanelView] = []
         self._lock = threading.RLock()
+        self._defer_updates = False
+
+    @property
+    def defer_updates(self) -> bool:
+        """The panel's Defer Panel Updates (NI: TRUE defers new requests for front
+        panel updates, FALSE redraws changed elements immediately): the last value
+        the VI set, else False."""
+        with self._lock:
+            return self._defer_updates
+
+    @defer_updates.setter
+    def defer_updates(self, value: bool) -> None:
+        with self._lock:
+            self._defer_updates = bool(value)
+        self._tell("defer_updates_changed", bool(value))
 
     def attach(self, view: PanelView) -> None:
         """Tell ``view`` of every change from now on."""

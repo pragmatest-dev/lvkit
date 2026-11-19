@@ -10,6 +10,13 @@ that module, and these rows read them:
 - ``Controls[]`` of a panel reference (NI: .../generic/gobject/panel/controls.html,
   "Array of references to the controls and indicators on the front panel. The array
   contains the references in tabbing order") is ``as_panel(reference).controls``;
+- ``Defer Panel Updates`` of a panel reference (NI: .../generic/gobject/panel/
+  deferupdates.html, "When you set this property to TRUE, LabVIEW redraws any front
+  panel objects with pending changes then defers all new requests for front panel
+  updates. ... If FALSE, LabVIEW immediately redraws the changed elements of the
+  front panel.", read and write, settable while the VI runs) is
+  ``as_panel(reference).defer_updates``: the panel holds it (False until a VI sets
+  it) and tells its views, which defer drawing while it is True;
 - ``Controls[]`` of a cluster reference (NI: .../generic/gobject/control/cluster/
   controls.html, "Array of references to the cluster elements in cluster order") is
   ``as_control(reference).controls``;
@@ -83,6 +90,9 @@ VI_PANEL_PROPERTY_CODE = 573
 # The Controls[] property of the Pnl class.
 PANEL_CLASS = "Pnl"
 PANEL_CONTROLS_PROPERTY_CODE = 104105985
+# The Defer Panel Updates property of the Pnl class (the corpus records it as
+# DeferPanUpdts and as Defer Panel Updates, with this code).
+PANEL_DEFER_UPDATES_PROPERTY_CODE = 104105989
 
 
 class PanelRow(Enum):
@@ -90,6 +100,7 @@ class PanelRow(Enum):
 
     PANEL = "panel"
     CONTROLS = "controls"
+    DEFER_UPDATES = "defer_updates"
     VALUE = "value"
     INDICATOR = "indicator"
     LABEL_TEXT = "label_text"
@@ -125,7 +136,11 @@ def panel_row(node: PrimitiveNode, prop: PropertyDef) -> PanelRow | None:
     if is_on_vi_reference(node):
         return PanelRow.PANEL if codes == [VI_PANEL_PROPERTY_CODE] else None
     if class_name == PANEL_CLASS:
-        return PanelRow.CONTROLS if codes == [PANEL_CONTROLS_PROPERTY_CODE] else None
+        if codes == [PANEL_CONTROLS_PROPERTY_CODE]:
+            return PanelRow.CONTROLS
+        if codes == [PANEL_DEFER_UPDATES_PROPERTY_CODE]:
+            return PanelRow.DEFER_UPDATES
+        return None
     found = reference_row(class_name, codes)
     return _REFERENCE_ROWS[found] if found is not None else None
 
@@ -165,8 +180,9 @@ def write_property(
 
 
 def is_writable(row: PanelRow) -> bool:
-    """Whether a write of the row has a Python meaning: a control's Value."""
-    return row is PanelRow.VALUE
+    """Whether a write of the row has a Python meaning: a control's Value or the
+    panel's Defer Panel Updates."""
+    return row in (PanelRow.VALUE, PanelRow.DEFER_UPDATES)
 
 
 def _value_attribute(row: PanelRow, variant: bool) -> str:
@@ -188,6 +204,9 @@ def read(
     elif row is PanelRow.CONTROLS:
         names = (AS_PANEL_NAME, PANEL_ERROR_NAME)
         expression = f"{AS_PANEL_NAME}({reference}).controls"
+    elif row is PanelRow.DEFER_UPDATES:
+        names = (AS_PANEL_NAME, PANEL_ERROR_NAME)
+        expression = f"{AS_PANEL_NAME}({reference}).defer_updates"
     else:
         names = (AS_CONTROL_NAME, PANEL_ERROR_NAME)
         expression = f"{AS_CONTROL_NAME}({reference}).{_value_attribute(row, variant)}"
@@ -196,10 +215,23 @@ def read(
 
 
 def write(
-    reference: str, value: str, ctx: CodeGenContext, variant: bool
+    row: PanelRow, reference: str, value: str, ctx: CodeGenContext, variant: bool
 ) -> ast.stmt:
-    """The assignment of ``value`` to the Value of the control ``reference`` holds;
-    ``variant``: the property's terminal is a Variant."""
+    """The assignment of ``value`` to the Value of the control ``reference`` holds
+    (``row`` Value; ``variant``: the property's terminal is a Variant), or to the
+    Defer Panel Updates of the panel it holds."""
+    if row is PanelRow.DEFER_UPDATES:
+        ctx.import_panels(f"{AS_PANEL_NAME}, {PANEL_ERROR_NAME}")
+        return ast.Assign(
+            targets=[
+                ast.Attribute(
+                    value=parse_expr(f"{AS_PANEL_NAME}({reference})"),
+                    attr="defer_updates",
+                    ctx=ast.Store(),
+                )
+            ],
+            value=parse_expr(value),
+        )
     ctx.import_panels(f"{AS_CONTROL_NAME}, {PANEL_ERROR_NAME}")
     return ast.Assign(
         targets=[

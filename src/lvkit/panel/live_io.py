@@ -6,8 +6,9 @@ indicator, ``read`` before it uses a control it reads while running,
 ``set_property`` when it sets a control property, ``get_property`` when it reads
 one, ``prompt`` when it shows a
 dialog box, calls ``open_panel`` / ``close_panel`` when it opens or closes its
-own front panel window, calls ``set_window_title`` when it writes that window's
-title, and takes the front panel's events from ``events``.
+own front panel window, calls ``center_panel`` when it centers it,
+``set_window_title`` / ``set_window_bounds`` when it writes that window's title or
+bounds, and takes the front panel's events from ``events``.
 The base class
 does nothing, except ``prompt``, which asks on the terminal: ``read`` returns
 the value the function already holds. Pass a subclass to show, record or supply
@@ -81,6 +82,22 @@ class LiveIO:
         ``properties-and-methods/vi-server/vi/fpwintitle.html``): the string in
         the window's title bar. The function keeps the title for its own later
         reads."""
+        return None
+
+    def set_window_bounds(self, bounds: tuple[int, int, int, int]) -> None:
+        """The function wrote the Window Bounds of its own front panel window
+        (Front Panel Window:Window Bounds, FP.WinBounds: docs-be
+        ``properties-and-methods/vi-server/vi/fpwinbounds.html``): ``bounds`` is
+        ``(left, top, right, bottom)`` in global screen coordinates. The function
+        keeps the bounds for its own later reads."""
+        return None
+
+    def center_panel(self) -> None:
+        """The function centered its own front panel window on the computer screen
+        (Front Panel:Center, FP.Center: docs-be
+        ``properties-and-methods/vi-server/vi/centerfrontpanel.html``). The
+        function does not change the bounds it keeps: the screen's size is the
+        window's to know."""
         return None
 
     def prompt(

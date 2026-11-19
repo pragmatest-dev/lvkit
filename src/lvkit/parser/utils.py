@@ -346,6 +346,24 @@ def heap_origin(elem: ET.Element) -> tuple[int, int]:
     return (nums[0], nums[1])
 
 
+def saved_window_bounds(root: ET.Element) -> tuple[int, int, int, int] | None:
+    """The front panel window's bounds the file saves, as ``(left, top, right,
+    bottom)`` in screen pixels (the order of NI's Window Bounds cluster), from
+    the front panel heap's own ``origin`` (the window's ``(x, y)``) and ``pBounds``
+    (its extent), as labview-binary-format.md "A VI's saved window bounds"
+    records; None when the heap has no ``origin`` or its ``pBounds`` has no
+    extent."""
+    origin = root.find("origin")
+    extent = heap_rect(root.find("pBounds"))
+    if origin is None or extent is None:
+        return None
+    x, y = heap_origin(root)
+    top, left, bottom, right = extent
+    if right <= left or bottom <= top or not origin.text:
+        return None
+    return (x, y, x + right - left, y + bottom - top)
+
+
 def heap_color(text: str | None) -> str | None:
     """A heap ``fgColor``/``bgColor`` (``00RRGGBB`` hex) as ``#RRGGBB``. Only a
     literal color has a ``00`` high byte; any other value (e.g. ``01000000``,

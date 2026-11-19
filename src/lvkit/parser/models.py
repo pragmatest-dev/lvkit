@@ -984,6 +984,9 @@ class ParsedFrontPanel:
     lv_version: str | None = None
     # The VI's font table (``fontid`` indexes it from 0); empty when it has none.
     fonts: tuple[ParsedFPFont, ...] = ()
+    # The window's bounds the file saves, ``(left, top, right, bottom)`` in screen
+    # pixels; None when the heap records none (``utils.saved_window_bounds``).
+    window_bounds: tuple[int, int, int, int] | None = None
 
     def tab_index(self, uid: str) -> int | None:
         """The position of the control ``uid`` in the panel's tabbing order (its

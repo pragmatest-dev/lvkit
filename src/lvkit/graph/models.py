@@ -913,6 +913,9 @@ class WindowProps:
     # The custom Window title, from the file's ``<TITL>`` block; None when the
     # file has none: the window's title is then the VI's name ("Same as VI name").
     window_title: str | None = None
+    # The window's saved bounds ``(left, top, right, bottom)`` in screen pixels,
+    # from the front panel heap (not ``<LVSR>``); None when the file records none.
+    window_bounds: tuple[int, int, int, int] | None = None
     show_title_bar: bool = False  # ShowTitleBar
     show_menu_bar: bool = False  # ShowMenuBar
     show_toolbar: bool = False  # ToolBarVisible

@@ -12,29 +12,21 @@ file extension for default window title" gives as the default). A read of the
 property on a VI reference is the attribute of the function the reference holds
 and a write sets it (``read`` / ``write``).
 
-On the VI's own window (the Property Node's reference unwired or wired from "This
-VI": ``InMemoryVIGraph.acts_on_own_window_title``) the node does the same through
-the VI's own function, and a write also calls ``live_io.set_window_title(title)``,
-the way FP.Open is ``live_io.open_panel`` (``front_panel_window.py``). A write on
-another VI's reference only sets its attribute: the window of that VI belongs to
-its own run, whose ``live_io`` the caller does not hold."""
+On the VI's own window the node does the same through the VI's own function, and a
+write also calls ``live_io.set_window_title(title)`` (``own_window_properties``). A
+write on another VI's reference only sets its attribute: the window of that VI
+belongs to its own run, whose ``live_io`` the caller does not hold."""
 
 from __future__ import annotations
 
 import ast
 from pathlib import Path
 
-from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import PrimitiveNode
-from lvkit.graph.op_walk import correlate_property_terminals
 from lvkit.graph.vi_reference import VI_FP_TITLE_PROPERTY_CODE
 from lvkit.models import PropertyDef
 
-from ..ast_utils import LIVE_IO, parse_expr, parse_stmt
+from ..ast_utils import parse_expr, parse_stmt
 from ..context import CodeGenContext
-from ..errors import CodeGenError
-from ..fragment import CodeFragment
-from . import ctrl_val
 
 TITLE_ATTRIBUTE = "window_title"
 
@@ -73,52 +65,3 @@ def window_title_statement(ctx: CodeGenContext, key: str, target: str) -> ast.st
         ],
         value=ast.Constant(value=name if title is None else title),
     )
-
-
-def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
-    """The writes and reads of the rows on the VI's own window, in order."""
-    statements: list[ast.stmt] = []
-    bindings: dict[str, str] = {}
-    this_vi = ctx.this_vi_expression()
-    for _prop, term in correlate_property_terminals(
-        node.properties or [], node.terminals, node.property_value_terminal_ids
-    ):
-        if term is None:
-            raise CodeGenError("Property value terminal is missing", node)
-        if term.direction == "input":
-            if not ctx.is_wired(term.id):
-                raise ConversionGap(
-                    "Front Panel Window:Title: the value written is not wired", node
-                )
-            value = ctx.wired_input(term.id, node)
-            if value is None:
-                raise CodeGenError("Property write value is unresolved", node)
-            statements.append(write(this_vi, value))
-            statements.append(
-                parse_stmt(f"{LIVE_IO}.set_window_title({this_vi}.{TITLE_ATTRIBUTE})")
-            )
-        elif term.direction == "output":
-            var = ctx.make_output_var(TITLE_ATTRIBUTE, term.id, term.id)
-            statements.append(
-                ast.Assign(
-                    targets=[ast.Name(id=var, ctx=ast.Store())], value=read(this_vi)
-                )
-            )
-            bindings[term.id] = var
-        else:
-            raise CodeGenError("Property value direction is unresolved", node)
-    for term in node.terminals:
-        if term.id in node.property_value_terminal_ids or term.is_error_cluster:
-            continue
-        if term.direction == "output" and ctx.is_wired(term.id):
-            reference_out = ctrl_val.terminal_at(node, "output", ctrl_val.REFERENCE_OUT)
-            if reference_out is not term:
-                raise ConversionGap("Property flow-through output is unresolved", node)
-            reference_in = ctrl_val.terminal_at(node, "input", ctrl_val.REFERENCE_IN)
-            wired = (
-                ctx.wired_input(reference_in.id, node)
-                if reference_in is not None and ctx.is_wired(reference_in.id)
-                else None
-            )
-            bindings[term.id] = wired or this_vi
-    return CodeFragment(statements=statements, bindings=bindings)

@@ -352,18 +352,20 @@ GENERATED_PACKAGE = "generated_package"
 
 
 _PANEL_LINE = re.compile(
-    r"^([\w.]+\.panel = Panel\(|[\w.]+\.window_title = |[\w.]+\.vi_name = "
-    r"|from \.+panels import |from \.+variants import |[A-Z0-9_]+_TYPE = LVType\()"
+    r"^([\w.]+\.panel = Panel\(|[\w.]+\.window_title = |[\w.]+\.window_bounds = "
+    r"|[\w.]+\.vi_name = |from \.+panels import |from \.+variants import "
+    r"|[A-Z0-9_]+_TYPE = LVType\()"
 )
 
 
 def without_panel_attributes(source: str) -> str:
     """``source`` without the lines that give a function its ``panel`` and
-    ``window_title`` and import ``Panel``, the type constants its ``types`` name and
-    the ``LVType`` constants it shares (``codegen/panel_description.py``,
-    ``codegen/type_constants.py``, ``codegen/nodes/front_panel_title.py``): a test
-    that pins a function's exact source is about the function, and
-    ``tests/test_front_panel_reference.py`` pins the panel."""
+    ``window_title`` and ``window_bounds`` and import ``Panel``, the type constants
+    its ``types`` name and the ``LVType`` constants it shares
+    (``codegen/panel_description.py``, ``codegen/type_constants.py``,
+    ``codegen/nodes/front_panel_title.py``): a test that pins a function's exact
+    source is about the function, and ``tests/test_front_panel_reference.py`` pins
+    the panel."""
     return "\n".join(line for line in source.split("\n") if not _PANEL_LINE.match(line))
 
 

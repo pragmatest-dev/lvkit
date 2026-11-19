@@ -62,6 +62,12 @@ class Recorder(LiveIO):
     def set_window_title(self, title: str) -> None:
         self.log.append(("window_title", title))
 
+    def set_window_bounds(self, bounds: tuple[int, int, int, int]) -> None:
+        self.log.append(("window_bounds", bounds))
+
+    def center_panel(self) -> None:
+        self.log.append(("center_panel",))
+
 
 class PromptRecorder(LiveIO):
     """A ``LiveIO`` that records every dialog a function shows, ``(message,

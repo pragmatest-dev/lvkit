@@ -3,8 +3,9 @@
 An Invoke Node calls a method of a LabVIEW class (VI Server, Application,
 ActiveX, .NET). Run VI is converted by ``run_vi`` and Ctrl Val.Set, Get and Get
 All by ``ctrl_val``, and Reinit To Default of a control the node is bound to by
-``reinit_default``; FP.Open and FP.Close on the VI's own front panel by
-``front_panel_window``; the Tag methods of a VI or a library by ``tag_methods``;
+``reinit_default``; FP.Open, FP.Close and FP.Center on the VI's own front panel
+(and FP.Center on another VI's reference) by ``front_panel_window``; the Tag
+methods of a VI or a library by ``tag_methods``;
 every other method has no Python equivalent yet, so the node
 is a gap (``gaps.py``): generation warns, and the generated code raises
 ``NotImplementedError`` where the node would run. The deprecated Ctrl Val methods
@@ -17,6 +18,7 @@ from __future__ import annotations
 from lvkit.control_properties import is_reinit_to_default
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
+from lvkit.graph.vi_reference import VI_FP_CENTER_METHOD_CODE, is_on_vi_reference
 
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
@@ -46,6 +48,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             "object has no Python equivalent",
             node,
         )
+    if is_on_vi_reference(node) and node.method_code == VI_FP_CENTER_METHOD_CODE:
+        return front_panel_window.generate_on_reference(node, ctx)
     if tag_methods.is_tag_method(node):
         return tag_methods.generate(node, ctx)
 

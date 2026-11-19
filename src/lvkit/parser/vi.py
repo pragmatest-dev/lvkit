@@ -202,6 +202,7 @@ from .utils import (
     extract_xtunnel_name,
     heap_rect,
     safe_int,
+    saved_window_bounds,
     strip_surrounding_quotes,
 )
 from .xml_trees import parsed_xml, xml_scope
@@ -389,6 +390,9 @@ def parse_vi(
     if main_path is not None and main_path.exists():
         file_metadata = parse_vi_metadata(main_path)
         front_panel.lv_version = file_metadata.get("lv_version")
+        file_metadata.setdefault("window", {})[
+            "window_bounds"
+        ] = front_panel.window_bounds
         if connector_pane:
             wiring_rules = parse_connector_pane_types(main_path, connector_pane)
     return ParsedVI(
@@ -804,6 +808,7 @@ def _parse_front_panel(
         layout=layout,
         unread_objects=unread_objects,
         fonts=tuple(fonts),
+        window_bounds=saved_window_bounds(root),
     )
 
 

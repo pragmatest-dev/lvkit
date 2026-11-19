@@ -73,6 +73,10 @@ class PanelWidgets:
         self._property_latest: dict[tuple[str, str], Any] = {}
         self._property_dirty: dict[tuple[str, str], None] = {}
         self._shown: dict[str, Any] = {}
+        # The panel's Defer Panel Updates as ``paint`` applies it, and the change
+        # the panel told since (None: none).
+        self._deferred = bool(getattr(panel, "defer_updates", False))
+        self._defer_request: bool | None = None
         self._painting = False
         self._own = threading.local()
         self._run_listener: RunListener | None = None
@@ -177,12 +181,22 @@ class PanelWidgets:
         then tell the toolbar of the runs that started or ended. Called by the
         timer, on the event loop."""
         with self._lock:
-            changed = [(k, self._latest[k]) for k in self._dirty]
-            self._dirty.clear()
-            properties = [(k, self._property_latest[k]) for k in self._property_dirty]
-            self._property_dirty.clear()
+            request, self._defer_request = self._defer_request, None
+            if request is False:
+                self._deferred = False
+            changed: list[tuple[str, Any]] = []
+            properties: list[tuple[tuple[str, str], Any]] = []
+            if not self._deferred:
+                changed = [(k, self._latest[k]) for k in self._dirty]
+                self._dirty.clear()
+                properties = [
+                    (k, self._property_latest[k]) for k in self._property_dirty
+                ]
+                self._property_dirty.clear()
             steps = self._steps
             self._steps = []
+            if request is True:
+                self._deferred = True
         for name, value in changed:
             painter = self._painters.get(name)
             if painter is not None:
@@ -224,6 +238,15 @@ class PanelWidgets:
         with self._lock:
             self._property_latest[(name, prop)] = value
             self._property_dirty[(name, prop)] = None
+
+    def defer_updates_changed(self, deferred: bool) -> None:
+        """The running VI set Defer Panel Updates: the next ``paint`` draws what is
+        pending and then holds new changes back while it is True (NI: "redraws any
+        front panel objects with pending changes then defers all new requests for
+        front panel updates"), and draws them again, all at once, once it is
+        False."""
+        with self._lock:
+            self._defer_request = deferred
 
     def run_started(self) -> None:
         with self._lock:

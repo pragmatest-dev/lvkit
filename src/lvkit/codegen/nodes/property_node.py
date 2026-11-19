@@ -29,7 +29,14 @@ from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..panel_hooks import get_property_stmt, property_stmt
 from ..variant_values import is_variant_type
-from . import class_property_node, front_panel_title, panel_reference, vi_reference
+from . import (
+    class_property_node,
+    front_panel_bounds,
+    front_panel_title,
+    own_window_properties,
+    panel_reference,
+    vi_reference,
+)
 from .base import (
     DefaultObjectError,
     resolve_ref_input,
@@ -313,7 +320,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     A row on a wired reference is Python only where Python has the value: a VI
     reference's Name, Path, Description and Exec.State
     (``vi_reference.vi_property_read``), its Front Panel Window:Title (a read
-    and a write: ``front_panel_title``) and the rows of the front panel's own
+    and a write: ``front_panel_title``), its Front Panel Window:Window Bounds
+    (``front_panel_bounds``) and the rows of the front panel's own
     references (``panel_reference``: Panel, Controls[], a control's Value,
     Indicator and Label.Text, and a write of a control's Value; and a Combo Box's
     Strings[], read and written through the panel); every other read,
@@ -335,10 +343,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         return _bound_value(node, ctx)
     if ctx.graph is not None and class_property_node.is_class_property_node(node):
         return class_property_node.generate(node, ctx)
-    if ctx.graph is not None and ctx.graph.acts_on_own_window_title(
+    if ctx.graph is not None and ctx.graph.acts_on_own_window_properties(
         node, ctx.vi_name or ""
     ):
-        return front_panel_title.generate(node, ctx)
+        return own_window_properties.generate(node, ctx)
     fixed = [term for term in node.terminals if term.id not in value_ids]
     default_class = unwired_ref_class(node, ctx)
     ref_var = "" if default_class else resolve_ref_input(node, ctx)
@@ -395,7 +403,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 )
                 panel_read = True
             else:
-                reflected = vi_reference.vi_property_read(node, prop, ref_var, ctx)
+                reflected = vi_reference.vi_property_read(
+                    node, prop, ref_var, ctx, term.lv_type
+                )
                 if reflected is None:
                     raise _no_python_equivalent(node, prop)
                 panel_read = panel_read or vi_reference.reads_panel(node, prop)
@@ -423,8 +433,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             title = is_on_vi_reference(
                 node
             ) and front_panel_title.is_title_row(prop)
+            bounds = is_on_vi_reference(node) and front_panel_bounds.is_bounds_row(
+                prop
+            )
             if (
                 not title
+                and not bounds
                 and listed is None
                 and (row is None or not panel_reference.is_writable(row))
             ):
@@ -441,10 +455,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             if title:
                 statements.append(front_panel_title.write(ref_var, value))
                 continue
+            if bounds:
+                statements.extend(
+                    front_panel_bounds.write(ref_var, value, term.lv_type, node)
+                )
+                continue
             assert row is not None
             statements.append(
                 panel_reference.write(
-                    ref_var, value, ctx, is_variant_type(term.lv_type)
+                    row, ref_var, value, ctx, is_variant_type(term.lv_type)
                 )
             )
             panel_read = True
