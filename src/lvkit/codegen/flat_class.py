@@ -165,19 +165,54 @@ class ClassLayout(Layout):
         graph = self._graph(fns)
         fields: list[ClusterField] = graph.get_class_fields(class_key) or []
         names = unique_names(f.name for f in fields)
-        record = Record(
-            label=python_class_name(class_key),
-            named=False,
-            fields=tuple(
-                Field(to_var_name(name), layout_of(f.type, fns.ctx))
-                for f, name in zip(fields, names)
-            ),
-        )
+        label = python_class_name(class_key)
+        built: list[Field] = []
+        for f, name in zip(fields, names):
+            try:
+                built.append(Field(to_var_name(name), layout_of(f.type, fns.ctx)))
+            except UnsupportedLayout as error:
+                return self._refusing_level(fns, class_key, label, name, str(error))
+        record = Record(label=label, named=False, fields=tuple(built))
         write = record.flatten("value", True, 0, fns)
         assert len(write) == 1 and isinstance(write[0], Raw)
         return (
             write[0].expression.removesuffix("(value)"),
             record.reader(fns, True),
+        )
+
+    def _refusing_level(
+        self, fns: Functions, class_key: str, label: str, field: str, reason: str
+    ) -> tuple[str, str]:
+        """The functions of a class level whose private data has a field with no
+        flattened form: they raise when a value of the class is flattened or read,
+        naming the class, the field and the place, so a wire that may hold other
+        classes still works for them."""
+        graph = self._graph(fns)
+        what = (
+            f"the private data field {field!r} of the class "
+            f"{graph.vi_display_name(class_key)} is {reason}"
+        )
+
+        def write(name: str) -> str:
+            return (
+                f"def {name}(value):\n"
+                f"    raise FlattenedClassError('cannot flatten ' + "
+                f"{what!r} + ' (value ' + repr(value) + ')')\n"
+            )
+
+        def read(name: str) -> str:
+            return (
+                f"def {name}(data, pos):\n"
+                f"    error = FlattenedClassError('cannot read ' + "
+                f"{what!r} + ' (at byte ' + str(pos) + ')')\n"
+                f"    error.code = 1403\n"
+                f"    raise error\n"
+            )
+
+        key = ("refusing", class_key)
+        return (
+            fns.named("flatten", label, key, write),
+            fns.named("unflatten", label, key, read),
         )
 
     def flatten(self, value, prefix, depth, fns) -> list[Part]:
@@ -220,9 +255,11 @@ _CHECKING: set[tuple[int, str | None]] = set()
 
 def class_layout(lv_type: LVType, ctx: CodeGenContext) -> ClassLayout:
     """The layout of a value whose type is the class ``lv_type`` names. The type of
-    every private data field of the classes the wire can hold is checked here, so a
+    every private data field of that class and its ancestors is checked here, so a
     class with a field that has no flattened form (a Picture) is a gap of the node
-    that asked, as any type with no layout is."""
+    that asked, as any type with no layout is. A LabVIEW Object wire, and a
+    descendant a wire of a class may hold, is only known at run time: a class with
+    such a field gets functions that raise there (``_refusing_level``)."""
     graph = ctx.graph
     name = lv_type.classname or "a class"
     if lv_type.classname == ROOT_CLASS:
@@ -241,7 +278,12 @@ def class_layout(lv_type: LVType, ctx: CodeGenContext) -> ClassLayout:
         return layout
     _CHECKING.add(token)
     try:
-        for class_key in class_family(graph, layout.key):
+        static = (
+            []
+            if layout.key is None
+            else [layout.key, *graph.class_ancestor_keys(layout.key)]
+        )
+        for class_key in static:
             for field in graph.get_class_fields(class_key) or []:
                 try:
                     layout_of(field.type, ctx)

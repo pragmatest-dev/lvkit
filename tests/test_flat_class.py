@@ -307,6 +307,67 @@ def test_data_that_is_not_a_class_of_the_package_is_nis_error(
         assert type(result.back) is module("base").Base
 
 
+def _with_picture_class(tmp_path: Path) -> Project:
+    project = classes(tmp_path)
+    picture = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Picture")
+    project.add_class("Bad", [ClusterField(name="Drawing", type=picture)])
+    return project
+
+
+def test_a_labview_object_wire_works_for_classes_the_package_can_flatten(
+    tmp_path: Path,
+) -> None:
+    """A class with a field that has no flattened form is not a gap of a LabVIEW
+    Object wire; the classes with plain fields still round trip."""
+    project = _with_picture_class(tmp_path)
+    project.add_vi("RoundTrip", round_trip(LABVIEW_OBJECT))
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        obj = module("base").Base()
+        obj._Base__count = 4
+        back = module("roundtrip").roundtrip(obj=obj).back
+        assert type(back) is module("base").Base and back._Base__count == 4
+
+
+def test_a_labview_object_holding_such_a_class_raises_naming_the_field(
+    tmp_path: Path,
+) -> None:
+    project = _with_picture_class(tmp_path)
+    project.add_vi("RoundTrip", round_trip(LABVIEW_OBJECT))
+    project.add_vi("Read", unflatten_only(LABVIEW_OBJECT))
+    package = project.generate()
+    with package.use() as module:
+        with pytest.raises(Exception) as written:
+            module("roundtrip").roundtrip(obj=module("bad").Bad())
+        assert "'Drawing' of the class Bad.lvclass" in str(written.value)
+        raw = (
+            struct.pack(">I", 1)
+            + pascal_name("Bad.lvclass")
+            + struct.pack(">HHHH", 1, 0, 0, 0)
+            + struct.pack(">i", 4)
+            + b"\x00" * 4
+        )
+        error = module("read").read(data=raw.decode("latin-1")).error_out
+        assert error.code == 1403
+        assert "'Drawing' of the class Bad.lvclass" in error.message
+        assert "at byte" in error.message
+
+
+def test_a_specific_class_whose_descendant_has_such_a_field_still_generates(
+    tmp_path: Path,
+) -> None:
+    """Only the class the wire names and its ancestors must be readable."""
+    project = classes(tmp_path)
+    picture = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Picture")
+    project.add_class(
+        "Drawn", [ClusterField(name="Drawing", type=picture)], parent="Base"
+    )
+    project.add_vi("RoundTrip", round_trip(BASE))
+    package = project.generate()
+    assert package.gaps == []
+
+
 _WIKI_ALPHA = bytes.fromhex(
     "00000002 2111 416C70686120 4163746F722E6C766C6962 0D 416C7068612E6C76636C617373"
     " 00 0000 0001000000000001 0001000000000005"
