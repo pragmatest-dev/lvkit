@@ -256,7 +256,7 @@ _CHECKING: set[tuple[int, str | None]] = set()
 def class_layout(lv_type: LVType, ctx: CodeGenContext) -> ClassLayout:
     """The layout of a value whose type is the class ``lv_type`` names. The type of
     every private data field of that class and its ancestors is checked here, so a
-    class with a field that has no flattened form (a Picture) is a gap of the node
+    class with a field that has no flattened form (a Variant) is a gap of the node
     that asked, as any type with no layout is. A LabVIEW Object wire, and a
     descendant a wire of a class may hold, is only known at run time: a class with
     such a field gets functions that raise there (``_refusing_level``)."""

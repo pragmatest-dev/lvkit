@@ -48,6 +48,7 @@ from lvkit.models import (
 )
 from lvkit.parser.refnum_value import NULL_REFNUM, holds_handle
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
+from lvkit.picture_records import PictureData
 from lvkit.primitive_resolver import PrimitiveResolver
 from lvkit.string_literal import quote_string
 from lvkit.vilib_resolver import VILibResolver
@@ -967,7 +968,7 @@ class CodeGenContext:
                 lv_type.underlying_type == "MeasureData"
                 and const.structured_value is not None
             )
-            or isinstance(const.structured_value, VariantData)
+            or isinstance(const.structured_value, (VariantData, PictureData))
             or (
                 const.structured_value is not None
                 and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)

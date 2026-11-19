@@ -37,6 +37,7 @@ from .lv_type_codes import (
     is_int32_type_name,
     is_string_type_name,
 )
+from .picture_records import PictureData
 from .string_literal import quote_string
 from .timestamp_value import TIMESTAMP_FLAVOR, timestamp_value_text
 from .type_names import derive_python_name, is_enum_member_name
@@ -77,8 +78,9 @@ class ValuesNotKept:
 
 @dataclass(frozen=True)
 class UndecodedPicture:
-    """A Picture value that holds drawing data. The drawing is read past (its
-    length is stored) but not turned into a value."""
+    """A Picture value whose stored drawing does not read as records (their
+    lengths do not end where the Picture's stored length does). The drawing is
+    read past (its length is stored) but not turned into a value."""
 
     byte_count: int
 
@@ -86,7 +88,10 @@ class UndecodedPicture:
         return f"<Picture, {self.byte_count} bytes of drawing not decoded>"
 
     def reason(self) -> str:
-        return f"a Picture of {self.byte_count} bytes whose drawing is not decoded"
+        return (
+            f"a Picture of {self.byte_count} bytes whose records do not add up "
+            "to its stored length"
+        )
 
 
 @dataclass(frozen=True)
@@ -138,7 +143,12 @@ class UnreadPath:
 
 
 UnwritableValue = (
-    ValuesNotKept | UndecodedPicture | UnreadPrivateData | ValueNotStored | UnreadPath
+    ValuesNotKept
+    | UndecodedPicture
+    | PictureData
+    | UnreadPrivateData
+    | ValueNotStored
+    | UnreadPath
 )
 
 
@@ -207,13 +217,20 @@ _UNWRITABLE_TYPES = (
 )
 
 
-def find_unwritable(value: object) -> UnwritableValue | None:
+def find_unwritable(
+    value: object, *, writes_pictures: bool = False
+) -> UnwritableValue | None:
     """The first part of a decoded value (an array's elements, a cluster's fields,
-    recursively) that holds no value code generation could write, else None."""
+    recursively) that holds no value code generation could write, else None.
+    ``writes_pictures`` is true for a diagram constant, which is written as an
+    image when its drawing is decoded; a control's saved default holding a
+    drawn Picture is never written."""
     if isinstance(value, _UNWRITABLE_TYPES):
         return value
+    if isinstance(value, PictureData):
+        return None if writes_pictures and value.undecoded() is None else value
     if isinstance(value, VariantData):
-        return find_unwritable(value.value)
+        return find_unwritable(value.value, writes_pictures=writes_pictures)
     if isinstance(value, dict):
         children: Iterable[object] = value.values()
     elif isinstance(value, list):
@@ -221,7 +238,7 @@ def find_unwritable(value: object) -> UnwritableValue | None:
     else:
         return None
     for child in children:
-        found = find_unwritable(child)
+        found = find_unwritable(child, writes_pictures=writes_pictures)
         if found is not None:
             return found
     return None

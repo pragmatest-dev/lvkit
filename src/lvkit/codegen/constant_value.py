@@ -27,10 +27,12 @@ from lvkit.measure_data import measure_data_value_type
 from lvkit.models import (
     LVType,
     LVTypeKind,
+    UndecodedPicture,
     VariantData,
     _is_error_cluster,
     unique_names,
 )
+from lvkit.picture_records import PictureData
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR, timestamp_expression
 
 from .ast_utils import (
@@ -63,8 +65,9 @@ _TIMESTAMP = LVType(
 _DOUBLE = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
 _U32 = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumUInt32")
 
-# Types written as ``None`` whatever the decoded value.
-_NO_VALUE_TYPES = frozenset({"Void", "Picture"})
+# Types written as ``None`` whatever the decoded value (a Picture is written from
+# its drawing, ``_picture``).
+_NO_VALUE_TYPES = frozenset({"Void"})
 # Types whose decoded value is the display text the scalar formatting reads.
 _SCALAR_TYPES = frozenset({"Boolean", "String", "Tag", "Path", "Refnum"})
 
@@ -79,6 +82,8 @@ def constant_value_expression(
         return ctx.class_object_expression(lv_type)
     if underlying in _NO_VALUE_TYPES:
         return "None"
+    if underlying == "Picture":
+        return _picture(ctx, value, where)
     if is_variant_type_name(underlying):
         if not isinstance(value, VariantData):
             raise ConversionGap(_not_read(where, lv_type))
@@ -291,6 +296,24 @@ def _variant(ctx: CodeGenContext, value: VariantData, where: str) -> str:
         items.append(f"{name!r}: {_variant(ctx, attribute, part)}")
     ctx.import_variant()
     return f"{VARIANT_NAME}({held}, {type_expr}, {{{', '.join(items)}}})"
+
+
+def _picture(ctx: CodeGenContext, value: object, where: str) -> str:
+    """A Picture constant: ``None`` when empty, else the RGBA image of its one
+    copy pixmap record, placed at the top-left corner (``picture_records``); any
+    other drawing is a gap naming what is not decoded."""
+    if isinstance(value, UndecodedPicture):
+        raise ConversionGap(f"{where[0].upper()}{where[1:]} holds {value.reason()}")
+    if not isinstance(value, PictureData):
+        return "None"
+    pixmap = value.pixmap()
+    if pixmap is None:
+        raise ConversionGap(f"{where[0].upper()}{where[1:]} holds {value.reason()}")
+    ctx.add_import("from PIL import Image")
+    return (
+        f"Image.frombytes('RGB', ({pixmap.width}, {pixmap.height}), "
+        f"bytes.fromhex('{pixmap.pixels.hex()}')).convert('RGBA')"
+    )
 
 
 def _not_read(where: str, lv_type: LVType) -> str:

@@ -21,6 +21,8 @@ from lvkit.parser.vi import read_class_object
 from tests.class_graphs import INT, Project, Recipe, class_type, pane, wire
 
 STRING = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+VARIANT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="LVVariant")
+PICTURE = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Picture")
 ERROR = LVType(
     kind=LVTypeKind.CLUSTER,
     fields=[
@@ -135,17 +137,17 @@ def classes(tmp_path: Path) -> Project:
 def test_a_class_with_a_field_that_has_no_flattened_form_is_a_gap(
     tmp_path: Path,
 ) -> None:
-    """A Picture has no flattened form in lvkit, so a class that holds one is a
+    """A Variant has no flattened form in lvkit, so a class that holds one is a
     gap of the node, naming the class and the field, never an lvkit error."""
     project = Project(tmp_path)
-    picture = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Picture")
-    project.add_class("Base", [ClusterField(name="Drawing", type=picture)])
+    variant = VARIANT
+    project.add_class("Base", [ClusterField(name="Drawing", type=variant)])
     project.add_vi("RoundTrip", round_trip(BASE))
     gaps: list[Gap] = []
     project.generate(gaps)
     assert len(gaps) == 2
     assert all("'Drawing' of the class Base.lvclass" in g.reason for g in gaps)
-    assert all("Picture" in g.reason for g in gaps)
+    assert all("LVVariant" in g.reason for g in gaps)
 
 
 def test_a_class_holding_a_class_object_flattens_it_inside_its_data(
@@ -307,10 +309,10 @@ def test_data_that_is_not_a_class_of_the_package_is_nis_error(
         assert type(result.back) is module("base").Base
 
 
-def _with_picture_class(tmp_path: Path) -> Project:
+def _with_variant_class(tmp_path: Path) -> Project:
     project = classes(tmp_path)
-    picture = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Picture")
-    project.add_class("Bad", [ClusterField(name="Drawing", type=picture)])
+    variant = VARIANT
+    project.add_class("Bad", [ClusterField(name="Drawing", type=variant)])
     return project
 
 
@@ -319,7 +321,7 @@ def test_a_labview_object_wire_works_for_classes_the_package_can_flatten(
 ) -> None:
     """A class with a field that has no flattened form is not a gap of a LabVIEW
     Object wire; the classes with plain fields still round trip."""
-    project = _with_picture_class(tmp_path)
+    project = _with_variant_class(tmp_path)
     project.add_vi("RoundTrip", round_trip(LABVIEW_OBJECT))
     package = project.generate()
     assert package.gaps == []
@@ -333,7 +335,7 @@ def test_a_labview_object_wire_works_for_classes_the_package_can_flatten(
 def test_a_labview_object_holding_such_a_class_raises_naming_the_field(
     tmp_path: Path,
 ) -> None:
-    project = _with_picture_class(tmp_path)
+    project = _with_variant_class(tmp_path)
     project.add_vi("RoundTrip", round_trip(LABVIEW_OBJECT))
     project.add_vi("Read", unflatten_only(LABVIEW_OBJECT))
     package = project.generate()
@@ -359,9 +361,9 @@ def test_a_specific_class_whose_descendant_has_such_a_field_still_generates(
 ) -> None:
     """Only the class the wire names and its ancestors must be readable."""
     project = classes(tmp_path)
-    picture = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Picture")
+    variant = VARIANT
     project.add_class(
-        "Drawn", [ClusterField(name="Drawing", type=picture)], parent="Base"
+        "Drawn", [ClusterField(name="Drawing", type=variant)], parent="Base"
     )
     project.add_vi("RoundTrip", round_trip(BASE))
     package = project.generate()

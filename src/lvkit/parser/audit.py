@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from lvkit.models import LVType, LVTypeKind, UndecodedPicture
+from lvkit.picture_records import PictureData
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR
 
 from . import vi as _vi
@@ -111,7 +112,9 @@ class _Trace:
             and consumed != 16
         ):
             self.problems.append(f"short {key}")
-        elif isinstance(structured, UndecodedPicture):
+        elif isinstance(structured, UndecodedPicture) or (
+            isinstance(structured, PictureData) and structured.undecoded()
+        ):
             self.undecoded.append("picture drawing")
         elif underlying == "Refnum" and lv_type.classname and consumed:
             extent = _vi.read_class_object(data)

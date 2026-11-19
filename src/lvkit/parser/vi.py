@@ -49,6 +49,7 @@ from lvkit.models import (
     unique_names,
 )
 from lvkit.path_value import format_path
+from lvkit.picture_records import PictureData, walk_picture
 from lvkit.text_encoding import xml_text_encoding
 from lvkit.timestamp_value import (
     TIMESTAMP_FLAVOR,
@@ -2152,13 +2153,18 @@ def _parse_cluster_fields(
             set(),
             (
                 str(value)
-                if isinstance(value, (str, ValuesNotKept, UndecodedPicture))
+                if isinstance(
+                    value, (str, ValuesNotKept, UndecodedPicture, PictureData)
+                )
                 else None
             ),
             unresolved_uids=unresolved_uids,
             field_defaults=(
                 value
-                if isinstance(value, (dict, list, ValuesNotKept, UndecodedPicture))
+                if isinstance(
+                    value,
+                    (dict, list, ValuesNotKept, UndecodedPicture, PictureData),
+                )
                 else None
             ),
             type_map=type_map,
@@ -3052,9 +3058,10 @@ def _decode_element(
         return value, 4 + str_len, value
 
     # Picture: a 4-byte length then that many bytes of drawing data (the stored
-    # size of a Glyph-list default is exactly 4 + 1 + 2 x (4 + len) + 4 + 4).
-    # The drawing is not turned into a value, but its bytes are consumed so a
-    # cluster's following fields stay aligned. A Picture with no drawing is empty.
+    # size of a Glyph-list default is exactly 4 + 1 + 2 x (4 + len) + 4 + 4),
+    # which read as records (``picture_records``). Its bytes are consumed either
+    # way so a cluster's following fields stay aligned. A Picture with no drawing
+    # is empty; drawing whose records do not end at its length stays undecoded.
     if underlying == "Picture":
         if len(data) < 4:
             return None, 0, None
@@ -3063,7 +3070,11 @@ def _decode_element(
             return None, 0, None
         if picture_len == 0:
             return "None", 4, None
-        picture = UndecodedPicture(picture_len)
+        picture: PictureData | UndecodedPicture | None = walk_picture(
+            bytes(data[4 : 4 + picture_len])
+        )
+        if picture is None:
+            picture = UndecodedPicture(picture_len)
         return str(picture), 4 + picture_len, picture
 
     # Boolean: 1 byte in binary data

@@ -39,6 +39,11 @@ from lvkit.models import LVType, LVTypeKind, unique_names
 from .ast_utils import to_var_name
 from .context import CodeGenContext
 from .flat_path_source import FLATTEN_PATH, UNFLATTEN_PATH
+from .flat_picture_source import (
+    FLATTEN_PICTURE,
+    PICTURE_IMPORTS,
+    UNFLATTEN_PICTURE,
+)
 from .flat_tables import (
     COMPLEX_CODES,
     EXTENDED_UNFLATTEN,
@@ -383,6 +388,37 @@ class TimeStamp(Layout):
 
     def unflatten(self, target, prefix, out, fns):
         read = self._function(fns, "unflatten", UNFLATTEN_TIMESTAMP)
+        out.add(f"{target}, pos = {read}(data, pos)")
+
+
+@dataclass(frozen=True)
+class PictureLayout(Layout):
+    """A Picture: its length and its drawing records (``flat_picture_source``).
+    The length is part of the form, so the prepend-size option does not change
+    it."""
+
+    def fixed_size(self) -> int | None:
+        return None
+
+    def helper_label(self) -> str:
+        return "picture"
+
+    def _function(self, fns: Functions, kind: str, template: str) -> str:
+        for statement_import in PICTURE_IMPORTS:
+            fns.ctx.add_import(statement_import)
+        return fns.named(
+            kind,
+            "picture",
+            ("picture",),
+            lambda name: template.format(name=name, order=fns.order),
+        )
+
+    def flatten(self, value, prefix, depth, fns):
+        write = self._function(fns, "flatten", FLATTEN_PICTURE)
+        return [Raw(f"{write}({value})")]
+
+    def unflatten(self, target, prefix, out, fns):
+        read = self._function(fns, "unflatten", UNFLATTEN_PICTURE)
         out.add(f"{target}, pos = {read}(data, pos)")
 
 
@@ -852,6 +888,8 @@ def layout_of(lv_type: LVType | None, ctx: CodeGenContext | None = None) -> Layo
         return Text()
     if underlying == "Path":
         return PathLayout()
+    if underlying == "Picture":
+        return PictureLayout()
     if underlying == "Boolean":
         return Real("?", 1)
     # A unit type is its number with a physical unit; units mean nothing in Python.

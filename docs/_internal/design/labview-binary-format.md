@@ -1588,10 +1588,31 @@ array and cluster constants), and 1 is a front-panel default whose array holds
 a LabVIEW class object (`Layer.lvclass`), whose flattened private data (see
 "Classes" on the NI page) the decoder does not read yet. Every value holding a
 non-empty Picture is exact. Nearly all the evidence comes from one project, so a Picture saved by
-another LabVIEW version is lightly tested. The drawing bytes themselves are not
-documented publicly, so a non-empty Picture is shown as `<Picture, N bytes of
-drawing not decoded>` (and listed as undecoded by the audit); an empty one
-(length 0) shows as `None`.
+another LabVIEW version is lightly tested. An empty Picture (length 0) shows as
+`None`; the bytes of a non-empty one are read as records (next paragraph).
+
+**The drawing is a run of records** (deduced from the corpus, 2026-11-18; the
+operation numbers and names are the list at labviewwiki.org "Picture data
+type", which gives no byte layout). The length-prefixed bytes have no header and
+are records of a big-endian `u16` operation number, a `u32` payload length and
+the payload. The records of both samples add up exactly to their stored length:
+the 3,102 byte Picture of the `Layer` constant of `Create Icon Framework.vi` is
+one record (operation 29, copy pixmap, payload 3,096); the 272 byte Picture of
+`Install Glyphs.vi`'s `Glyph list` default is eight (operation 31 of 20 bytes,
+then operation 18, text box, of 36 bytes, four times; the wiki lists 18 but not
+31). Operation 29's payload is 24 header bytes and the pixels: `u32` pixel byte
+count (3,072), `u32` 0, `u16` 32, `u16` 32, `u16` 24 (bits per pixel), 10 bytes
+(`00 00 00 00 00 ff ff ff 00 00` in the sample) not read, then 32 x 32 x 3 bytes
+of red, green, blue, all white. Deduction, one sample: which of the two 32s is
+the width (so a non-square pixmap is left undecoded), where the pixmap is placed
+(lvkit puts it at the top-left corner), and what the 10 bytes hold. No other
+operation's layout is read: a Picture with any other operation, more than one
+copy pixmap, or a pixmap that does not fit these rules is shown with its record
+list and stays undecoded (a gap naming the operations). Records that do not end
+exactly at the Picture's length are `<Picture, N bytes of drawing not decoded>`
+and a load warning. A Picture in flattened data (a class field) is the same
+length and records; reading one back builds the image, writing a drawn image
+raises, as its 10 header bytes are not decoded.
 
 A `TypeDef` descriptor holds the type it wraps as its single `Nested='True'`
 child TypeDesc; for an `Array` that child carries the `<Dimension>` children
