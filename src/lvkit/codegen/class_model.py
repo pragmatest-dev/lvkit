@@ -183,10 +183,20 @@ def _require_own_class(
     finds a private name). LabVIEW lets no other VI reach it, so anything else
     is a VI broken in LabVIEW: a gap. When the VI's own record claims the class
     (``claimed_owner``, by path), the class file and the VI disagree, and the
-    reason says so."""
+    reason says so. A class with a recorded load problem is reported as not
+    loaded, never as one that does not list the VI."""
     caller_class = graph.owning_class_key(caller_key) if caller_key else None
     if caller_class == class_key:
         return
+    load_problems = [p for p in graph.problems([class_key]) if not p.is_note]
+    if load_problems:
+        # The class's own file could not be read in full, so its member list
+        # cannot say whether it lists this VI: the cause is the load problem.
+        raise ConversionGap(
+            f"{what} of the class {graph.key_label(class_key)}, but the class "
+            f"could not be loaded, so lvkit cannot tell whether it lists this VI "
+            f"({load_problems[0].reason})"
+        )
     if caller_key and graph.claimed_owner(caller_key) == class_key:
         why = "the VI names that class as its owner while the class does not list it"
     else:

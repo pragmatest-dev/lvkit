@@ -8,11 +8,11 @@ import ast
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.manager_functions import manager_functions
-from lvkit.parser.extfunc_prototype import ExtFuncCall
+from lvkit.parser.extfunc_prototype import ExtFuncCall, ParamKind
 
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from .ext_func_marshal import default_value
+from .ext_func_marshal import default_value, marshal_row
 from .primitive import raise_unknown
 
 
@@ -63,7 +63,35 @@ def generate_manager_call(
             declaration.name,
             lambda n, d=declaration: "\n".join(d.source).format(name=n) + "\n",
         )
-    source = "\n".join(line.format(**values) for line in function.statements)
+    lines: list[str] = []
+    after: list[str] = []
+    if function.marshalled:
+        for index, (name, param) in enumerate(
+            zip(function.parameters, call.params[1:]), start=1
+        ):
+            if param.kind == ParamKind.ADAPT_TO_TYPE:
+                raise_unknown(
+                    node,
+                    None,
+                    ctx,
+                    reason=f"parameter {index} of {call.function} is Adapt to Type",
+                )
+            packed = marshal_row(
+                node,
+                call,
+                index,
+                param,
+                None,
+                values[name],
+                f"_{call.function}_{index}",
+                ctx.module_declarations,
+            )
+            lines += packed.setup
+            after += packed.after
+            values[f"{name}_arg"] = packed.passed
+            after.append(f"{values[f'out{index}']} = {packed.result}")
+    lines += [line.format(**values) for line in function.statements]
+    source = "\n".join(lines + after)
     return CodeFragment(
         statements=ast.parse(source).body,
         bindings=bindings,

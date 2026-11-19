@@ -161,7 +161,7 @@ class VIReferenceMixin(WireOriginMixin):
     def _opened_by(
         self, path_term: Terminal, node: AnyGraphNode, source: WireEnd
     ) -> ReferencedVI:
-        if isinstance(node, PrimitiveNode) and node.object_name == VI_CLASS:
+        if isinstance(node, PrimitiveNode) and is_on_vi_reference(node):
             code = _read_property_code(node, source.terminal_id)
             reference = _input_at(node, _PROPERTY_REFERENCE_INDEX)
             if code in (VI_NAME_PROPERTY_CODE, VI_PATH_PROPERTY_CODE) and reference:
@@ -301,6 +301,21 @@ def _input_at(node: AnyGraphNode, index: int) -> Terminal | None:
     return next(
         (t for t in node.terminals if t.direction == "input" and t.index == index),
         None,
+    )
+
+
+def is_on_vi_reference(node: PrimitiveNode) -> bool:
+    """Whether ``node``, a Property Node, is on a VI reference: a node whose heap
+    class is ``VI``, or whose reference input is a VI Server reference of class VI
+    (``ServerClass.VI``), as the input of a strict VI reference is (the node's
+    class is then ``VI (strict)`` or ``VI Interface Type N``)."""
+    if node.object_name == VI_CLASS:
+        return True
+    reference = _input_at(node, _PROPERTY_REFERENCE_INDEX)
+    return (
+        reference is not None
+        and reference.lv_type is not None
+        and reference.lv_type.server_class is ServerClass.VI
     )
 
 

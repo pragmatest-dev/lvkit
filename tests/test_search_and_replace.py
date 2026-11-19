@@ -132,7 +132,7 @@ class TestPlainMode:
             outs=("r", "n"),
             names={"repl": "match"},
         )
-        assert "lambda matched: match" in body(run)
+        assert "lambda match_2: match" in body(run)
         assert result_values(run.function("banana", "X", 0)) == ("bXnana", 1)
 
     def test_search_string_is_text_not_a_pattern(self) -> None:

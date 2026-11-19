@@ -5,8 +5,9 @@ Each part is written from its own type: a cluster as a tuple (anonymous) or a
 ``SimpleNamespace`` (named), an array as a list, a class object as a new object of
 its class, a Variant as the value it holds (``None`` when empty), an error cluster
 as the value of an error wire, any other value through the scalar formatting a
-constant of that type goes through. A timestamp is a ``hightime.datetime``. A part
-with no Python value is a gap."""
+constant of that type goes through. A timestamp is a ``hightime.datetime`` and a
+waveform a ``nitypes`` waveform (``waveform_values``). A part with no Python
+value is a gap."""
 
 from __future__ import annotations
 
@@ -16,7 +17,13 @@ from typing import TYPE_CHECKING
 import hightime
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.lv_type_codes import is_numeric_type_name, is_variant_type_name
+from lvkit.lv_type_codes import (
+    is_boolean_type_name,
+    is_numeric_type_name,
+    is_string_type_name,
+    is_variant_type_name,
+)
+from lvkit.measure_data import measure_data_value_type
 from lvkit.models import (
     LVType,
     LVTypeKind,
@@ -24,14 +31,37 @@ from lvkit.models import (
     _is_error_cluster,
     unique_names,
 )
-from lvkit.timestamp_value import timestamp_expression
+from lvkit.timestamp_value import TIMESTAMP_FLAVOR, timestamp_expression
 
-from .ast_utils import field_attribute_names
+from .ast_utils import (
+    INTEGER_TYPE_NAMES,
+    REAL_FLOAT_TYPE_NAMES,
+    field_attribute_names,
+)
+from .digital_values import (
+    DATA,
+    TRANSITIONS,
+    digital_data_function,
+    digital_waveform_build,
+    is_digital_data,
+    is_digital_flavor,
+)
+from .digital_values import (
+    IMPORTS as DIGITAL_IMPORTS,
+)
 from .variant_values import type_expression
 from .variants_module import VARIANT_NAME
+from .waveform_values import IMPORTS as WAVEFORM_IMPORTS
+from .waveform_values import build_expression, waveform_form
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
+
+_TIMESTAMP = LVType(
+    LVTypeKind.PRIMITIVE, underlying_type="MeasureData", measure_flavor=TIMESTAMP_FLAVOR
+)
+_DOUBLE = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
+_U32 = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumUInt32")
 
 # Types written as ``None`` whatever the decoded value.
 _NO_VALUE_TYPES = frozenset({"Void", "Picture"})
@@ -57,6 +87,8 @@ def constant_value_expression(
         if not isinstance(value, hightime.datetime):
             raise ConversionGap(_not_read(where, lv_type))
         return timestamp_expression(value)
+    if underlying == "MeasureData" and lv_type.measure_flavor:
+        return _waveform(ctx, lv_type.measure_flavor, value, where)
     if lv_type.kind == LVTypeKind.CLUSTER and lv_type.fields is not None:
         if not isinstance(value, dict):
             raise ConversionGap(_not_read(where, lv_type))
@@ -79,6 +111,95 @@ def constant_value_expression(
         f"{where[0].upper()}{where[1:]} is a {underlying or lv_type.kind.value} "
         "value, which lvkit cannot write as Python yet"
     )
+
+
+def _waveform(ctx: CodeGenContext, flavor: str, value: object, where: str) -> str:
+    """A waveform constant: the ``nitypes`` waveform of its samples, start time,
+    interval and attributes."""
+    form = waveform_form(flavor)
+    layout = measure_data_value_type(flavor)
+    if not isinstance(value, dict) or layout is None or not layout.fields:
+        raise ConversionGap(f"The value of {where} (a {flavor}) was not read")
+    if is_digital_data(flavor):
+        return _digital_data(ctx, value, where)
+    attributes = value.get("attributes")
+    ctx.imports.update(WAVEFORM_IMPORTS)
+    if is_digital_flavor(flavor):
+        ctx.imports.update(DIGITAL_IMPORTS)
+        y = value.get("Y")
+        if not isinstance(y, dict):
+            raise ConversionGap(f"The digital data of {where} was not read")
+        return digital_waveform_build(
+            _digital_data(ctx, y, f"the digital data of {where}"),
+            constant_value_expression(
+                ctx, _TIMESTAMP, value.get("t0"), f"the start time of {where}"
+            ),
+            constant_value_expression(
+                ctx, _DOUBLE, value.get("dt"), f"the interval of {where}"
+            ),
+            _extended_properties(ctx, attributes, where)
+            if isinstance(attributes, VariantData)
+            else None,
+        )
+    samples = next(f.type for f in layout.fields if f.name == "Y")
+    assert samples is not None and samples.element_type is not None
+    return build_expression(
+        form,
+        _array(ctx, samples.element_type, 1, value.get("Y"), where),
+        constant_value_expression(
+            ctx, _TIMESTAMP, value.get("t0"), f"the start time of {where}"
+        ),
+        constant_value_expression(
+            ctx, _DOUBLE, value.get("dt"), f"the interval of {where}"
+        ),
+        _extended_properties(ctx, attributes, where)
+        if isinstance(attributes, VariantData)
+        else None,
+    )
+
+
+def _digital_data(ctx: CodeGenContext, value: dict[str, object], where: str) -> str:
+    """Digital data: its rows and transitions, built uncompressed."""
+    unsigned = LVType(LVTypeKind.PRIMITIVE, underlying_type="NumUInt8")
+    transitions = value.get(TRANSITIONS)
+    data = value.get(DATA)
+    if not isinstance(transitions, list) or not isinstance(data, list):
+        raise ConversionGap(f"The digital data of {where} was not read from the VI")
+    return (
+        f"{digital_data_function(ctx)}("
+        f"{_array(ctx, _U32, 1, transitions, where)}, "
+        f"{_array(ctx, unsigned, 2, data, where)})"
+    )
+
+
+def _extended_properties(
+    ctx: CodeGenContext, variant: VariantData, where: str
+) -> str | None:
+    """The dict of extended properties from the attributes of a waveform's
+    Variant; nitypes holds only a Boolean, a number or a string for each, so any
+    other attribute is a gap."""
+    items = []
+    for name, attribute in variant.attributes:
+        held = attribute.value_type
+        underlying = held.underlying_type if held is not None else None
+        if held is None or not (
+            is_boolean_type_name(underlying)
+            or is_string_type_name(underlying)
+            or underlying in INTEGER_TYPE_NAMES
+            or underlying in REAL_FLOAT_TYPE_NAMES
+        ):
+            raise ConversionGap(
+                f"The attribute {name!r} of {where} holds "
+                f"{underlying or 'no value'}: nitypes keeps only a Boolean, a "
+                "number or a string for a waveform attribute"
+            )
+        items.append(
+            f"{name!r}: "
+            + constant_value_expression(
+                ctx, held, attribute.value, f"the attribute {name!r} of {where}"
+            )
+        )
+    return "{" + ", ".join(items) + "}" if items else None
 
 
 def _collection(

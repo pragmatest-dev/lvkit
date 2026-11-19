@@ -7,7 +7,6 @@ import pytest
 
 from lvkit.codegen.gaps import Gap
 from lvkit.models import ValueNotStored
-from tests.helpers import generated_variants
 from tests.native_vi import array, generate, node, scalar
 
 I32 = scalar("NumInt32")
@@ -112,6 +111,8 @@ def test_wired_input_with_no_variable_is_an_error_naming_the_input() -> None:
 
 
 def test_a_bundle_into_a_waveform_with_no_cluster_wired_in_builds_the_value() -> None:
+    from nitypes.waveform import AnalogWaveform
+
     from lvkit.models import LVType, LVTypeKind, Terminal
 
     waveform = LVType(
@@ -144,9 +145,10 @@ def test_a_bundle_into_a_waveform_with_no_cluster_wired_in_builds_the_value() ->
         [("fp:dt", "bd:2"), ("bd:0", "fp:wf")],
     )
     result = generated.function(2.5).wf
-    empty = generated_variants().Variant()
-    assert (result.dt, result.y, result.attributes) == (2.5, [], empty)
-    assert not hasattr(result, "error")
+    assert type(result) is AnalogWaveform
+    assert result.timing.sample_interval.total_seconds() == 2.5
+    assert result.raw_data.tolist() == []
+    assert dict(result.extended_properties) == {}
 
 
 def _loop_adding_one_to_an_indicator(gaps: list | None = None):

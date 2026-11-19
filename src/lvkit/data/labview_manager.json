@@ -1,5 +1,5 @@
 {
-  "_comment": "LabVIEW's own library functions that Call Library Function Nodes call by the library name LabVIEW (NI: \"LabVIEW Manager Functions\"), and the Python each is generated as. `parameters` are NI's names in call order (the return value excluded). `statements` are the Python source lines written in place of the call: {name} is the Python expression of the input of parameter `name`, and {out0} (the MgErr return value), {out1}, {out2} ... are the variables the output sides of the return value and of each parameter row are bound to; they are the only names a statement may assign for the node's results. `imports` and `declarations` (keys of the top-level `declarations`, each `{name}` of which is substituted by the module-level name it is defined under) are added to the module. A failure is the Python exception of the call.",
+  "_comment": "LabVIEW's own library functions that Call Library Function Nodes call by the library name LabVIEW (NI: \"LabVIEW Manager Functions\"), and the Python each is generated as. `parameters` are NI's names in call order (the return value excluded). `statements` are the Python source lines written in place of the call: {name} is the Python expression of the input of parameter `name`, and {out0} (the MgErr return value), {out1}, {out2} ... are the variables the output sides of the return value and of each parameter row are bound to; they are the only names a statement may assign for the node's results. `imports` and `declarations` (keys of the top-level `declarations`, each `{name}` of which is substituted by the module-level name it is defined under) are added to the module. A function with `marshalled` true has each parameter row packed into its C value first, as the Call Library Function Node packs it (a number, or a `ctypes` array for a numeric array): {name_arg} is that value in the statements, and each parameter's output side is read back from it after them (unlike the other functions, whose statements assign every {outN}). A failure is the Python exception of the call.",
   "declarations": {
     "FInfoRec": {
       "name": "_FInfoRec",
@@ -51,6 +51,17 @@
         "{out1} = {path}"
       ],
       "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/fgetinfo.html"
+    },
+    "MoveBlock": {
+      "parameters": ["ps", "pd", "size"],
+      "marshalled": true,
+      "imports": ["import ctypes"],
+      "declarations": [],
+      "statements": [
+        "ctypes.memmove({pd_arg}, {ps_arg}, {size})",
+        "{out0} = None"
+      ],
+      "doc_url": "https://docs-be.ni.com/bundle/labview-api-ref/page/properties-and-methods/lv-manager/moveblock.html"
     },
     "FSetInfo": {
       "parameters": ["path", "infop"],

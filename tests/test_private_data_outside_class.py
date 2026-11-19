@@ -20,7 +20,14 @@ from lvkit.graph.models import (
     VIContext,
 )
 from lvkit.models import ClusterField, Terminal
-from lvkit.run_report import EXIT_PARTIAL, Outcome, ProblemKind, RunReport
+from lvkit.run_report import (
+    EXIT_PARTIAL,
+    Outcome,
+    Problem,
+    ProblemKind,
+    ProblemStage,
+    RunReport,
+)
 from tests.class_graphs import (
     INT,
     Project,
@@ -187,3 +194,31 @@ def test_the_classs_own_vi_reads_its_private_data_with_no_gap(
         base = module("base").Base()
         base._Base__count = 5
         assert module("base").Base.get_count(base).value == 5
+
+
+@pytest.mark.parametrize("recorded_owner", [False, True])
+def test_a_class_that_failed_to_load_is_not_called_broken_in_labview(
+    tmp_path: Path, recorded_owner: bool
+) -> None:
+    project, orphan = _project(tmp_path, recorded_owner)
+    class_key = project.classes["Base"]
+    project.graph.record_problem(
+        class_key,
+        Problem(
+            vi="Base.lvclass",
+            key=class_key,
+            stage=ProblemStage.LOAD,
+            kind=ProblemKind.LVKIT_ERROR,
+            reason="Ambiguous reference -- 'Cfg.ctl' matches several files",
+        ),
+    )
+    gaps: list[Gap] = []
+    project.generate(gaps)
+    (gap,) = gaps
+    assert gap.vi == orphan
+    assert gap.reason == (
+        "Bundle/Unbundle By Name on the private data of the class Base.lvclass, "
+        "but the class could not be loaded, so lvkit cannot tell whether it "
+        "lists this VI (Ambiguous reference -- 'Cfg.ctl' matches several files)"
+    )
+    assert "broken in LabVIEW" not in gap.reason

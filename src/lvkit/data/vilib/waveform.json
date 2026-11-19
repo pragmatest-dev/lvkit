@@ -1,6 +1,6 @@
 {
   "category": "Waveform",
-  "count": 120,
+  "count": 122,
   "entries": [
     {
       "name": "Build Waveform",
@@ -783,6 +783,168 @@
           "description": "error out contains error information. This output provides standard error out functionality."
         }
       ]
+    },
+    {
+      "name": "DWDT Digital to Boolean Array",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-digital-to-boolean-array-vi.html",
+      "category": "Waveform",
+      "description": "Converts the digital waveform or digital data in the digital input to a 2D Boolean array. Wire data to the digital waveform input to determine the polymorphic instance to use or manually select the instance.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "digital waveform",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "digital_waveform",
+          "description": "digital waveform is the input digital waveform."
+        },
+        {
+          "name": "response on error",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "response_on_error",
+          "description": "response on error specifies what to do if any value in the digital input is not a 0, 1, H, or L. 0 Warn but Convert (default): any values that are not 0, 1, H, or L are converted to FALSE and a warning is returned in error out. 1 Fail: boolean array is returned empty and an error is returned in error out.",
+          "default": 0
+        },
+        {
+          "name": "mode",
+          "index": 9,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "mode",
+          "description": "mode specifies whether the conversion is performed on the data with the least significant bit (LSB) first or most significant bit (MSB) first. The order of the Boolean values in boolean array reflects the selection made in mode. 0 LSB First (default), 1 MSB First.",
+          "default": 0
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
+        },
+        {
+          "name": "boolean array",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "boolean_array",
+          "description": "boolean array returns the converted Boolean array. The order of the Boolean values in boolean array reflects the bit direction selected in mode."
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        }
+      ],
+      "runs_on_error": true,
+      "imports": [],
+      "python_code": "_states = [[int(_s) for _s in _row] for _row in {digital_waveform}.data.tolist()]\nif {response_on_error} == 1 and any(_s not in (0, 1, 3, 4) for _row in _states for _s in _row):\n    raise ValueError('a digital state is not 0, 1, H or L')\n{boolean_array} = [[_s in (1, 4) for _s in (_row if {mode} == 1 else _row[::-1])] for _row in _states]",
+      "inline": true,
+      "errors": [
+        {
+          "exception": "ValueError"
+        }
+      ]
+    },
+    {
+      "name": "DWDT Boolean Array to Digital",
+      "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/waveform/dwdtops-llb/dwdt-boolean-array-to-digital-vi.html",
+      "category": "Waveform",
+      "description": "Converts a 2D Boolean array to a digital waveform or digital data. You must manually select the polymorphic instance you want to use.",
+      "vi_path": null,
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "compress data (F)",
+          "index": 5,
+          "direction": "input",
+          "type": "Boolean",
+          "enum_values": null,
+          "python_param": "compress_data",
+          "description": "compress data specifies whether to compress the digital output. The default is FALSE.",
+          "default": false
+        },
+        {
+          "name": "boolean array",
+          "index": 11,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "boolean_array",
+          "description": "boolean array is the 2D Boolean array you want to convert to digital waveform."
+        },
+        {
+          "name": "sample rate",
+          "index": 10,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "sample_rate",
+          "description": "sample rate specifies the frequency in samples per second of the output digital waveform."
+        },
+        {
+          "name": "mode",
+          "index": 9,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "mode",
+          "description": "mode specifies whether the conversion is performed on the data with the least significant bit (LSB) first or most significant bit (MSB) first. The order of the digital data in digital waveform reflects the selection made in mode. 0 LSB First (default), 1 MSB First.",
+          "default": 0
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_in_no_error",
+          "description": "error in describes error conditions that occur before this node runs. With the following exception, this input provides standard error in functionality. This node runs normally even if an error occurred before this node runs."
+        },
+        {
+          "name": "digital waveform",
+          "index": 3,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "digital_waveform",
+          "description": "digital waveform returns the waveform resulting from the conversion of boolean array. The order of the digital data in digital waveform reflects the bit direction selected in mode."
+        },
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "error_out",
+          "description": "error out contains error information. This output provides standard error out functionality."
+        }
+      ],
+      "runs_on_error": true,
+      "imports": [
+        "import nitypes.bintime",
+        "import nitypes.waveform",
+        "import numpy"
+      ],
+      "python_code": "_lines = [[int(bool(_b)) for _b in (_row if {mode} == 1 else _row[::-1])] for _row in {boolean_array}]\n{digital_waveform} = nitypes.waveform.DigitalWaveform.from_lines(numpy.array(_lines, dtype=numpy.uint8).reshape(len(_lines), len(_lines[0]) if _lines else 0), numpy.uint8, timing=nitypes.waveform.Timing.create_with_regular_interval(nitypes.bintime.TimeDelta(1 / {sample_rate})))",
+      "inline": true
     },
     {
       "name": "Index Waveform Array",

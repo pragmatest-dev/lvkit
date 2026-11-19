@@ -93,14 +93,9 @@ class LocalIndicators:
         clears = ctx.graph.get_vi_properties(
             vi_name
         ).execution.clear_indicators_when_called
-        # An indicator's variable never takes the name of a parameter (a control
-        # may share the indicator's label).
-        parameters = ctx.parameter_var_names()
         for terminal_id, control in sorted(held.items()):
             owner = ctx.graph.terminal_node_id(terminal_id)
             variable = ctx.make_output_var(control.name or "indicator", owner)
-            while variable in parameters:
-                variable = ctx.make_output_var(control.name or "indicator", owner)
             ctx.bind(terminal_id, variable)
             found.variables[terminal_id] = variable
             if terminal_id in read and not clears:

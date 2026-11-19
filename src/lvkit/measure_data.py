@@ -39,13 +39,25 @@ _VALID_PRIMITIVES: frozenset[str] = frozenset(m.name for m in _lv_datatype.TD_FU
 
 
 @dataclass(frozen=True)
+class NitypesForm:
+    """The ``nitypes`` class a waveform flavor is in generated Python and the
+    NumPy dtype name of its samples."""
+
+    class_name: str
+    dtype: str
+
+
+@dataclass(frozen=True)
 class MeasureFlavor:
     """One flavor's table entry: its extractable components by field index (empty
-    when it has none) and its flattened value as a type (None when the layout is
-    not known)."""
+    when it has none), its flattened value as a type (None when the layout is
+    not known), and how generated Python holds a value of it: the ``nitypes``
+    form, or the reason it has none (``nitypes_gap``)."""
 
     components: dict[int, str]
     value_type: LVType | None
+    nitypes: NitypesForm | None = None
+    nitypes_gap: str | None = None
 
 
 # flavor name -> its entry, built once from the data file.
@@ -213,7 +225,20 @@ def _load_table() -> dict[str, MeasureFlavor]:
                 )
             components = layouts[layout_name]
         value_type = builder.build(entry["value"]) if "value" in entry else None
-        table[flavor] = MeasureFlavor(components, value_type)
+        form = entry.get("nitypes")
+        if form is not None and not (
+            isinstance(form, dict) and set(form) == {"class", "dtype"}
+        ):
+            raise ValueError(
+                f"measure_data.json: flavor {flavor!r} 'nitypes' must be an object "
+                f"of 'class' and 'dtype', got {form!r}"
+            )
+        table[flavor] = MeasureFlavor(
+            components,
+            value_type,
+            NitypesForm(form["class"], form["dtype"]) if form else None,
+            entry.get("nitypes_gap"),
+        )
 
     _TABLE = table
     return _TABLE
@@ -234,3 +259,9 @@ def measure_data_value_type(flavor: str | None) -> LVType | None:
     its parts), or ``None`` for a flavor whose structure is not known."""
     entry = _load_table().get(flavor) if flavor else None
     return entry.value_type if entry else None
+
+
+def measure_data_flavor(flavor: str | None) -> MeasureFlavor | None:
+    """The table entry of ``flavor`` (its ``nitypes`` form or the reason it has
+    none), or ``None`` for a flavor the table does not list."""
+    return _load_table().get(flavor) if flavor else None

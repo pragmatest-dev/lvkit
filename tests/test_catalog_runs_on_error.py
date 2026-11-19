@@ -52,6 +52,8 @@ VILIB_ENTRIES = frozenset(
         "waveform:Append Digital Samples",
         "waveform:Append Digital Signals",
         "waveform:Compress Digital",
+        "waveform:DWDT Boolean Array to Digital",
+        "waveform:DWDT Digital to Boolean Array",
         "waveform:Digital Comparison",
         "waveform:Digital Signal Subset",
         "waveform:Digital Size",

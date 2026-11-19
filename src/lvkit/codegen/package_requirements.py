@@ -22,7 +22,11 @@ REQUIREMENTS_FILE = "requirements.txt"
 
 # The import line of each package the code generator writes into modules by
 # itself, and the package it needs.
-_GENERATED_IMPORTS = {"import hightime": "hightime"}
+_GENERATED_IMPORTS = {
+    "import hightime": "hightime",
+    "import nitypes.waveform": "nitypes",
+    "import numpy": "numpy",
+}
 
 
 @dataclass
