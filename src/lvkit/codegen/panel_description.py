@@ -31,6 +31,11 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
 - ``states``: the name of each control or indicator the file stores hidden, disabled
   or greyed out to its properties by member name (``{"x": {"visible": False}}``),
   what a panel starts the control in (``control_property_state.stored_states``);
+- ``saved``: the name of each control or indicator that has a property the file saves
+  and a running VI cannot change to those properties by member name
+  (``{"e": {"strings": ["a", "b"]}}``: an Enum's items,
+  ``control_property_state.saved_properties``), what a reference's ``get_property``
+  reads;
 - ``classes``: the name of each control or indicator whose front-panel class has a
   VI Server class to that class's name (``FPTerminal.vi_server_class``), what its
   reference's ClassID reads (``control_classes``), and ``front_panel_classes``: the
@@ -58,7 +63,12 @@ from lvkit.graph.models import VIContext
 from lvkit.models import FPTerminal, Terminal
 
 from .ast_utils import interface_names, parameter_default_expr, parse_expr
-from .control_property_state import state_expression, stored_states
+from .control_property_state import (
+    StateValue,
+    saved_properties,
+    state_expression,
+    stored_states,
+)
 from .panel_clusters import cluster_specs
 from .panel_names import panel_names
 from .panel_types import panel_type_keywords
@@ -181,6 +191,20 @@ def _name_map(
     )
 
 
+def _property_dict(found: dict[str, dict[str, StateValue]]) -> ast.Dict:
+    """``{name: {member: value}}`` as a dict expression."""
+    return ast.Dict(
+        keys=[ast.Constant(value=name) for name in found],
+        values=[
+            ast.Dict(
+                keys=[ast.Constant(value=member) for member in held],
+                values=[state_expression(v) for v in held.values()],
+            )
+            for held in found.values()
+        ],
+    )
+
+
 def panel_statements(
     ctx: CodeGenContext,
     target: str,
@@ -244,27 +268,26 @@ def panel_statements(
             )
         )
     objects = [*controls, *indicators, *passed]
-    states = {
-        names[t.id]: stored
-        for t, _ in objects
-        if isinstance(t, FPTerminal) and (stored := stored_states(t))
-    }
-    if states:
-        keywords.append(
-            (
-                "states",
-                ast.Dict(
-                    keys=[ast.Constant(value=name) for name in states],
-                    values=[
-                        ast.Dict(
-                            keys=[ast.Constant(value=member) for member in stored],
-                            values=[state_expression(v) for v in stored.values()],
-                        )
-                        for stored in states.values()
-                    ],
-                ),
-            )
-        )
+    for keyword, found in (
+        (
+            "states",
+            {
+                names[t.id]: stored
+                for t, _ in objects
+                if isinstance(t, FPTerminal) and (stored := stored_states(t))
+            },
+        ),
+        (
+            "saved",
+            {
+                names[t.id]: held
+                for t, _ in objects
+                if isinstance(t, FPTerminal) and (held := saved_properties(t))
+            },
+        ),
+    ):
+        if found:
+            keywords.append((keyword, _property_dict(found)))
     fp_objects = [t for t, _ in objects if isinstance(t, FPTerminal)]
     for entry in (
         _name_map("classes", [(names[t.id], t.vi_server_class) for t in fp_objects]),

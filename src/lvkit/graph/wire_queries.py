@@ -394,9 +394,10 @@ class WireQueriesMixin:
         self, node: PrimitiveNode
     ) -> list[tuple[PropertyDef, Terminal, ControlProperty]]:
         """The rows of the bound Property Node ``node`` (reads and writes) of a
-        property listed in ``control_properties.json``, in row order, each with
-        its value terminal; the node must be bound to a control or indicator of
-        its VI."""
+        property listed in ``control_properties.json`` that a running VI can change,
+        in row order, each with its value terminal; the node must be bound to a
+        control or indicator of its VI. A property it cannot change (an Enum's
+        ``Strings[]``) is a saved value, not a panel state."""
         if self.bound_terminal(node) is None:
             return []
         rows: list[tuple[PropertyDef, Terminal, ControlProperty]] = []
@@ -406,7 +407,11 @@ class WireQueriesMixin:
             listed = control_property(
                 node.object_name or "", [s.code for s in row.segments]
             )
-            if term is not None and listed is not None:
+            if (
+                term is not None
+                and listed is not None
+                and listed.settable_while_running
+            ):
                 rows.append((row, term, listed))
         return rows
 

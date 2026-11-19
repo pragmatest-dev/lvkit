@@ -14,6 +14,11 @@ In a VI that takes ``live_io`` the read is ``live_io.get_property(..., <the
 variable>)``: the panel answers with the state it holds, and with no panel the
 variable does.
 
+A property the file saves and NI says a running VI cannot change (an Enum's
+``Strings[]``, ``ControlProperty.settable_while_running`` False) has no variable: it
+is ``saved_value``, a constant of the control, and the panel's ``saved`` keyword
+(``saved_properties``) holds it for a reference to read.
+
 A control whose stored state the file leaves open (the flags set the greyed bit
 without the disabled bit, which no corpus file does) has no variable: its read
 stays a gap (``property_node``)."""
@@ -57,6 +62,31 @@ def starting_state(control: FPTerminal, member: str) -> StateValue | None:
     ):
         return list(control.enum_values)
     return None
+
+
+def saved_value(control: FPTerminal, member: str) -> StateValue | None:
+    """The value of the property ``member`` that the file saves for ``control`` and
+    a running VI cannot change (``ControlProperty.settable_while_running`` False): an
+    Enum's ``Strings[]``, its items; None for a control that has no such property."""
+    if member == "strings" and control.vi_server_class == "Enum":
+        return list(control.enum_values)
+    return None
+
+
+SAVED_MEMBERS = ("strings",)
+"""The ``ControlProperty.member`` of the properties a control is saved with
+(``saved_value``)."""
+
+
+def saved_properties(control: FPTerminal) -> dict[str, StateValue]:
+    """Every property ``control`` is saved with, by member name: what the panel
+    holds for a reference to read (``Panel`` ``saved=``)."""
+    found: dict[str, StateValue] = {}
+    for member in SAVED_MEMBERS:
+        value = saved_value(control, member)
+        if value is not None:
+            found[member] = value
+    return found
 
 
 DEFAULT_STATES: dict[str, bool | int] = {"visible": True, "disabled": 0}

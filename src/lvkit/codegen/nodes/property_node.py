@@ -18,7 +18,12 @@ from lvkit.models import FPTerminal, PropertyDef, Terminal
 from ..ast_utils import build_assign, parse_expr, to_var_name
 from ..called_vi import run_call
 from ..context import CodeGenContext
-from ..control_property_state import assign_state, starting_state
+from ..control_property_state import (
+    assign_state,
+    saved_value,
+    starting_state,
+    state_expression,
+)
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
@@ -149,6 +154,17 @@ def _unsupported_reason(
                 f"{subject} {verb} {row.name!r}, which lvkit does not yet know "
                 "how to carry out while the VI runs"
             )
+        elif not listed.settable_while_running:
+            if written:
+                return (
+                    f"{subject} writes {row.name!r}, which NI's page says cannot "
+                    f"be set while the VI runs ({listed.doc_url})"
+                )
+            if saved_value(bound, listed.member) is None:
+                return (
+                    f"{subject} reads {row.name!r}, and the file does not record "
+                    "it for this control"
+                )
         elif not written and starting_state(bound, listed.member) is None:
             return (
                 f"{subject} reads {row.name!r}, and the file does not record "
@@ -255,6 +271,14 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             hooks = ctx.panel_hooks
             if listed is None:
                 raise CodeGenError("Property row is not a listed property", node)
+            if not listed.settable_while_running:
+                saved = saved_value(bound, listed.member)
+                if term.direction != "output" or saved is None:
+                    raise CodeGenError("Saved property has no value to read", node)
+                read = ctx.make_output_var(listed.member, node.id, term.id)
+                statements.append(build_assign(read, state_expression(saved)))
+                bindings[term.id] = read
+                continue
             if term.direction == "output":
                 state = ctx.property_states.get((bound.id, listed.member))
                 if state is None:
@@ -389,6 +413,13 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 )
             row = panel_reference.panel_row(node, prop)
             listed = panel_reference.property_row(node, prop)
+            if listed is not None and not listed.settable_while_running:
+                raise ConversionGap(
+                    f"Property '{prop.name}' on a {node.object_name} reference "
+                    "is written, and NI's page says it cannot be set while the "
+                    f"VI runs ({listed.doc_url})",
+                    node,
+                )
             title = is_on_vi_reference(
                 node
             ) and front_panel_title.is_title_row(prop)

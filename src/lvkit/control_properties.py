@@ -25,6 +25,7 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from ._data import data_dir
 
@@ -41,12 +42,16 @@ class ControlProperty:
     ``color`` (int, LabVIEW's ``0x00RRGGBB`` color); ``string_array`` (list of
     str, of lists of str for a two-dimensional array); ``number_array`` (list of
     int or float); ``array`` (list of the elements the wire carries, a cluster
-    staying a cluster); ``cluster`` (the cluster the wire carries)."""
+    staying a cluster); ``cluster`` (the cluster the wire carries).
+    ``settable_while_running`` is NI's "Settable when the VI is running": False
+    for a property the file saves and a running VI only reads (an Enum's
+    ``Strings[]``)."""
 
     name: str
     member: str
     value: str
     doc_url: str
+    settable_while_running: bool = True
 
 
 class ReferenceRow(Enum):
@@ -75,10 +80,14 @@ class _Table:
     reinit_to_default: frozenset[int]
 
 
-def _entries(raw: dict[str, dict[str, str]]) -> dict[str, ControlProperty]:
+def _entries(raw: dict[str, dict[str, Any]]) -> dict[str, ControlProperty]:
     return {
         code: ControlProperty(
-            entry["name"], entry["member"], entry["value"], entry["doc_url"]
+            entry["name"],
+            entry["member"],
+            entry["value"],
+            entry["doc_url"],
+            entry.get("settable_while_running", True),
         )
         for code, entry in raw.items()
     }

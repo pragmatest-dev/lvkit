@@ -47,6 +47,11 @@ member name of the property (``control_properties.json``); the panel holds the
 state of each property from then on (``Panel.property_of``): a view starts the
 widget in it and a running VI's ``get_property`` reads it.
 
+``saved`` maps the name of each control or indicator that has a property the file
+saves and a running VI cannot change (NI: "Settable when the VI is running: No", an
+Enum's ``Strings[]``) to those properties by member name; ``Control.get_property``
+reads them after the state a write or the file's flags set.
+
 ``controls`` maps the name of each control to its label; a control whose name is a
 parameter of the function is passed to it by a run, any other (a control off the
 connector pane) is held only; ``defaults`` a name to the function that makes the
@@ -257,9 +262,12 @@ class Control:
     def get_property(self, prop: str) -> Any:
         """The state of the property ``prop`` of the control (``"strings"``, a Combo
         Box's drop-down list): the last write, else the state the control is saved
-        in. A control the panel holds no state of ``prop`` for is not one this
-        property belongs to: error 1026."""
+        in, else what it is saved with that a run cannot change (``saved``: an
+        Enum's ``"strings"``). A control the panel holds no state of ``prop`` for is
+        not one this property belongs to: error 1026."""
         held = self.panel.property_of(self.name, prop, _NO_STATE)
+        if held is _NO_STATE:
+            held = self.panel.saved.get(self.name, {}).get(prop, _NO_STATE)
         if held is _NO_STATE and self.name in self.panel.undecoded_strings:
             raise NotImplementedError(
                 f"Strings[] of the Combo Box {self.label!r} read before any "
@@ -470,8 +478,10 @@ class PanelValues:
         classes: Mapping[str, str] | None = None,
         front_panel_classes: Mapping[str, str] | None = None,
         undecoded_strings: Mapping[str, int] | None = None,
+        saved: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
         self.undecoded_strings = dict(undecoded_strings or {})
+        self.saved = {name: dict(held) for name, held in (saved or {}).items()}
         clusters = clusters or {}
         classes = classes or {}
         front_panel_classes = front_panel_classes or {}
@@ -722,6 +732,7 @@ class Panel(PanelValues):
         classes: Mapping[str, str] | None = None,
         front_panel_classes: Mapping[str, str] | None = None,
         undecoded_strings: Mapping[str, int] | None = None,
+        saved: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
         super().__init__(
             controls,
@@ -735,6 +746,7 @@ class Panel(PanelValues):
             classes=classes,
             front_panel_classes=front_panel_classes,
             undecoded_strings=undecoded_strings,
+            saved=saved,
         )
         self.function = function
         self._results = dict(results or {})
