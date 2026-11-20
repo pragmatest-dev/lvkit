@@ -1603,7 +1603,30 @@ class ConstructionMixin:
                     == dst_term.lv_type.kind
                     == LVTypeKind.CLUSTER
                 ):
-                    if src_term.lv_type.fields and not dst_term.lv_type.fields:
+                    src_type, dst_type = src_term.lv_type, dst_term.lv_type
+                    # A wire is one value: a cluster saved without its typedef
+                    # on one end (a Bundle's output, an unlinked copy) is the
+                    # typedef the other end names, so both ends write and read
+                    # it the same way (an attribute object, not a tuple).
+                    if (
+                        dst_type.typedef_name
+                        and not src_type.typedef_name
+                        and not src_type.classname
+                        and len(src_type.fields or ()) == len(dst_type.fields or ())
+                        and src_type.fields
+                    ):
+                        src_term.lv_type = dst_type
+                        changed = True
+                    elif (
+                        src_type.typedef_name
+                        and not dst_type.typedef_name
+                        and not dst_type.classname
+                        and len(src_type.fields or ()) == len(dst_type.fields or ())
+                        and dst_type.fields
+                    ):
+                        dst_term.lv_type = src_type
+                        changed = True
+                    elif src_term.lv_type.fields and not dst_term.lv_type.fields:
                         dst_term.lv_type.fields = src_term.lv_type.fields
                         changed = True
                     elif dst_term.lv_type.fields and not src_term.lv_type.fields:
