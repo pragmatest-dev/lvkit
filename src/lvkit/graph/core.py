@@ -240,6 +240,9 @@ class InMemoryVIGraph(
         self._dep_load_mode: dict[str, LoadMode] = {}
         # Source file paths: vi_name -> Path to original .vi file
         self._source_paths: dict[str, Path] = {}
+        # The VIs stored inside a caller (an Express VI's copy): the path each is
+        # identified by (``<caller file>/<name>.vi``) -> the file holding its bytes.
+        self._embedded_copies: dict[Path, Path] = {}
         # vi_key -> qualified DISPLAY name (qname/basename). Display only, never a
         # lookup key.
         self._vi_display_names: dict[str, str] = {}
@@ -371,6 +374,7 @@ class InMemoryVIGraph(
         self._loaded_vis.clear()
         self._dep_load_mode.clear()
         self._source_paths.clear()
+        self._embedded_copies.clear()
         self._vi_metadata.clear()
         self._vi_properties.clear()
         self._vi_health.clear()

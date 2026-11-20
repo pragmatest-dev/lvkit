@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import struct
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from pathlib import Path
 
 from .cache_paths import LibraryRoots
@@ -82,6 +83,31 @@ def _strings(link: ET.Element, tag: str) -> tuple[str, ...]:
     return tuple(s.text or "" for s in link.findall(f"{tag}/String"))
 
 
+def _is_wrapper(
+    instance_xml: Path,
+    link: InstanceSourceLink,
+    catalog_python: Callable[[str], bool] | None,
+) -> bool:
+    """Whether the instance is a wrapper: its own block diagram calls the VI it
+    is an instance of (an ``IUVI`` record naming the same file as its source
+    link), so it has a diagram and front panel of its own, as an Express VI's
+    copy does, and a call to it runs that diagram, not the source. An instance
+    whose diagram records no such call, or whose records are not readable, is
+    not one. A source VI the catalog writes the code of (``catalog_python``,
+    given the source's recorded path) is called through that code, with the
+    settings the instance saves."""
+    if catalog_python is not None and catalog_python("/".join(link.path_tokens)):
+        return False
+    root = parsed_xml(instance_xml)
+    for call in root.iterfind("LIbd/Section//IUVI"):
+        if (
+            _strings(call, "LinkSaveQualName") == link.name_parts
+            and _strings(call, "LinkSavePathRef") == link.path_tokens
+        ):
+            return True
+    return False
+
+
 def _instances(directory: Path, instance_files: list[str]) -> list[tuple[str, str]]:
     """``(name, file name)`` of each embedded instance of a caller, in the order
     the caller's ``VINS`` block lists them (``instance_files``: the name list,
@@ -102,13 +128,20 @@ def _instances(directory: Path, instance_files: list[str]) -> list[tuple[str, st
 
 
 def read_instance_sources(
-    directory: Path, instance_files: list[str], roots: LibraryRoots
+    directory: Path,
+    instance_files: list[str],
+    roots: LibraryRoots,
+    catalog_python: Callable[[str], bool] | None = None,
 ) -> dict[str, ParsedDependencyRef]:
     """For each embedded instance of a caller, the VI it is an instance of, keyed
     by the instance's own file name (``<guid>.vi``).
 
     ``roots`` are the library folders of the run asking, which file the instance
     VIs' extractions.
+
+    ``catalog_python`` says, for the recorded path of a source VI, whether the
+    vi.lib catalog gives Python for it: an instance of such a VI is read here
+    even when its own diagram calls it (see ``_is_wrapper``).
 
     ``instance_files`` are the caller's ``VINS`` sidecar files
     (``ParsedVIMetadata.instance_files``: the name list, then one file per
@@ -129,6 +162,8 @@ def read_instance_sources(
             continue
         if link is None or not link.name_parts or not link.path_tokens:
             continue
+        if _is_wrapper(instance_xml, link, catalog_python):
+            continue
         # The instance's path is <caller>/<instance>, one level below the
         # caller's: one leading empty token (one level up) is consumed.
         tokens = list(link.path_tokens)
@@ -141,6 +176,40 @@ def read_instance_sources(
             path_type=link.path_type,
         )
     return sources
+
+
+def read_wrapper_instances(
+    directory: Path,
+    instance_files: list[str],
+    roots: LibraryRoots,
+    catalog_python: Callable[[str], bool] | None = None,
+) -> dict[str, Path]:
+    """For each embedded instance of a caller whose own diagram calls the VI it
+    is an instance of (an Express VI's saved copy), the file holding its bytes,
+    keyed by the instance's name. A call of such an instance runs the instance,
+    which is a VI of its own stored inside the caller; the other instances are
+    read by ``read_instance_sources``.
+
+    ``instance_files``, ``directory`` and ``catalog_python`` are as for
+    ``read_instance_sources``.
+    """
+    wrappers: dict[str, Path] = {}
+    for name, file_name in _instances(directory, instance_files):
+        instance_xml = extract_vi_xml(directory / file_name, roots=roots)[2]
+        if instance_xml is None:
+            continue
+        try:
+            link = _source_link(instance_xml)
+        except LinkTableError:
+            continue
+        if (
+            link is not None
+            and link.name_parts
+            and link.path_tokens
+            and _is_wrapper(instance_xml, link, catalog_python)
+        ):
+            wrappers[name] = directory / file_name
+    return wrappers
 
 
 def read_instance_defaults(

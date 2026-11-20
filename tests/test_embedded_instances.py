@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.cache_paths import LibraryRoots
-from lvkit.embedded_instances import read_instance_sources
+from lvkit.embedded_instances import read_instance_sources, read_wrapper_instances
 from lvkit.parser.link_table import (
     LinkTableError,
     LinkTableVersion,
@@ -212,7 +212,107 @@ def test_instance_source_is_read_from_the_raw_table_when_extraction_left_one(
     assert sources["aaaa.vi"].path_tokens == ["", "Helpers", "Adapt.vim"]
 
 
+def _iuvi(names: list[str], tokens: list[str]) -> str:
+    """A call record of the instance's own block diagram."""
+    qual = "".join(f"<String>{n}</String>" for n in names)
+    path = "".join(f"<String>{t}</String>" if t else "<String />" for t in tokens)
+    return (
+        "<BDHP><IUVI LinkSaveFlag='0'>"
+        f"<LinkSaveQualName>{qual}</LinkSaveQualName>"
+        f"<LinkSavePathRef>{path}</LinkSavePathRef></IUVI></BDHP>"
+    )
+
+
+_WRAPPER_XML = """<?xml version='1.0' encoding='utf-8'?>
+<RSRC Type="LVIN">
+  <LVSR><Section Index="0" Name="{name}">
+    <Version Major="21" Minor="0" Bugfix="0" Stage="release" Build="0" />
+  </Section></LVSR>
+  <LIvi><Section Index="0" Format="inline"><LVIN>
+{links}
+  </LVIN></Section></LIvi>
+  <LIbd><Section Index="0" Format="inline">{calls}</Section></LIbd>
+</RSRC>
+"""
+
+_SHARED = ["vilib", "express", "rvi", "timingcommon", "nirviCommon.vi"]
+
+
+def test_instance_whose_diagram_calls_its_source_is_a_wrapper(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    files = _caller(tmp_path, ["0", "aaaa.vi", "1"])
+    source = _vivi(["nirviCommon.vi"], _SHARED)
+    instance_xmls = {
+        # An Express VI's copy: its diagram calls the VI it is an instance of.
+        "vi_VINS1.bin": _WRAPPER_XML.format(
+            name="0",
+            links=source + _IVOV,
+            calls=_iuvi(["nirviCommon.vi"], _SHARED),
+        ),
+        # A malleable VI's copy: its diagram calls other VIs, not its source.
+        "vi_VINS2.bin": _WRAPPER_XML.format(
+            name="aaaa.vi",
+            links=_IVOV + _vivi(["Adapt.vim"], ["", "", "Adapt.vim"]),
+            calls=_iuvi(["Dep.vi"], ["", "", "Dep.vi"]),
+        ),
+        # The same file name at another path is another VI.
+        "vi_VINS3.bin": _WRAPPER_XML.format(
+            name="1",
+            links=source + _IVOV,
+            calls=_iuvi(["nirviCommon.vi"], ["", "Other", "nirviCommon.vi"]),
+        ),
+    }
+
+    def fake_extract(path: Path, roots: object):
+        xml = tmp_path / f"{path.stem}.instance.xml"
+        xml.write_text(instance_xmls[path.name], encoding="utf-8")
+        return xml, None, xml
+
+    monkeypatch.setattr("lvkit.embedded_instances.extract_vi_xml", fake_extract)
+
+    wrappers = read_wrapper_instances(tmp_path, files, LibraryRoots())
+    sources = read_instance_sources(tmp_path, files, LibraryRoots())
+
+    assert wrappers == {"0": tmp_path / "vi_VINS1.bin"}
+    # A wrapper is the VI that runs, so it is no instance of its source.
+    assert sorted(sources) == ["1", "aaaa.vi"]
+
+
+def test_instance_of_a_catalog_vi_is_read_as_that_vi_even_when_it_calls_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    files = _caller(tmp_path, ["0"])
+    xml = tmp_path / "instance.xml"
+    xml.write_text(
+        _WRAPPER_XML.format(
+            name="0",
+            links=_vivi(["nirviCommon.vi"], _SHARED) + _IVOV,
+            calls=_iuvi(["nirviCommon.vi"], _SHARED),
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "lvkit.embedded_instances.extract_vi_xml", lambda _p, roots: (xml, None, xml)
+    )
+    asked: list[str] = []
+
+    def catalog_python(path: str) -> bool:
+        asked.append(path)
+        return True
+
+    wrappers = read_wrapper_instances(
+        tmp_path, files, LibraryRoots(), catalog_python
+    )
+    sources = read_instance_sources(tmp_path, files, LibraryRoots(), catalog_python)
+
+    assert wrappers == {}
+    assert list(sources) == ["0"]
+    assert asked == ["vilib/express/rvi/timingcommon/nirviCommon.vi"] * 2
+
+
 def test_caller_without_instances_has_no_sources(tmp_path: Path) -> None:
+    assert read_wrapper_instances(tmp_path, [], LibraryRoots()) == {}
     assert read_instance_sources(tmp_path, [], LibraryRoots()) == {}
 
 

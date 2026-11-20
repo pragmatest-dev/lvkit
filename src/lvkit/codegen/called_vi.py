@@ -54,7 +54,14 @@ def run_call(node: VINode, ctx: CodeGenContext) -> RunCall:
         return RunCall(run, Path(name.rsplit(":", 1)[-1]).name, variant)
     if node.callee_key is None and node.qualified_path and node.qualified_name:
         return RunCall(node, node.qualified_name, None)
-    return RunCall(node, node.name or "", node.callee_key, _no_variant(node, ctx))
+    name = node.name or ""
+    if graph is not None and node.callee_key is not None:
+        # The function a module defines is named for its own VI, whatever the
+        # call is labelled on the diagram (an Express VI's call is labelled with
+        # the Express VI's name).
+        if graph.is_loaded_vi(node.callee_key):
+            name = Path(graph.vi_display_name(node.callee_key).rsplit(":", 1)[-1]).name
+    return RunCall(node, name, node.callee_key, _no_variant(node, ctx))
 
 
 def _no_variant(node: VINode, ctx: CodeGenContext) -> str | None:
