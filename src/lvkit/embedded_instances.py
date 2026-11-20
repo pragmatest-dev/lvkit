@@ -15,7 +15,8 @@ from __future__ import annotations
 import logging
 import struct
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
+from collections.abc import Callable, Collection
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .cache_paths import LibraryRoots
@@ -95,7 +96,8 @@ def _is_wrapper(
     whose diagram records no such call, or whose records are not readable, is
     not one. A source VI the catalog writes the code of (``catalog_python``,
     given the source's recorded path) is called through that code, with the
-    settings the instance saves."""
+    settings the instance saves; so a catalog entry added later for a source
+    whose copy is read as a wrapper today makes its calls use the catalog."""
     if catalog_python is not None and catalog_python("/".join(link.path_tokens)):
         return False
     root = parsed_xml(instance_xml)
@@ -127,30 +129,44 @@ def _instances(directory: Path, instance_files: list[str]) -> list[tuple[str, st
     return list(zip(names, instance_files[1:], strict=True))
 
 
-def read_instance_sources(
+@dataclass(frozen=True)
+class EmbeddedInstances:
+    """The embedded instances of a caller, each in the one group it belongs to,
+    keyed by the instance's own name.
+
+    ``sources``: a malleable VI's copy, with the VI it is an instance of; a call
+    of it is a call of that VI. ``wrappers``: the copy of an Express VI whose own
+    diagram calls the VI it is an instance of, with the file holding its bytes;
+    a call of it runs the copy, a VI of its own stored inside the caller."""
+
+    sources: dict[str, ParsedDependencyRef] = field(default_factory=dict)
+    wrappers: dict[str, Path] = field(default_factory=dict)
+
+
+def read_instances(
     directory: Path,
     instance_files: list[str],
     roots: LibraryRoots,
     catalog_python: Callable[[str], bool] | None = None,
-) -> dict[str, ParsedDependencyRef]:
-    """For each embedded instance of a caller, the VI it is an instance of, keyed
-    by the instance's own file name (``<guid>.vi``).
+) -> EmbeddedInstances:
+    """Classify each embedded instance of a caller once (see
+    ``EmbeddedInstances``).
 
     ``roots`` are the library folders of the run asking, which file the instance
     VIs' extractions.
 
     ``catalog_python`` says, for the recorded path of a source VI, whether the
-    vi.lib catalog gives Python for it: an instance of such a VI is read here
+    vi.lib catalog writes the code for it: an instance of such a VI is a source,
     even when its own diagram calls it (see ``_is_wrapper``).
 
     ``instance_files`` are the caller's ``VINS`` sidecar files
     (``ParsedVIMetadata.instance_files``: the name list, then one file per
-    instance) in ``directory``, the caller's extraction folder. Each returned
-    ref's ``path_tokens`` are relative to the CALLER file, like every other
-    recorded dependency path. A caller with no embedded instances returns
-    ``{}``; an embedded VI that is not an instance of another VI is left out.
+    instance) in ``directory``, the caller's extraction folder. Each source's
+    ``path_tokens`` are relative to the CALLER file, like every other recorded
+    dependency path. A caller with no embedded instances has none of either; an
+    embedded VI that is not an instance of another VI is in neither.
     """
-    sources: dict[str, ParsedDependencyRef] = {}
+    found = EmbeddedInstances()
     for name, file_name in _instances(directory, instance_files):
         instance_xml = extract_vi_xml(directory / file_name, roots=roots)[2]
         if instance_xml is None:
@@ -163,57 +179,27 @@ def read_instance_sources(
         if link is None or not link.name_parts or not link.path_tokens:
             continue
         if _is_wrapper(instance_xml, link, catalog_python):
+            found.wrappers[name] = directory / file_name
             continue
         # The instance's path is <caller>/<instance>, one level below the
         # caller's: one leading empty token (one level up) is consumed.
         tokens = list(link.path_tokens)
         if tokens[0] == "":
             tokens = tokens[1:]
-        sources[name] = ParsedDependencyRef(
+        found.sources[name] = ParsedDependencyRef(
             name=link.name_parts[-1],
             path_tokens=tokens,
             qualified_name=":".join(link.name_parts),
             path_type=link.path_type,
         )
-    return sources
-
-
-def read_wrapper_instances(
-    directory: Path,
-    instance_files: list[str],
-    roots: LibraryRoots,
-    catalog_python: Callable[[str], bool] | None = None,
-) -> dict[str, Path]:
-    """For each embedded instance of a caller whose own diagram calls the VI it
-    is an instance of (an Express VI's saved copy), the file holding its bytes,
-    keyed by the instance's name. A call of such an instance runs the instance,
-    which is a VI of its own stored inside the caller; the other instances are
-    read by ``read_instance_sources``.
-
-    ``instance_files``, ``directory`` and ``catalog_python`` are as for
-    ``read_instance_sources``.
-    """
-    wrappers: dict[str, Path] = {}
-    for name, file_name in _instances(directory, instance_files):
-        instance_xml = extract_vi_xml(directory / file_name, roots=roots)[2]
-        if instance_xml is None:
-            continue
-        try:
-            link = _source_link(instance_xml)
-        except LinkTableError:
-            continue
-        if (
-            link is not None
-            and link.name_parts
-            and link.path_tokens
-            and _is_wrapper(instance_xml, link, catalog_python)
-        ):
-            wrappers[name] = directory / file_name
-    return wrappers
+    return found
 
 
 def read_instance_defaults(
-    directory: Path, instance_files: list[str], roots: LibraryRoots
+    directory: Path,
+    instance_files: list[str],
+    roots: LibraryRoots,
+    skip: Collection[str] = (),
 ) -> dict[str, dict[int, str | None]]:
     """For each embedded instance of a caller, the value each of its controls
     holds when a call leaves it unwired, by connector-pane slot and keyed by the
@@ -223,10 +209,13 @@ def read_instance_defaults(
     its dialog as their saved defaults. A value is the control's saved default as
     text, or ``None`` when the control saves none (it holds its type's default).
     Only controls (inputs) on the instance's connector pane are listed; an
-    instance whose files cannot be read is left out.
+    instance whose files cannot be read, or whose name is in ``skip``, is left
+    out.
     """
     defaults: dict[str, dict[int, str | None]] = {}
     for name, file_name in _instances(directory, instance_files):
+        if name in skip:
+            continue
         bd_xml, fp_xml, main_xml = extract_vi_xml(directory / file_name, roots=roots)
         parsed = parse_vi(bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml)
         pane = parsed.connector_pane

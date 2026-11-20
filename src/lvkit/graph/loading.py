@@ -32,8 +32,7 @@ from lvkit.library_folders import Folders, SearchEntries
 from ..cache_paths import LibraryRoots
 from ..embedded_instances import (
     read_instance_defaults,
-    read_instance_sources,
-    read_wrapper_instances,
+    read_instances,
 )
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
@@ -1798,28 +1797,23 @@ class LoadingMixin:
 
             # A malleable-VI call is recorded as an embedded instance named by a
             # GUID; the file it is an instance of is what the call is to.
-            instance_sources = read_instance_sources(
-                main_xml.parent,
-                metadata.instance_files,
-                self.cache_roots,
-                self.vilib_catalog.writes_code,
-            )
             # An Express VI is saved as a VI of its own stored in the caller: its
             # dialog settings are the saved values of that VI's controls, and a
-            # call of it runs it.
-            wrapper_files = read_wrapper_instances(
+            # call of it runs it (``wrapper_files``).
+            embedded = read_instances(
                 main_xml.parent,
                 metadata.instance_files,
                 self.cache_roots,
                 self.vilib_catalog.writes_code,
             )
-            instance_defaults = {
-                name: defaults
-                for name, defaults in read_instance_defaults(
-                    main_xml.parent, metadata.instance_files, self.cache_roots
-                ).items()
-                if name not in wrapper_files
-            }
+            instance_sources = embedded.sources
+            wrapper_files = embedded.wrappers
+            instance_defaults = read_instance_defaults(
+                main_xml.parent,
+                metadata.instance_files,
+                self.cache_roots,
+                skip=wrapper_files,
+            )
 
             # Sorted: dependency load ORDER decides which same-named candidate
             # file claims a name first, so a hash-ordered set here made the
@@ -2362,9 +2356,11 @@ class LoadingMixin:
         mode: LoadMode,
     ) -> str | None:
         """Load the VI stored inside a caller (an Express VI's copy) as an
-        ordinary SubVI of the caller. Its identity is the path LabVIEW records
-        for it below its caller, ``<caller file>/<name>.vi``, as an ``.llb``
-        member's is; its bytes are ``bytes_file`` in the caller's extraction.
+        ordinary SubVI of the caller. It is identified as ``<caller file>/<name>.vi``
+        (the name the caller's ``VINS`` block lists it by), the way an ``.llb``
+        member is identified by ``<llb>/<member>``; its bytes are ``bytes_file``
+        in the caller's extraction. The identity is a graph key, not a file a
+        command can be given.
         Returns the VI's identity (see ``_load_dependency``)."""
         leaf = f"{qualified_name.rsplit(':', 1)[-1]}.vi"
         identity = caller_file / leaf

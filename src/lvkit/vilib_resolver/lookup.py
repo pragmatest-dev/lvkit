@@ -230,7 +230,10 @@ class _VILibLookupMixin:
     def writes_code(self, recorded_path: str | None) -> bool:
         """Whether the catalog writes the code of a call of the VI a call records
         ``recorded_path`` for: from Python (``has_python``) or from an operation
-        the generator knows (``op``)."""
+        the generator knows (``op``). ``has_python`` alone is the test for
+        whether dependency loading stops at the VI; this one also counts an
+        ``op``, because an Express VI whose source has either is called through
+        the catalog, not through its saved copy."""
         vi = self.resolve_recorded(recorded_path)
         return vi is not None and (vi.op is not None or vi.python_code is not None)
 

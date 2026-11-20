@@ -56,10 +56,9 @@ def run_call(node: VINode, ctx: CodeGenContext) -> RunCall:
         return RunCall(node, node.qualified_name, None)
     name = node.name or ""
     if graph is not None and node.callee_key is not None:
-        # The function a module defines is named for its own VI, whatever the
-        # call is labelled on the diagram (an Express VI's call is labelled with
-        # the Express VI's name).
-        if graph.is_loaded_vi(node.callee_key):
+        # An Express VI's call is labelled with the Express VI's name, but the
+        # function its saved copy defines is named for that copy's own file.
+        if graph.is_embedded_copy(node.callee_key):
             name = Path(graph.vi_display_name(node.callee_key).rsplit(":", 1)[-1]).name
     return RunCall(node, name, node.callee_key, _no_variant(node, ctx))
 

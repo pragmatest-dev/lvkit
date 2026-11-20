@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from lvkit.cache_paths import LibraryRoots
-from lvkit.embedded_instances import read_instance_sources, read_wrapper_instances
+from lvkit.embedded_instances import EmbeddedInstances, read_instances
 from lvkit.parser.link_table import (
     LinkTableError,
     LinkTableVersion,
@@ -167,7 +167,7 @@ def test_instance_sources_are_keyed_by_vins_name_and_caller_relative(
 
     monkeypatch.setattr("lvkit.embedded_instances.extract_vi_xml", fake_extract)
 
-    sources = read_instance_sources(tmp_path, files, LibraryRoots())
+    sources = read_instances(tmp_path, files, LibraryRoots()).sources
 
     assert sorted(sources) == ["aaaa.vi", "bbbb.vi"]
     first = sources["aaaa.vi"]
@@ -206,7 +206,7 @@ def test_instance_source_is_read_from_the_raw_table_when_extraction_left_one(
         lambda _p, roots: (xml, None, xml),
     )
 
-    sources = read_instance_sources(tmp_path, files, LibraryRoots())
+    sources = read_instances(tmp_path, files, LibraryRoots()).sources
 
     assert list(sources) == ["aaaa.vi"]
     assert sources["aaaa.vi"].path_tokens == ["", "Helpers", "Adapt.vim"]
@@ -271,12 +271,11 @@ def test_instance_whose_diagram_calls_its_source_is_a_wrapper(
 
     monkeypatch.setattr("lvkit.embedded_instances.extract_vi_xml", fake_extract)
 
-    wrappers = read_wrapper_instances(tmp_path, files, LibraryRoots())
-    sources = read_instance_sources(tmp_path, files, LibraryRoots())
+    found = read_instances(tmp_path, files, LibraryRoots())
 
-    assert wrappers == {"0": tmp_path / "vi_VINS1.bin"}
+    assert found.wrappers == {"0": tmp_path / "vi_VINS1.bin"}
     # A wrapper is the VI that runs, so it is no instance of its source.
-    assert sorted(sources) == ["1", "aaaa.vi"]
+    assert sorted(found.sources) == ["1", "aaaa.vi"]
 
 
 def test_instance_of_a_catalog_vi_is_read_as_that_vi_even_when_it_calls_it(
@@ -301,19 +300,15 @@ def test_instance_of_a_catalog_vi_is_read_as_that_vi_even_when_it_calls_it(
         asked.append(path)
         return True
 
-    wrappers = read_wrapper_instances(
-        tmp_path, files, LibraryRoots(), catalog_python
-    )
-    sources = read_instance_sources(tmp_path, files, LibraryRoots(), catalog_python)
+    found = read_instances(tmp_path, files, LibraryRoots(), catalog_python)
 
-    assert wrappers == {}
-    assert list(sources) == ["0"]
-    assert asked == ["vilib/express/rvi/timingcommon/nirviCommon.vi"] * 2
+    assert found.wrappers == {}
+    assert list(found.sources) == ["0"]
+    assert asked == ["vilib/express/rvi/timingcommon/nirviCommon.vi"]
 
 
 def test_caller_without_instances_has_no_sources(tmp_path: Path) -> None:
-    assert read_wrapper_instances(tmp_path, [], LibraryRoots()) == {}
-    assert read_instance_sources(tmp_path, [], LibraryRoots()) == {}
+    assert read_instances(tmp_path, [], LibraryRoots()) == EmbeddedInstances()
 
 
 def test_parse_instance_files_lists_vins_sections_in_section_order() -> None:
