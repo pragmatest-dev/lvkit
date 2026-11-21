@@ -516,6 +516,8 @@ _IMPORT_BY_PATH = PATH_FROM_HERE + """\
 while {parts}[0] == "..":
     {parts}.pop(0)
     {up} += 1
+if {up} >= len(__package__.split(".")):
+    raise LookupError("the path is outside the generated package")
 {stem} = {parts}.pop()
 {package} = "." * ({up} + 1) + "".join(_module_part(p) + "." for p in {parts})
 """
@@ -660,7 +662,7 @@ def _not_found_is_error_7(
             body=fragment.statements,
             handlers=[
                 ast.ExceptHandler(
-                    type=parse_expr("LookupError"),
+                    type=parse_expr("(LookupError, ModuleNotFoundError)"),
                     name=None,
                     body=[
                         build_assign(reference_var, parse_expr("None")),
