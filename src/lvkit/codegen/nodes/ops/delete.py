@@ -76,15 +76,15 @@ def delete(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
         + f"else:\n    os.remove({path})"
     )
     bindings: dict[str, str] = {}
+    statements.extend(ast.parse(source).body)
     deleted = terminal(node, "output", pane["deleted"])
     if deleted is not None:
         # The pane's own label for it is "dup path" (1417): the path comes out as
-        # it went in, assigned before the delete can fail, and the catalog keeps
-        # it on a failure (``keeps_on_failure``).
+        # it went in. When the delete fails the catalog's ``passes_input`` gives
+        # the wired path.
         var = ctx.make_output_var("deleted_path", node.id, terminal_id=deleted.id)
         statements.append(build_assign(var, parse_expr(path)))
         bindings[deleted.id] = var
-    statements.extend(ast.parse(source).body)
     cancelled = terminal(node, "output", 1) if node.prim_id == 8056 else None
     if cancelled is not None:
         var = ctx.make_output_var("cancelled", node.id, terminal_id=cancelled.id)

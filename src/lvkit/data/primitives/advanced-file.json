@@ -196,7 +196,7 @@
           "direction": "output",
           "name": "dup path",
           "type": "Path",
-          "keeps_on_failure": true
+          "passes_input": 3
         },
         {
           "index": 2,
@@ -546,7 +546,7 @@
           "name": "deleted path",
           "python_name": "path_out",
           "type": "Path",
-          "keeps_on_failure": true
+          "passes_input": 11
         }
       ],
       "verified": false,
