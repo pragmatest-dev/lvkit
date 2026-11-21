@@ -14,6 +14,7 @@ from lvkit.codegen.flat import (
     Integer,
     Real,
     Record,
+    RefnumInteger,
     Sequence,
     Text,
     UnsupportedLayout,
@@ -154,6 +155,16 @@ def test_type_cast_refnum_flattens_as_a_32_bit_integer() -> None:
     assert cast(refnum, U32)(4660).r == 4660
 
 
+def test_not_a_refnum_is_the_integer_zero_when_cast_or_flattened() -> None:
+    refnum = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="ByteStream"
+    )
+    assert cast(refnum, U32)(None).r == 0
+    assert cast(_DVR, U32)(None).r == 0
+    flattened = RefnumInteger("I", "c_uint32", 4).flatten("x", False, 0, None)
+    assert "0 if x is None else x" in str(flattened)
+
+
 _DVR = LVType(
     kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="DataValueRef"
 )
@@ -228,7 +239,7 @@ def test_layouts_of_wire_types() -> None:
     visa = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="VisaRef"
     )
-    assert layout_of(byte_stream) == Integer("I", "c_uint32", 4)
+    assert layout_of(byte_stream) == RefnumInteger("I", "c_uint32", 4)
     assert layout_of(visa) == Text()  # flattened as a string
 
 

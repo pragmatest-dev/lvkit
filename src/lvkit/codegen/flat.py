@@ -278,6 +278,19 @@ class Integer(Layout):
 
 
 @dataclass(frozen=True)
+class RefnumInteger(Integer):
+    """A refnum, flattened as its 32-bit integer; Not a Refnum (``None``) is 0."""
+
+    def flatten(self, value, prefix, depth, fns):
+        return [
+            Fixed(
+                self.code,
+                (f"ctypes.{self.ctype}(0 if {value} is None else {value}).value",),
+            )
+        ]
+
+
+@dataclass(frozen=True)
 class Real(Layout):
     """A floating-point number, a Boolean or a complex number: the values
     ``struct`` packs as they are."""
@@ -883,7 +896,7 @@ def layout_of(lv_type: LVType | None, ctx: CodeGenContext | None = None) -> Layo
 
         return collection_layout(lv_type, ctx)
     if underlying == "Refnum" and lv_type.ref_type not in _STRING_REFNUMS:
-        return Integer("I", "c_uint32", 4)
+        return RefnumInteger("I", "c_uint32", 4)
     if underlying == "Refnum":
         return Text()
     if is_string_type_name(underlying):

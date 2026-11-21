@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: Not a Refnum is the integer 0 when a refnum is cast or flattened** — Type Cast of a refnum to an integer and Flatten To String of a refnum no longer fail on a default (unopened) reference (`%X format: an integer is required, not NoneType` in Actor Framework's TDM Registry; `c_uint32(None)` in OpenG's Dictionary Data Core).
 - **Fix: String To Path of an array of strings gives an array of paths, and Multiply Array Elements stays one product** — the element-wise rewrite now covers `Path(...)` and no longer maps `math.prod` over the array's elements (JKI's Convert Relative to Absolute Project Paths took `Path(list)`; OpenG's Flatten Pixmap (GIF) iterated an integer).
 - **vi.lib: Get Type Information generates Python for its Type output** — the item of NI's `Data Type` enum is read from the type-descriptor code the variant records (empty variant: Void); a waveform, refnum or class raises where it runs, and a wired `name`, `type definition` or `type definition info` is a gap
 - **Fix: a control whose saved cluster or array value cannot be written is a gap** — it started at the type's default without a word; generation now warns and the generated code raises where the control is read.
