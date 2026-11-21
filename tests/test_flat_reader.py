@@ -6,6 +6,10 @@ type it does not read raises naming it."""
 
 from __future__ import annotations
 
+import struct
+from datetime import UTC
+
+import hightime
 import pytest
 
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
@@ -123,6 +127,62 @@ def test_a_type_with_no_layout_raises_naming_it() -> None:
     waveform = v.type_from_string([4, 0x54])
     with pytest.raises(NotImplementedError, match="not read"):
         v.unflatten_data(b"\x00" * 8, waveform)
+
+
+TIMESTAMP = LVType(
+    LVTypeKind.PRIMITIVE, underlying_type="MeasureData", measure_flavor="TimeStamp"
+)
+_EPOCH = hightime.datetime(1904, 1, 1, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("order", [0, 1, 2])
+@pytest.mark.parametrize(
+    "value",
+    [
+        _EPOCH,
+        hightime.datetime(2024, 5, 17, 13, 45, 6, 250000, tzinfo=UTC),
+        hightime.datetime(1850, 1, 1, tzinfo=UTC),
+    ],
+)
+def test_a_time_stamp_flattened_when_generating_is_read_back(value, order) -> None:
+    assert round_trip(TIMESTAMP, value, order) == value
+
+
+def test_a_time_stamp_is_sixteen_big_endian_bytes() -> None:
+    v = generated_variants()
+    runtime = v.type_from_string(encode(TIMESTAMP))
+    assert runtime.name == "MeasureData"
+    data = struct.pack(">qQ", 3_000_000_000, 2**63)
+    value = v.unflatten_data(data, runtime)
+    assert value == _EPOCH + hightime.timedelta(seconds=3_000_000_000.5)
+    variant = v.Variant(value, runtime)
+    numbers, flat = v.variant_to_flattened(variant)
+    assert numbers == encode(TIMESTAMP)
+    assert flat.encode("latin-1") == data
+    back = v.variant_from_flattened(flat, numbers)
+    assert back.value == value
+    assert back.type == runtime
+
+
+def test_a_variant_of_the_time_stamp_default_flattens_as_zero_bytes() -> None:
+    v = generated_variants()
+    runtime = v.type_from_string(encode(TIMESTAMP))
+    _, flat = v.variant_to_flattened(v.Variant(None, runtime))
+    assert flat == "\x00" * 16
+
+
+def test_a_time_stamp_in_a_cluster_follows_its_neighbours() -> None:
+    value = (7, hightime.datetime(2000, 1, 1, tzinfo=UTC))
+    assert round_trip(cluster(I32, TIMESTAMP), value) == value
+
+
+def test_a_variant_named_by_its_label_flattens_a_time_stamp_with_the_name() -> None:
+    v = generated_variants()
+    runtime = v.type_from_string(encode(TIMESTAMP))
+    named = v.Variant(_EPOCH, runtime, {}, "when")
+    numbers, _ = v.variant_to_flattened(named)
+    assert numbers == encode(TIMESTAMP, "when")
+    assert v.read_type(v.LVType(0x54, "MeasureData", tuple(numbers))).name == "when"
 
 
 def test_truncated_data_is_reported() -> None:

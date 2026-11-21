@@ -189,9 +189,11 @@ _CLASSES_SOURCE = '''"""The value of a LabVIEW variant."""
 
 from __future__ import annotations
 
+import importlib
 import math
 import struct
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import Any
 
 

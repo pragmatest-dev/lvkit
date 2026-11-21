@@ -10,9 +10,11 @@ another, an enum as its number. The tables it reads by (the ``struct`` code and
 width of each number, the prefix a unit type swaps, the function that reads an
 extended-precision number) are written into the module from ``flat_tables``, the
 module ``flat.py`` reads them from, so the two cannot differ; the type is read
-with ``read_type`` (``type_reader.py``). A type this does not read (a refnum, a
-waveform, a path, a timestamp, a class: no type string lvkit writes records them)
-raises ``NotImplementedError`` naming it. A cluster is read as a tuple.
+with ``read_type`` (``type_reader.py``). A time stamp is read by the function
+``flat_timestamp_source`` holds, the one ``flat.py`` writes for a type known when
+generating. A type this does not read (a refnum, a waveform, a path, a class: no
+type string lvkit writes records them) raises ``NotImplementedError`` naming it.
+A cluster is read as a tuple.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from .flat_tables import (
     UNIT_PREFIX,
     number_formats,
 )
+from .flat_timestamp_source import LAZY_HIGHTIME_SETUP, UNFLATTEN_TIMESTAMP
 
 _READER_TEMPLATE = '''
 
@@ -34,6 +37,9 @@ _EXTENDED_NUMBERS = ("NumFloatExt", "NumComplexExt")
 
 
 $EXTENDED_READER
+
+
+$TIMESTAMP_READER
 
 
 def _unreadable(lv_type: LVType) -> NotImplementedError:
@@ -55,6 +61,8 @@ def _fixed_size(lv_type: LVType) -> int | None:
     info = read_type(lv_type)
     if info.kind == "boolean":
         return 1
+    if info.kind == "timestamp":
+        return 16
     if info.kind in ("number", "enum"):
         name = _number_name(info)
         if name == "NumFloatExt":
@@ -103,6 +111,8 @@ def _unflatten_value(
         return (complex(*value) if len(code) == 2 else value[0]), pos + width
     if info.kind == "boolean":
         return struct.unpack_from(order + "?", data, pos)[0], pos + 1
+    if info.kind == "timestamp":
+        return _read_timestamp(data, pos, order)
     if info.kind == "string":
         if not prefix:
             return data[pos:].decode("latin-1"), len(data)
@@ -180,6 +190,12 @@ def flat_reader_source() -> str:
         "UNIT_PREFIX": repr(UNIT_PREFIX),
         "NUMBER_PREFIX": repr(NUMBER_PREFIX),
         "EXTENDED_READER": EXTENDED_UNFLATTEN.format(name="_read_extended").rstrip(),
+        "TIMESTAMP_READER": UNFLATTEN_TIMESTAMP.format(
+            name="_read_timestamp",
+            order="order",
+            params=", order",
+            setup=LAZY_HIGHTIME_SETUP,
+        ).rstrip(),
     }
     text = _READER_TEMPLATE
     for key, value in sorted(substitutions.items(), key=lambda kv: -len(kv[0])):

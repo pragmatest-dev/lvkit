@@ -161,6 +161,66 @@ def test_a_labelled_cluster_member_is_written_named_and_an_unlabelled_one_is_not
     )  # fmt: skip
 
 
+TIMESTAMP = LVType(
+    LVTypeKind.PRIMITIVE, underlying_type="MeasureData", measure_flavor="TimeStamp"
+)
+
+
+def test_a_time_stamp_is_the_pages_descriptor_with_its_cluster_of_four_integers() -> (
+    None
+):
+    # NI's "Type Descriptors": size 001C, waveform-family code 0054, subtype 0006,
+    # then the cluster of four 32-bit integers (22 bytes: 6 + 4 x 4).
+    assert encode(TIMESTAMP) == words(
+        0x001C,
+        0x0054,
+        0x0006,
+        0x0016,
+        0x0050,
+        0x0004,
+        0x0004,
+        0x0003,
+        0x0004,
+        0x0003,
+        0x0004,
+        0x0007,
+        0x0004,
+        0x0007,
+    )
+
+
+def test_a_named_time_stamp_ends_in_its_name() -> None:
+    plain = encode(TIMESTAMP)
+    named = encode(TIMESTAMP, "when")
+    assert named[0] == plain[0] + 6
+    assert named[1] == 0x4054
+    assert named[2:-3] == plain[2:]
+    assert named[-3:] == words(0x0477, 0x6865, 0x6E00)
+    decoded = decode(named)
+    assert decoded.is_timestamp
+    assert encode(decoded, "when") == named
+
+
+@pytest.mark.parametrize("lv_type", [TIMESTAMP, cluster(TIMESTAMP, I32)])
+def test_decode_reads_back_a_time_stamp(lv_type: LVType) -> None:
+    decoded = decode(encode(lv_type))
+    assert encode(decoded) == encode(lv_type)
+
+
+def test_a_waveform_family_descriptor_that_is_not_a_time_stamp_is_refused() -> None:
+    # A digital data descriptor (subtype 7) has no layout here.
+    with pytest.raises(TypeStringError):
+        decode(words(0x0006, 0x0054, 0x0007))
+    with pytest.raises(TypeStringError):
+        encode(
+            LVType(
+                LVTypeKind.PRIMITIVE,
+                underlying_type="MeasureData",
+                measure_flavor="Digitaldata",
+            )
+        )
+
+
 def test_names_round_trip_through_decode() -> None:
     original = LVType(
         kind=LVTypeKind.CLUSTER,

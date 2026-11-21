@@ -7,18 +7,24 @@ the module, reading the same tables (``_FLAT_NUMBERS``, ``_number_name``) and th
 same type reader (``read_type``): numbers and Booleans as ``struct`` data, a
 string or array behind 32-bit sizes (an array's one per dimension, the slowest
 varying first), a cluster as its members one after another, an enum as its
-number, all big-endian. The ``type string`` output is the type string the
-variant's type records. A type this does not write (an extended-precision number,
-a refnum, a waveform, a path, a class) raises ``NotImplementedError`` naming it.
+number, a time stamp as the function ``flat_timestamp_source`` holds, all
+big-endian. The ``type string`` output is the type string the variant's type
+records. A type this does not write (an extended-precision number, a refnum, a
+waveform, a path, a class) raises ``NotImplementedError`` naming it.
 """
 
 from __future__ import annotations
 
 from lvkit.type_string import NAME_FLAG
 
+from .flat_timestamp_source import FLATTEN_TIMESTAMP, LAZY_HIGHTIME_SETUP
+
 _WRITER_SOURCE = '''
 
 # The writer of flattened data by a variant's type (the inverse of the reader).
+$TIMESTAMP_WRITER
+
+
 def _unwritable(lv_type: LVType) -> NotImplementedError:
     return NotImplementedError(
         f"flattened data of the type {lv_type.name!r} (descriptor code "
@@ -59,6 +65,9 @@ def _flatten_value(value: Any, lv_type: LVType) -> bytes:
         value = []
     elif value is None and info.kind == "cluster":
         value = [None] * len(info.fields)
+    if info.kind == "timestamp":
+        # The default time stamp is 1904-01-01 00:00:00 UTC: zero seconds.
+        return bytes(16) if value is None else _flatten_timestamp(value, ">")
     if info.kind in ("number", "enum"):
         name = _number_name(info)
         if name not in _FLAT_NUMBERS:
@@ -133,4 +142,12 @@ def variant_to_flattened(variant: Variant) -> tuple[list[int], str]:
 
 def flat_writer_source() -> str:
     """The writer's source, the name flag written from the encoder's."""
-    return _WRITER_SOURCE.replace("$NAME_FLAG", hex(NAME_FLAG))
+    timestamp_writer = FLATTEN_TIMESTAMP.format(
+        name="_flatten_timestamp",
+        order="order",
+        params=", order",
+        setup=LAZY_HIGHTIME_SETUP,
+    ).rstrip()
+    return _WRITER_SOURCE.replace("$NAME_FLAG", hex(NAME_FLAG)).replace(
+        "$TIMESTAMP_WRITER", timestamp_writer
+    )

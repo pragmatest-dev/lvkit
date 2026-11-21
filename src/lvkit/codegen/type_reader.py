@@ -14,7 +14,7 @@ its kind. It reads no flattened data.
 
 from __future__ import annotations
 
-from lvkit.lv_type_codes import TD_FULL_TYPE
+from lvkit.lv_type_codes import MEASURE_DATA_FLAVOR, TD_FULL_TYPE
 from lvkit.type_string import ENUM_CODES, NUMBER_CODES, VARIABLE_SIZE
 
 _READER_TEMPLATE = '''
@@ -28,6 +28,8 @@ _STRING_CODE = $STRING
 _ARRAY_CODE = $ARRAY
 _CLUSTER_CODE = $CLUSTER
 _REFNUM_CODE = $REFNUM
+_MEASURE_CODE = $MEASURE
+_TIMESTAMP_FLAVOR = $TIMESTAMP_FLAVOR
 _VARIABLE_SIZE = $VARIABLE_SIZE
 _SCALARS = {$SCALARS}
 
@@ -35,7 +37,8 @@ _SCALARS = {$SCALARS}
 @dataclass(frozen=True)
 class TypeInfo:
     """What a type records: its ``kind`` (``number``, ``enum``, ``boolean``,
-    ``string``, ``array``, ``cluster``, ``refnum``, ``void`` or ``other``), the
+    ``string``, ``array``, ``cluster``, ``refnum``, ``timestamp``, ``void`` or
+    ``other``), the
     ``type`` itself, the name of a number (``NumInt32``), the ``name`` the
     descriptor records, an array's ``dimensions`` (``(variable, size)`` each), its
     ``element`` type, a cluster's member ``fields``, an enum's ``items`` and a
@@ -112,13 +115,29 @@ def _label(info: TypeInfo) -> str:
         return "[" * len(info.dimensions) + info.element.name + "]" * len(
             info.dimensions
         )
-    return {"cluster": "cluster", "enum": "enum"}.get(info.kind, info.kind)
+    return {
+        "cluster": "cluster",
+        "enum": "enum",
+        "timestamp": "MeasureData",
+    }.get(info.kind, info.kind)
 
 
 def _read_words(words: list[int], code: int) -> TypeInfo:
     """The ``TypeInfo`` of the descriptor held by ``words`` (its size word first)."""
     kind = _kind_of(code)
     body = 2
+    if code == _MEASURE_CODE and len(words) > body and (
+        words[body] == _TIMESTAMP_FLAVOR
+    ):
+        # The subtype word, the inline cluster of four integers (its own size
+        # word first, in bytes) and the name.
+        if len(words) <= body + 1 or body + 1 + words[body + 1] // 2 > len(words):
+            raise ValueError("a time stamp descriptor ends inside its cluster")
+        return TypeInfo(
+            "timestamp",
+            None,
+            name=_trailing_name(words, body + 1 + words[body + 1] // 2, len(words)),
+        )
     if kind in ("number", "boolean"):
         return TypeInfo(
             kind,
@@ -244,6 +263,8 @@ def type_reader_source(scalar_constants: dict[int, str]) -> str:
         "ARRAY": repr(TD_FULL_TYPE.Array.value),
         "CLUSTER": repr(TD_FULL_TYPE.Cluster.value),
         "REFNUM": repr(TD_FULL_TYPE.Refnum.value),
+        "MEASURE": repr(TD_FULL_TYPE.MeasureData.value),
+        "TIMESTAMP_FLAVOR": repr(MEASURE_DATA_FLAVOR.TimeStamp.value),
         "VARIABLE_SIZE": repr(VARIABLE_SIZE),
         "SCALARS": ", ".join(f"{c}: {n}" for c, n in sorted(scalar_constants.items())),
     }
