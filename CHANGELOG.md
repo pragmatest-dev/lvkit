@@ -3,6 +3,11 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: In Place Element of a data value reference that is Not a Refnum reads the type's default and gives error 1556** — the DVR Read border node's error out carries "The reference is invalid." and the write is skipped, so a class method on a default object (measurement-plugin-labview's Session Reservation) takes its invalid-reference path instead of failing on `None[0]`.
+- **Fix: Concatenate Strings of a Picture is a gap** — a Picture is an image in Python, with no string of drawing records to append to (JKI's Draw Flattened Pixmap (Fast) added `None + str`).
+- **Fix: Open VI Reference of a path outside the generated package or with no module is error 7** — it was an `ImportError` (`attempted relative import beyond top-level package`) when the node's error out was wired.
+- **Fix: a cluster constant saved with an older copy of a typedef gets the fields the typedef gained, at their defaults** — the constant had only the saved fields, so a VI reading a newer field failed (`'types.SimpleNamespace' object has no attribute 'deployment_target'`, measurement-plugin-labview's discovery tests).
+- **Fix: a Set or Map constant whose entries were not read is a gap** — it was written as the text `'None'` (a Service Location FGV Impl state started as a string and failed on `.get`).
 - **Fix: Not a Refnum is the integer 0 when a refnum is cast or flattened** — Type Cast of a refnum to an integer and Flatten To String of a refnum no longer fail on a default (unopened) reference (`%X format: an integer is required, not NoneType` in Actor Framework's TDM Registry; `c_uint32(None)` in OpenG's Dictionary Data Core).
 - **Fix: String To Path of an array of strings gives an array of paths, and Multiply Array Elements stays one product** — the element-wise rewrite now covers `Path(...)` and no longer maps `math.prod` over the array's elements (JKI's Convert Relative to Absolute Project Paths took `Path(list)`; OpenG's Flatten Pixmap (GIF) iterated an integer).
 - **vi.lib: Get Type Information generates Python for its Type output** — the item of NI's `Data Type` enum is read from the type-descriptor code the variant records (empty variant: Void); a waveform, refnum or class raises where it runs, and a wired `name`, `type definition` or `type definition info` is a gap

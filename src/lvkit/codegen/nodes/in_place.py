@@ -40,6 +40,7 @@ from ..class_attributes import ClassAttributes
 from ..class_model import type_attributes
 from ..cluster_members import ClusterShape, is_anonymous_cluster
 from ..context import CodeGenContext
+from ..errors_module import LABVIEW_ERROR_NAME
 from ..fragment import CodeFragment
 from ..native_array import guarded_indexes, replaced_elements
 from ..type_default import type_default
@@ -131,6 +132,7 @@ def generate(node: InPlaceNode, ctx: CodeGenContext) -> CodeFragment:
     # A border tile's error out is the error that comes in on it, else none.
     for tile in tiles:
         ctx.merge(error_flow.guard(tile.op, CodeFragment(), ctx).bindings)
+    _invalid_reference_errors(tiles, elements, ctx)
 
     _pass_whole_values(node, whole_tiles, ctx)
 
@@ -321,8 +323,52 @@ def _take_element_out(
     whole = ctx.wired_input(dvr_in.id, op) if dvr_in is not None else None
     if whole is None or value_out is None:
         return None
-    ctx.bind(value_out.id, f"{whole}[0]")
+    # A reference that is Not a Refnum (a class's private data holding a default
+    # reference) reads the data type's default and returns error 1556 "The
+    # reference is invalid" (the code LabVIEW reports for an invalid reference;
+    # NI's forum threads on DVR In Place Element Structure errors).
+    default = ast.unparse(type_default(ctx, value_out.lv_type, "A DVR value of"))
+    ctx.bind(value_out.id, f"({whole}[0] if {whole} is not None else {default})")
     return _Element(whole)
+
+
+def _invalid_reference_errors(
+    tiles: list[_Tile],
+    elements: dict[tuple[str, str | None], _Element],
+    ctx: CodeGenContext,
+) -> None:
+    """A data value reference tile's error out, once it holds the error that came
+    in: error 1556 when the reference it reads is Not a Refnum and no error came
+    in."""
+    for tile in tiles:
+        element = elements.get(tile.pair)
+        if tile.kind != _DVR or tile.side != InPlaceBorderSide.READ or element is None:
+            continue
+        error_out = next(
+            (
+                t
+                for t in tile.op.terminals
+                if t.direction == "output" and t.is_error_cluster
+            ),
+            None,
+        )
+        if error_out is None:
+            continue
+        incoming = ctx.resolve(error_out.id, allow_none=True) or "None"
+        ctx.import_labview_error()
+        invalid = (
+            f"{LABVIEW_ERROR_NAME}(code=1556, "
+            "source='In Place Element Structure', "
+            "message='The reference is invalid.')"
+        )
+        if incoming == "None":
+            expression = f"(None if {element.whole} is not None else {invalid})"
+        else:
+            expression = (
+                f"({incoming} if {incoming} is not None or "
+                f"{element.whole} is not None else {invalid})"
+            )
+        ctx.bind(error_out.id, expression)
 
 
 # ---------------------------------------------------------------------------
@@ -365,7 +411,13 @@ def _write_elements_back(
         # An element that went through the structure unchanged is still the
         # expression the read bound; writing it back changes nothing.
         if value is not None and value != target:
-            stmts.append(_assign(parse_expr(target), value))
+            stmts.append(
+                ast.If(
+                    test=parse_expr(f"{element.whole} is not None"),
+                    body=[_assign(parse_expr(target), value)],
+                    orelse=[],
+                )
+            )
     return stmts
 
 
