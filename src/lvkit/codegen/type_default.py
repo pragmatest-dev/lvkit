@@ -110,11 +110,19 @@ def control_default(ctx: CodeGenContext, control: Terminal) -> ast.expr:
     cluster or array that is written as a constant of its type is (a value that
     cannot be written that way, or one holding a class, is the type's default),
     else the type's default."""
+    saved = saved_control_default(ctx, control)
+    return saved if saved is not None else type_default(ctx, control.lv_type)
+
+
+def saved_control_default(ctx: CodeGenContext, control: Terminal) -> ast.expr | None:
+    """A control's saved default as an expression: the scalar the file saves, or a
+    cluster or array's decoded saved value; None when it saves none that can be
+    written (``control_default`` and a Global VI's controls start from the type's
+    default then)."""
     saved = saved_default_expr(control.default_value, control.lv_type)
     if saved is not None:
         return saved
-    composite = _saved_composite_default(ctx, control)
-    return composite if composite is not None else type_default(ctx, control.lv_type)
+    return _saved_composite_default(ctx, control)
 
 
 def _saved_composite_default(
