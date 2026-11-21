@@ -95,6 +95,10 @@ class NativeError(BaseModel):
     module: str | None = None
     code: int | None = None
     since_python: str | None = None
+    # The generated package module that defines the class for every Python
+    # version (the shared ``queues`` module), imported from there wherever the
+    # package has it.
+    package_module: str | None = None
     base: str | None = None
     # The attribute of the exception that holds the LabVIEW error code, for a
     # class that carries its own code (pyvisa's ``VisaIOError.error_code``, the

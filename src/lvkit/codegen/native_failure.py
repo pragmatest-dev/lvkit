@@ -47,6 +47,7 @@ from .error_flow import (
 )
 from .errors_module import LABVIEW_ERROR_NAME
 from .fragment import CodeFragment
+from .import_resolver import ImportResolver
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -174,7 +175,7 @@ def catch_failures(
     handlers = []
     for failure in failures:
         if failure.module is not None:
-            fragment.imports.add(exception_import(failure))
+            fragment.imports.add(exception_import(failure, ctx))
         body = list(defaults)
         if error is not None:
             error_value = _labview_error(failure, catalog.source, exception)
@@ -271,14 +272,23 @@ def exception_name(failure: NativeError) -> str:
     return f"{failure.module.replace('.', '_')}_{failure.exception}"
 
 
-def exception_import(failure: NativeError) -> str:
-    """The import of the exception class of ``failure`` from its module, as
-    ``exception_name``. An exception Python has only from version
-    ``since_python`` on is imported where it exists; before it nothing can
-    raise it, so the module defines a class of that name that is never
-    raised."""
+def exception_import(failure: NativeError, ctx: CodeGenContext) -> str:
+    """The import of the exception class of ``failure``, as ``exception_name``.
+    A class the package defines (``package_module``) is imported from that module
+    where the package has it. Otherwise it comes from its Python module: an
+    exception Python has only from version ``since_python`` on is imported where
+    it exists; before it nothing can raise it, so the module defines a class of
+    that name that is never raised."""
     assert failure.module is not None
     name = exception_name(failure)
+    if failure.package_module is not None and isinstance(
+        ctx.import_resolver, ImportResolver
+    ):
+        shared = ctx.import_resolver.shared_names_import(
+            failure.package_module, f"{failure.exception} as {name}"
+        )
+        if shared is not None:
+            return shared
     statement = f"from {failure.module} import {failure.exception} as {name}"
     if failure.since_python is None:
         return statement

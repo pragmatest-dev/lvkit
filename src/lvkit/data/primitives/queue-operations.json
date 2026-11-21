@@ -198,7 +198,8 @@
           "exception": "ShutDown",
           "module": "queue",
           "code": 1122,
-          "since_python": "3.13"
+          "since_python": "3.13",
+          "package_module": "queues"
         }
       ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element.html",
@@ -261,7 +262,8 @@
           "exception": "ShutDown",
           "module": "queue",
           "code": 1122,
-          "since_python": "3.13"
+          "since_python": "3.13",
+          "package_module": "queues"
         }
       ],
       "terminals": [
@@ -323,7 +325,8 @@
           "exception": "ShutDown",
           "module": "queue",
           "code": 1122,
-          "since_python": "3.13"
+          "since_python": "3.13",
+          "package_module": "queues"
         }
       ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/dequeue-element.html",
@@ -385,7 +388,8 @@
         {
           "exception": "ShutDown",
           "module": "queue",
-          "since_python": "3.13"
+          "since_python": "3.13",
+          "package_module": "queues"
         }
       ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/flush-queue.html",
@@ -434,7 +438,8 @@
           "exception": "ShutDown",
           "module": "queue",
           "code": 1122,
-          "since_python": "3.13"
+          "since_python": "3.13",
+          "package_module": "queues"
         }
       ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/enqueue-element-at-opposite-end.html",

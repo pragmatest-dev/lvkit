@@ -11,12 +11,13 @@ computed at run time is an entry of that module's ``by_name`` dict. A timeout
 is the ``timeout`` of ``put`` / ``get``, and a queue that times out raises
 ``queue.Full`` / ``queue.Empty``; a timeout is no error (NI), so the call is
 wrapped in ``try`` / ``except`` and ``timed out?`` is a local ``bool``. Release
-Queue shuts the queue down, which needs Python 3.13: an Enqueue then raises
-``queue.ShutDown``, and so do a Preview and a Dequeue (waiting or not) once the
-queue is empty; the catalog makes that the node's error out
-(``native_failure``). Only Release Queue needs Python 3.13: the other queue
-functions run on earlier versions, where ``queue.ShutDown`` and the queue's
-``is_shutdown`` flag do not exist and nothing can shut a queue down.
+Queue shuts the queue down: an Enqueue then raises ``ShutDown``, and so do a
+Preview and a Dequeue (waiting or not) once the queue is empty; the catalog makes
+that the node's error out (``native_failure``). ``queue.Queue.shutdown`` and
+``queue.ShutDown`` need Python 3.13, so in a package the queues are made from the
+``Queue`` of the package's ``queues`` module and ``ShutDown`` is imported from it
+(on 3.13 and later those are the standard library's). A VI generated alone has no
+such module: its queues are ``queue.Queue``, and Release Queue needs 3.13.
 
 Get Queue Status's pane has four same-typed I32 outputs (max size, #pending
 remove, #pending insert, #elements) that type alone can't tell apart; they were
@@ -257,14 +258,17 @@ def _generate_obtain_queue(
     if created_term is not None and created_var is not None:
         bindings[created_term.id] = created_var
     registry = f"{module.alias}.by_name" if module is not None else ""
+    # In a package every queue is made from the ``queues`` module's ``Queue``,
+    # which has ``shutdown`` on every Python version.
+    queue_class = f"{module.alias}.Queue" if module is not None else "Queue"
     if module is not None and use.computed and name_text is not None:
-        imports.update({module.statement, _QUEUE_IMPORT})
+        imports.add(module.statement)
         if created_var is not None:
             statements.append(
                 _assign(created_var, parse_expr(f"{name_text} not in {registry}"))
             )
         value = parse_expr(
-            f"{registry}.setdefault({name_text}, Queue(maxsize={bound}))"
+            f"{registry}.setdefault({name_text}, {queue_class}(maxsize={bound}))"
         )
     elif module is not None and use.attribute is not None:
         imports.add(module.statement)
@@ -278,8 +282,8 @@ def _generate_obtain_queue(
                 ast.Expr(value=parse_expr(f"{obtained}.add({use.name!r})"))
             )
     else:
-        value = parse_expr(f"Queue(maxsize={bound})")
-        imports.add(_QUEUE_IMPORT)
+        value = parse_expr(f"{queue_class}(maxsize={bound})")
+        imports.add(_QUEUE_IMPORT if module is None else module.statement)
         if created_var is not None:
             statements.append(_flag(created_var, True))
     if queue_term is not None:
@@ -350,7 +354,9 @@ def _generate_enqueue_opposite_end(
         statements.append(_flag(flag, False))
         bindings[timed_out.id] = flag
     return CodeFragment(
-        statements=statements, bindings=bindings, imports={exception_import(_SHUT_DOWN)}
+        statements=statements,
+        bindings=bindings,
+        imports={exception_import(_SHUT_DOWN, ctx)},
     )
 
 
@@ -437,7 +443,9 @@ def _generate_preview(
     if timed_out is not None and flag is not None:
         bindings[timed_out.id] = flag
     return CodeFragment(
-        statements=statements, bindings=bindings, imports={exception_import(_SHUT_DOWN)}
+        statements=statements,
+        bindings=bindings,
+        imports={exception_import(_SHUT_DOWN, ctx)},
     )
 
 
@@ -484,7 +492,7 @@ def _generate_release_queue(
 
     Observed pane (NI-confirmed): in idx0=queue, idx2=force destroy? (F),
     idx3=error in; out idx8=queue name (String), idx9=remaining elements,
-    idx11=error out. Releasing shuts the queue down (Python 3.13+): ``shutdown()``
+    idx11=error out. Releasing shuts the queue down: ``shutdown()``
     stops further puts and ends a waiting ``get`` once the queue is empty;
     ``shutdown(immediate=True)``, for a true ``force destroy?``, also drops what
     is left and ends every waiting ``get`` and ``put`` with ``queue.ShutDown``.
