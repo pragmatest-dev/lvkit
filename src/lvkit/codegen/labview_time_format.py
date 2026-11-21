@@ -24,10 +24,17 @@ Rounds", m-p/3782029); ``%H:%M:%S%3u`` writes 23:24:00.343 (forums.ni.com,
 "display-time-in-specific-format"). The names, ``%c``, ``%x``, ``%X``, ``%p`` and
 ``%Z`` are the operating system's for the locale, as NI says.
 
+``%z`` is, in NI's "Time-Specific Format Codes" table, the "difference between
+local time and universal time (HH:MM:SS)"; a negative offset is written with its
+sign (forums.ni.com, "Convert string to timestamp", td-p/3187200, page 2:
+``2015-09-04T08:17:16.082 -07:00:00``) and a positive one without a ``+``, as the
+forum request for an always-shown sign records. The stamp's own offset is written
+(a UTC stamp gives ``00:00:00``); ``%#z`` is no different.
+
 Two codes have no conversion and raise where they run, naming the code: the long
 date formats ``%.1x`` and ``%.2x`` (the operating system's long date patterns are
-not in the standard library), ``%z`` (NI gives ``HH:MM:SS`` with no sign or
-separators) and ``%#X`` (which fields lose their zeros is not stated).
+not in the standard library) and ``%#X`` (which fields lose their zeros is not
+stated).
 
 This is plain standard-library Python that calls nothing else: the code generator
 copies its source into a generated module (``nodes/ops/format_date_time_string``),
@@ -93,10 +100,12 @@ def _lv_format_time(stamp, time_format):
                 "is not in the standard library"
             )
         if modifier == "" and name == "z":
-            raise NotImplementedError(
-                "Format Date/Time String code " + repr(found.group(0))
-                + " has no conversion: NI gives the difference as HH:MM:SS, "
-                "without its sign or separators"
+            offset = stamp.utcoffset()
+            seconds = int(offset.total_seconds()) if offset is not None else 0
+            hours, rest = divmod(abs(seconds), 3600)
+            return (
+                ("-" if seconds < 0 else "")
+                + f"{hours:02d}:{rest // 60:02d}:{rest % 60:02d}"
             )
         return found.group(0)
 

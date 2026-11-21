@@ -87,7 +87,23 @@ def test_locale_codes_are_the_operating_systems() -> None:
     assert function(when, "%Z").out == "UTC"
 
 
-@pytest.mark.parametrize("code", ["%.1x", "%.2x", "%z", "%#X"])
+@pytest.mark.parametrize(
+    ("offset", "expected"),
+    [
+        (datetime.timedelta(hours=-7), "-07:00:00"),
+        (datetime.timedelta(hours=5, minutes=30), "05:30:00"),
+        (datetime.timedelta(0), "00:00:00"),
+    ],
+)
+def test_z_writes_the_stamps_utc_offset_signed_only_when_negative(
+    offset: datetime.timedelta, expected: str
+) -> None:
+    when = hightime.datetime(2015, 9, 4, 8, 17, 16, tzinfo=datetime.timezone(offset))
+    assert _write()(when, "%z").out == expected
+    assert _write()(when, "%#z").out == expected
+
+
+@pytest.mark.parametrize("code", ["%.1x", "%.2x", "%#X"])
 def test_a_code_with_no_conversion_raises_naming_it(code: str) -> None:
     with pytest.raises(NotImplementedError, match=code):
         _write()(_stamp(2014, 1, 30, 14, 5, 6), "at " + code)
