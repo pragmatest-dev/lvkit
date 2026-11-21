@@ -379,7 +379,9 @@ class TimeStamp(Layout):
             kind,
             "timestamp",
             ("timestamp",),
-            lambda name: template.format(name=name, order=fns.order),
+            lambda name: template.format(
+                name=name, order=repr(fns.order), params="", setup=""
+            ),
         )
 
     def flatten(self, value, prefix, depth, fns):

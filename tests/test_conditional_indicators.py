@@ -233,8 +233,8 @@ def test_the_default_is_the_indicators_saved_default_every_call(
     project: Project,  # noqa: F811
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def saved(ctrl: object, lv_type: object) -> str | None:
-        return "7" if getattr(ctrl, "name", None) == "out" else None
+    def saved(ctrl: object, lv_type: object) -> tuple[str | None, object]:
+        return ("7" if getattr(ctrl, "name", None) == "out" else None), None
 
     monkeypatch.setattr("lvkit.graph.construction._default_for", saved)
     _written_in_true_frame(project)

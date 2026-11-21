@@ -23,6 +23,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Protocol
 
 from lvkit.conversion_gap import ConversionGap
+from lvkit.graph.models import Constant
 from lvkit.lv_type_codes import is_variant_type_name
 from lvkit.models import LVType, LVTypeKind, Terminal
 
@@ -105,10 +106,51 @@ def type_default(
 
 def control_default(ctx: CodeGenContext, control: Terminal) -> ast.expr:
     """``control_default_expr`` with the class default of ``type_default``: a
-    control's saved default when that maps cleanly to its scalar type, else the
-    type's default."""
-    saved = saved_default_expr(control.default_value, control.lv_type)
+    control's saved default when that maps cleanly to its scalar type, or is a
+    cluster or array that is written as a constant of its type is (a saved value
+    that cannot be written that way is a ``ConversionGap``; a type holding a class
+    starts at the type's default), else the type's default."""
+    saved = saved_control_default(ctx, control)
     return saved if saved is not None else type_default(ctx, control.lv_type)
+
+
+def saved_control_default(ctx: CodeGenContext, control: Terminal) -> ast.expr | None:
+    """A control's saved default as an expression: the scalar the file saves, or a
+    cluster or array's decoded saved value; None when it saves none that can be
+    written (``control_default`` and a Global VI's controls start from the type's
+    default then); a saved value that cannot be written is a ``ConversionGap``."""
+    saved = saved_default_expr(control.default_value, control.lv_type)
+    if saved is not None:
+        return saved
+    return _saved_composite_default(ctx, control)
+
+
+def _saved_composite_default(
+    ctx: CodeGenContext, control: Terminal
+) -> ast.expr | None:
+    """A cluster or array control's saved value, written from its decoded parts
+    (``Terminal.default_structured``) the way a cluster or array constant of its
+    type is; None when the control saves none or holds a class. A saved value that
+    cannot be written is a ``ConversionGap``."""
+    lv_type = control.lv_type
+    default = control.default_value
+    if (
+        lv_type is None
+        or lv_type.kind not in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
+        or not isinstance(default, str)
+        or control.default_structured is None
+        or control.unwritable is not None
+        or holds_class(lv_type)
+    ):
+        return None
+    constant = Constant(
+        id=control.id,
+        value=default,
+        lv_type=lv_type,
+        structured_value=control.default_structured,
+        label=control.name,
+    )
+    return ast.parse(ctx.constant_expression(constant), mode="eval").body
 
 
 def state_seed(lv_type: LVType | None) -> ast.expr:

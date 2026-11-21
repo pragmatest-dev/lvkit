@@ -222,6 +222,7 @@ class OperationsMixin:
                         enable_state=t.enable_state,
                         control_type=t.control_type,
                         default_value=t.default_value,
+                        default_structured=t.default_structured,
                         unwritable=t.unwritable,
                         enum_values=t.enum_values,
                     )

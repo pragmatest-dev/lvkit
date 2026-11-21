@@ -38,7 +38,12 @@ from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..ini_module import imports_ini
 from ..label_names import python_label
-from ..native_failure import CatalogFailures, catch_failures, raise_unwired_error
+from ..native_failure import (
+    CatalogFailures,
+    catch_failures,
+    invalid_reference_guards,
+    raise_unwired_error,
+)
 from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane, with_instance_defaults
 from . import accessor_call, error_vi, method_call, vilib_op
@@ -109,6 +114,10 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             else generate_inline(node, ctx, vilib_vi)
         )
         fragment.runs_on_error = vilib_vi.runs_on_error
+        fragment.statements = [
+            *invalid_reference_guards(node, ctx, vilib_vi),
+            *fragment.statements,
+        ]
         return catch_failures(node, fragment, CatalogFailures.of_vilib(vilib_vi), ctx)
 
     parts = build_call(node, ctx, callee_name, callee_key, vilib_vi)

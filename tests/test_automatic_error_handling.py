@@ -126,7 +126,7 @@ def test_a_failed_node_with_unwired_error_out_continues_when_handling_is_off(
     tmp_path: Path,
 ) -> None:
     package = _delete(project, "0", wire_error=False)
-    assert package.function(tmp_path / "missing").deleted == Path("")
+    assert package.function(tmp_path / "missing").deleted == tmp_path / "missing"
     file = tmp_path / "f.txt"
     file.write_text("x", encoding="utf-8")
     assert package.function(file).deleted == file

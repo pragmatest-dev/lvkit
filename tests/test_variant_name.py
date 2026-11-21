@@ -189,10 +189,16 @@ def test_a_subvi_output_is_named_by_its_indicators_label(
     assert seen.type == project.generate(NAME).variants.LV_I32
 
 
-def test_a_function_output_has_no_name(project: Project) -> None:  # noqa: F811
-    """The ``data`` output of Variant To Data is a function's: no label."""
+def _through_variant_to_data(
+    project: Project,  # noqa: F811
+    data_type_desc: str | None,
+) -> Package:
+    """A control through To Variant and Variant To Data, whose ``data`` output has
+    the type descriptor ``data_type_desc`` (None: the plain I32), through To
+    Variant into ``seen``."""
     vi = Vi(NAME)
     variant_type = vi.add_type(_VARIANT)
+    data_type = I32 if data_type_desc is None else vi.add_type(data_type_desc)
     first = vi.primitive(
         8201, [("Variant", 0, variant_type, True), ("anything", 1, I32, False)]
     )
@@ -204,19 +210,57 @@ def test_a_function_output_has_no_name(project: Project) -> None:  # noqa: F811
             ("error out", 3, 6, True),
             ("Variant", 8, variant_type, False),
             ("type", 9, I32, False),
-            ("data", 11, I32, True),
+            ("data", 11, data_type, True),
         ],
     )
     vi.wire(first["Variant"], to_data["Variant"])
     second = vi.primitive(
-        8201, [("Variant", 0, variant_type, True), ("anything", 1, I32, False)]
+        8201, [("Variant", 0, variant_type, True), ("anything", 1, data_type, False)]
     )
     vi.wire(to_data["data"], second["anything"])
     vi.wire(second["Variant"], vi.indicator("seen", variant_type))
     vi.wire(to_data["error out"], vi.error_out())
     project.add(vi)
-    seen = project.generate(NAME).function(5).seen
+    return project.generate(NAME)
+
+
+def test_a_function_output_whose_descriptor_has_a_label_is_named_by_it(
+    project: Project,  # noqa: F811
+) -> None:
+    """The ``data`` output of Variant To Data records the label of its type
+    descriptor, which Name returns and the type string ends in."""
+    package = _through_variant_to_data(
+        project, '<TypeDesc Type="NumInt32" Label="raw xml #xml" />'
+    )
+    seen = package.function(5).seen
+    assert (seen.value, seen.name) == (5, "raw xml #xml")
+    numbers, _ = package.variants.variant_to_flattened(seen)
+    assert numbers == type_string.encode(
+        LVType(LVTypeKind.PRIMITIVE, underlying_type="NumInt32"), "raw xml #xml"
+    )
+
+
+def test_a_function_output_whose_descriptor_has_no_label_has_no_name(
+    project: Project,  # noqa: F811
+) -> None:
+    seen = _through_variant_to_data(project, None).function(5).seen
     assert (seen.value, seen.name) == (5, "")
+
+
+def test_a_controls_descriptor_label_names_the_variant(
+    project: Project,  # noqa: F811
+) -> None:
+    """The control's type descriptor carries the label, not its front-panel name."""
+    vi = Vi(NAME)
+    variant_type = vi.add_type(_VARIANT)
+    labelled = vi.add_type('<TypeDesc Type="NumInt32" Label="Pressure" />')
+    to_variant = vi.primitive(
+        8201, [("Variant", 0, variant_type, True), ("anything", 1, labelled, False)]
+    )
+    vi.wire(vi.control("Gauge", labelled, REQUIRED), to_variant["anything"])
+    vi.wire(to_variant["Variant"], vi.indicator("seen", variant_type))
+    project.add(vi)
+    assert project.generate(NAME).function(5).seen.name == "Pressure"
 
 
 def test_an_unlabelled_constant_has_no_name_and_the_plain_type_string(

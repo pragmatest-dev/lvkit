@@ -134,11 +134,13 @@ def test_caller_of_a_malleable_vi_shows_the_vi_with_its_terminal_names() -> None
     text = _describe(_CALLER)
 
     # The call is to Create Annotations.vim, named by its own LIBN chain, with
-    # the terminal names of that VI.
+    # the terminal names of that VI. A malleable VI's input adapts to the wired
+    # type, so ``annotation typedef`` is the typedef the caller wires to it.
     assert (
         "  NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
         "Create Annotations.vim: (annotation keys: [String], annotation "
-        "typedef: cluster{key, value}, error in: Error) -> (annotations array: "
+        "typedef: ni_measurementlink_sessionmanagement_v1_SessionInformation_"
+        "AnnotationsEntry{key, value}, error in: Error) -> (annotations array: "
         "[cluster{key, value}], error out: Error)"
     ) in text.splitlines()
     assert (

@@ -394,7 +394,8 @@
           "index": 3,
           "direction": "output",
           "name": "refnum out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 11
         }
       ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/read-from-binary-file.html",
@@ -520,7 +521,8 @@
           "index": 3,
           "direction": "output",
           "name": "refnum out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 11
         }
       ],
       "python_code": {
@@ -619,7 +621,8 @@
           "index": 3,
           "direction": "output",
           "name": "refnum out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 11
         }
       ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/write-to-binary-file.html",
@@ -676,7 +679,8 @@
           "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
-          "refnum_type": "byte_stream"
+          "refnum_type": "byte_stream",
+          "passes_input": 11
         },
         {
           "index": 7,

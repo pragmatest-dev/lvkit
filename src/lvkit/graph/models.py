@@ -138,6 +138,11 @@ class VINode(GraphNode):
     # On a polymorphic call node, the identity of the variant the call resolves
     # to (same form as ``callee_key``); None on every other node.
     variant_key: str | None = None
+    # True on a call of an embedded instance (a malleable VI's private copy,
+    # specialised to the types wired to this call). Such a call's terminals take
+    # the wired types; an ordinary call's terminals keep the types the called VI
+    # declares.
+    is_embedded_instance: bool = False
     # On a Call By Reference node, the node's saved ``CBRSaveStyle`` byte: how
     # the node calls the VI its reference holds. None on every other node.
     call_save_style: int | None = None

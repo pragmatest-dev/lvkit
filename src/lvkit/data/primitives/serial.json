@@ -101,7 +101,8 @@
           "direction": "output",
           "name": "VISA resource name out",
           "type": "Refnum",
-          "refnum_type": "visa"
+          "refnum_type": "visa",
+          "passes_input": 11
         },
         {
           "index": 8,

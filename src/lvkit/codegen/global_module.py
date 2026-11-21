@@ -20,13 +20,12 @@ import ast
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.core import uid_of
-from lvkit.graph.models import Constant, VINode
-from lvkit.models import LVType, LVTypeKind, Terminal
+from lvkit.graph.models import VINode
+from lvkit.models import LVType, Terminal
 
 from .ast_optimizer import remove_unused_imports
 from .ast_utils import (
     build_type_checking_block,
-    control_default_expr,
     distinct_names,
     implicit_imports,
     parameter_names,
@@ -34,14 +33,14 @@ from .ast_utils import (
     terminal_annotation,
     to_function_name,
 )
-from .context import _format_constant, type_namer
+from .context import CodeGenContext, type_namer
 from .data_files import DATA_FILE_IMPORTS, data_file_expression, holds_array_whole
 from .gaps import Gap, gap_of, raise_statement
 from .import_resolver import ImportResolver
 from .panel_types import panel_type_keywords
 from .panels_module import PANEL_VALUES_NAME, PANELS_MODULE_NAME
 from .type_constants import share_type_constants
-from .type_default import holds_class, state_seed
+from .type_default import holds_class, saved_control_default, state_seed
 from .variants_module import variants_import
 
 # The module-level name of a Global VI's panel, which no control takes.
@@ -59,16 +58,17 @@ def global_attribute_names(controls: list[Terminal]) -> dict[str, str]:
 
 
 def _saved_default(
-    control: Terminal, module_stem: str, data_files: dict[str, bytes] | None
+    control: Terminal, ctx: CodeGenContext, data_files: dict[str, bytes] | None
 ) -> ast.expr:
-    """The control's saved default as an expression. A cluster or array keeps its
-    saved value, formatted by the same path as a cluster or array constant on a
-    diagram; unlike a function parameter default this is not a signature default,
-    so a mutable container is the intended initial value. Every other control
-    takes ``control_default_expr``; a class (or a cluster holding one) is ``None``,
-    which the VI that reads it makes the object for (``type_default``)."""
+    """The control's saved default as an expression, the one the function's own
+    controls start from (``saved_control_default``): a cluster or array keeps its
+    decoded saved value; unlike a function parameter default this is not a
+    signature default, so a mutable container is the intended initial value. A
+    control saving none starts at its type's default; a class (or a cluster
+    holding one) is ``None``, which the VI that reads it makes the object for
+    (``type_default``)."""
     lv_type = control.lv_type
-    default = control.default_value
+    module_stem = ctx.module_stem
     if control.unwritable is not None:
         text = data_file_expression(
             what="control",
@@ -81,27 +81,10 @@ def _saved_default(
             whole_value=holds_array_whole(control.unwritable, lv_type),
         )
         return ast.parse(text, mode="eval").body
-    if (
-        lv_type is not None
-        and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
-        and isinstance(default, str)
-    ):
-        text = _format_constant(
-            Constant(
-                id=control.id,
-                value=default,
-                lv_type=lv_type,
-                unwritable=control.unwritable,
-                label=control.name,
-            )
-        )
-        try:
-            return ast.parse(text, mode="eval").body
-        except SyntaxError:
-            pass
     if holds_class(lv_type):
         return state_seed(lv_type)
-    return control_default_expr(control)
+    saved = saved_control_default(ctx, control)
+    return saved if saved is not None else state_seed(lv_type)
 
 
 def _panel_import(import_resolver: ImportResolver | None) -> str:
@@ -170,6 +153,11 @@ def build_global_module(
     where the control is defined, and the gap is added to ``gaps``."""
     controls = vi_node.terminals
     spell = type_namer(import_resolver)
+    ctx = CodeGenContext(
+        import_resolver=import_resolver,
+        data_files=data_files,
+        module_stem=to_function_name(vi_node.name or ""),
+    )
     annotation_imports: set[str] = set()
     names = global_attribute_names(controls)
     labels: dict[str, str] = {}
@@ -186,9 +174,7 @@ def build_global_module(
         if control.id not in names:
             continue
         try:
-            value = _saved_default(
-                control, to_function_name(vi_node.name or ""), data_files
-            )
+            value = _saved_default(control, ctx, data_files)
         except ConversionGap as exc:
             gap = gap_of(exc, vi_node.id, None, label=control.name)
             if gaps is not None:
@@ -220,6 +206,7 @@ def build_global_module(
         imports.append(_variants_import(import_resolver, typed.names))
     if needs_runtime:
         imports.extend(DATA_FILE_IMPORTS.splitlines())
+    imports.extend(sorted(ctx.imports))
     imports.extend(implicit_imports(assignments))
     for statement in dict.fromkeys(imports):
         body.extend(ast.parse(statement).body)

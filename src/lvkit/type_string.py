@@ -31,8 +31,19 @@ referring to each other by index, are what a VI file stores
 (``parser/td_pool.py``); ``decode`` lays an inline descriptor out as that list and
 reads it with that decoder.
 
+A time stamp is the page's waveform-family type code ``0054`` followed by its
+subtype word, ``0006``: "The time stamp has a subtype code of 6 ... LabVIEW stores
+a time stamp as a cluster of four integers where the first two signed integers
+(64 bits) ... The next two unsigned integers (64 bits)". The page's example size
+``001C`` is 28 bytes: the 6 bytes of size, code and subtype and a 22-byte cluster
+of four 32-bit integers (``0016 0050 0004`` and four 4-byte numbers), so the
+descriptor is ``001C 0054 0006 0016 0050 0004 0004 0003 0004 0003 0004 0007 0004
+0007``, the cluster read as I32, I32, U32, U32 and a name appended after it. The
+page's other waveform-family descriptors are not written.
+
 ``encode`` writes the types ``codegen/flat.py`` has a layout for among those the
-page documents: numbers, Booleans, strings, arrays, clusters and enums. A cluster
+page documents: numbers, Booleans, strings, arrays, clusters, enums and time
+stamps. A cluster
 member with a label is written named, as the page's I16 named ``radio`` is
 (``000A 4002 0572 6164 696F``: the 0x40 flag on the type code, the name a Pascal
 string padded to an even length, counted in the size word); an unlabelled member
@@ -47,6 +58,7 @@ import struct
 from collections.abc import Sequence
 
 from lvkit.lv_type_codes import (
+    MEASURE_DATA_FLAVOR,
     TD_FULL_TYPE,
     is_boolean_type_name,
     is_numeric_type_name,
@@ -150,6 +162,8 @@ def _descriptor(lv_type: LVType, name: str | None = None) -> list[int]:
         return _enum(lv_type, name)
     if lv_type.kind != LVTypeKind.PRIMITIVE:
         raise TypeStringError(f"a value of type {lv_type.kind.value!r}")
+    if lv_type.is_timestamp:
+        return _timestamp(name)
     if is_boolean_type_name(underlying):
         return _sized([TD_FULL_TYPE.Boolean.value], name)
     if is_string_type_name(underlying):
@@ -159,6 +173,25 @@ def _descriptor(lv_type: LVType, name: str | None = None) -> list[int]:
     if is_numeric_type_name(underlying):
         raise TypeStringError(f"a number of type {underlying!r}")
     raise TypeStringError(f"a value of type {underlying or lv_type.kind.value!r}")
+
+
+# The four integers a time stamp's cluster holds, in order.
+TIMESTAMP_MEMBERS = ("NumInt32", "NumInt32", "NumUInt32", "NumUInt32")
+
+
+def _timestamp(name: str | None) -> list[int]:
+    """The descriptor of a time stamp: the waveform-family code, the time stamp's
+    subtype word and the descriptor of its cluster of four integers."""
+    members = [
+        word
+        for member in TIMESTAMP_MEMBERS
+        for word in _sized([NUMBER_CODES[member].value])
+    ]
+    cluster = _sized([TD_FULL_TYPE.Cluster.value, len(TIMESTAMP_MEMBERS), *members])
+    return _sized(
+        [TD_FULL_TYPE.MeasureData.value, MEASURE_DATA_FLAVOR.TimeStamp.value, *cluster],
+        name,
+    )
 
 
 def _enum(lv_type: LVType, name: str | None) -> list[int]:
@@ -236,10 +269,29 @@ def _read(data: bytes, pos: int, raws: list[RawTD]) -> tuple[int, int]:
             index, after = _read_member(data, after, end, raws)
             refs += _var_size(index)
         body = _var_size(count) + bytes(refs) + data[after:end]
+    elif code == TD_FULL_TYPE.MeasureData:
+        body = _measure_data_body(data, body_start, end)
     else:
         body = data[body_start:end]
     raws.append(RawTD(code, flags, body))
     return len(raws) - 1, end
+
+
+def _measure_data_body(data: bytes, start: int, end: int) -> bytes:
+    """The body a VI file stores for the waveform-family descriptor whose inline
+    form is ``data[start:end]``: the subtype word and the name. A time stamp's
+    inline cluster of four integers is checked against the one ``encode`` writes
+    and dropped."""
+    flavor = _word(data, start)
+    if flavor != MEASURE_DATA_FLAVOR.TimeStamp:
+        return data[start:end]
+    cluster = b"".join(
+        struct.pack(">H", word & 0xFFFF) for word in _timestamp(None)[3:]
+    )
+    inner = start + 2
+    if data[inner : inner + len(cluster)] != cluster:
+        raise TypeStringError("a time stamp that does not hold four 32-bit integers")
+    return data[start:inner] + data[inner + len(cluster) : end]
 
 
 def _read_member(
@@ -261,7 +313,8 @@ def _require_known(lv_type: LVType) -> None:
             _require_known(member.type)
     underlying = lv_type.underlying_type or ""
     if lv_type.kind == LVTypeKind.PRIMITIVE and not (
-        underlying in NUMBER_CODES
+        lv_type.is_timestamp
+        or underlying in NUMBER_CODES
         or is_boolean_type_name(underlying)
         or underlying == TD_FULL_TYPE.String.name
     ):

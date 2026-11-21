@@ -424,6 +424,10 @@ def create_import_resolver(
         depth = len(caller_dir.relative_to(output_dir).parts)
         return ModuleImport(f"from {'.' * (depth + 1)} import {stem} as {alias}", alias)
 
+    def root_names_import(stem: str, names: str) -> str:
+        depth = len(caller_dir.relative_to(output_dir).parts)
+        return f"from {'.' * (depth + 1)}{stem} import {names}"
+
     return ImportResolver(
         function_import,
         module_import,
@@ -447,6 +451,7 @@ def create_import_resolver(
         grpc_server_import,
         scan_import_statement,
         ini_import_statement,
+        root_names_import,
     )
 
 

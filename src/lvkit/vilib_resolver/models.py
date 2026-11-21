@@ -22,6 +22,11 @@ class VITerminal(TerminalDefault):
     # The value NI documents for this output when the VI's operation fails
     # (``codegen/native_failure.py``); none: the type's default.
     on_failure: ScalarValue = None
+    # On an output: the catalog index of the input this output passes on (the pane
+    # labels it "dup refnum"). When the VI fails, the output still gives that
+    # input's value, if the wired input has the output's type
+    # (``codegen/native_failure.py``).
+    passes_input: int | None = None
 
 
 class VIEntry(BaseModel):

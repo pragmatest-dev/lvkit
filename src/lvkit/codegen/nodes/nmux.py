@@ -16,6 +16,7 @@ from lvkit.lv_type_codes import is_boolean_type_name, is_string_type_name
 from lvkit.models import (
     ClusterField,
     LVType,
+    LVTypeKind,
     Terminal,
     TypeResolutionNeeded,
     _is_error_cluster,
@@ -100,7 +101,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     # Get fields for field index lookup.
     class_fields = None
-    agg_terminals = agg_in or agg_out
+    # The cluster in and the cluster out are one wire's value: a type with a
+    # name (typedef) wins over the anonymous copy the other side may be saved as.
+    agg_terminals = sorted(
+        [*agg_in, *agg_out],
+        key=lambda t: (
+            0 if t.lv_type is not None and t.lv_type.typedef_name else 1,
+            t.direction != "input",
+        ),
+    )
     agg_lv_type = agg_terminals[0].lv_type if agg_terminals else None
     anon = is_anonymous_cluster(agg_lv_type)
     measure_flavor = agg_lv_type.measure_flavor if agg_lv_type else None
@@ -162,6 +171,18 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             return waveform_bundle.bundle(
                 node, list_in, agg_out, agg_var, measure_flavor, ctx
             )
+
+        if (
+            not agg_var
+            and agg_out
+            and agg_lv_type is not None
+            and agg_lv_type.kind == LVTypeKind.CLUSTER
+            and agg_lv_type.typedef_name
+            and not agg_lv_type.classname
+        ):
+            # A typedef cluster with no cluster wired in starts from its default
+            # (the object a named cluster is), then takes the bundled elements.
+            agg_var = ast.unparse(type_default(ctx, agg_lv_type, "A Bundle"))
 
         if agg_var:
             if anon:

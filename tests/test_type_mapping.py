@@ -345,6 +345,51 @@ class TestSalvagedTypeDescriptors:
         assert resolve_type_rich("TypeID(2)", TypeMap()).unreadable is None
 
 
+class TestTypedefIdentityOnSharedType:
+    def test_heap_type_and_nested_use_both_carry_the_typedef_path(self, tmp_path):
+        """A labelled heap type is a copy of the shared VCTP type; the typedef's
+        name and path reach the shared type too, so a cluster field of the same
+        flat type carries them."""
+        xml = tmp_path / "T.xml"
+        xml.write_text(
+            textwrap.dedent(
+                """\
+                <RSRC>
+                  <LIvi><VICC>
+                    <LinkSavePathRef>
+                      <String>Lib</String><String>Mode.ctl</String>
+                    </LinkSavePathRef>
+                  </VICC></LIvi>
+                  <VCTP>
+                    <TopLevel>
+                      <TypeDesc Index="5" FlatTypeID="0" />
+                      <TypeDesc Index="6" FlatTypeID="1" />
+                    </TopLevel>
+                    <Section>
+                      <TypeDesc Type="TypeDef">
+                        <TypeDesc Type="NumInt32" Nested="True" Label="mode" />
+                        <Label Text="Mode.ctl" />
+                      </TypeDesc>
+                      <TypeDesc Type="Cluster">
+                        <TypeDesc TypeID="0" />
+                      </TypeDesc>
+                    </Section>
+                  </VCTP>
+                  <!-- Heap TypeID 1 = Consolidated TypeID 5: TypeDef -->
+                  <!-- Heap TypeID 2 = Consolidated TypeID 6: Cluster -->
+                </RSRC>
+                """
+            ),
+            encoding="utf-8",
+        )
+        type_map = parse_type_map_rich(xml)
+        heap = type_map[1]
+        nested = type_map[2].fields[0].type
+        for lv_type in (heap, nested):
+            assert lv_type.typedef_name == "Mode.ctl"
+            assert lv_type.typedef_path == "Lib/Mode.ctl"
+
+
 class TestDataSpaceTypeComments:
     def test_a_vi_with_no_heap_type_comments_takes_its_heap_types_from_dthp(
         self, tmp_path

@@ -491,6 +491,7 @@ class LoadingMixin:
             iuse_to_qname: dict[str, str] | None = None,
             iuse_to_qpath: dict[str, str] | None = None,
             iuse_to_callee_key: dict[str, str] | None = None,
+            instance_call_uids: set[str] | None = None,
             poly_to_callee_key: dict[str, str] | None = None,
             iuse_refs: dict[str, ParsedDependencyRef] | None = None,
             shared_variable_links: dict[str, SharedVariableLink] | None = None,
@@ -1913,6 +1914,11 @@ class LoadingMixin:
                 },
                 iuse_to_qpath=iuse_to_qpath,
                 iuse_to_callee_key=iuse_to_callee_key,
+                instance_call_uids={
+                    uid
+                    for uid, qname in metadata.iuse_to_qualified_name.items()
+                    if qname in instance_qnames
+                },
                 poly_to_callee_key=poly_to_callee_key,
                 iuse_refs=metadata.iuse_refs,
                 shared_variable_links=metadata.shared_variable_links,

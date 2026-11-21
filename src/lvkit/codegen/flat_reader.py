@@ -10,12 +10,16 @@ another, an enum as its number. The tables it reads by (the ``struct`` code and
 width of each number, the prefix a unit type swaps, the function that reads an
 extended-precision number) are written into the module from ``flat_tables``, the
 module ``flat.py`` reads them from, so the two cannot differ; the type is read
-with ``read_type`` (``type_reader.py``). A type this does not read (a refnum, a
-waveform, a path, a timestamp, a class: no type string lvkit writes records them)
-raises ``NotImplementedError`` naming it. A cluster is read as a tuple.
+with ``read_type`` (``type_reader.py``). A time stamp is read by the function
+``flat_timestamp_source`` holds, the one ``flat.py`` writes for a type known when
+generating. A type this does not read (a refnum, a waveform, a path, a class: no
+type string lvkit writes records them) raises ``NotImplementedError`` naming it.
+A cluster is read as a tuple.
 """
 
 from __future__ import annotations
+
+from lvkit.type_string import NAME_FLAG
 
 from .flat_tables import (
     EXTENDED_UNFLATTEN,
@@ -23,6 +27,7 @@ from .flat_tables import (
     UNIT_PREFIX,
     number_formats,
 )
+from .flat_timestamp_source import LAZY_HIGHTIME_SETUP, UNFLATTEN_TIMESTAMP
 
 _READER_TEMPLATE = '''
 
@@ -34,6 +39,9 @@ _EXTENDED_NUMBERS = ("NumFloatExt", "NumComplexExt")
 
 
 $EXTENDED_READER
+
+
+$TIMESTAMP_READER
 
 
 def _unreadable(lv_type: LVType) -> NotImplementedError:
@@ -55,6 +63,8 @@ def _fixed_size(lv_type: LVType) -> int | None:
     info = read_type(lv_type)
     if info.kind == "boolean":
         return 1
+    if info.kind == "timestamp":
+        return 16
     if info.kind in ("number", "enum"):
         name = _number_name(info)
         if name == "NumFloatExt":
@@ -103,6 +113,8 @@ def _unflatten_value(
         return (complex(*value) if len(code) == 2 else value[0]), pos + width
     if info.kind == "boolean":
         return struct.unpack_from(order + "?", data, pos)[0], pos + 1
+    if info.kind == "timestamp":
+        return _read_timestamp(data, pos, order)
     if info.kind == "string":
         if not prefix:
             return data[pos:].decode("latin-1"), len(data)
@@ -164,11 +176,46 @@ def type_from_string(type_string: Any) -> LVType:
     return _member(words, 0)[0]
 
 
+_NAME_FLAG = $NAME_FLAG
+
+
+def _split_label(type_string: Any) -> tuple[list[int], str]:
+    """The type string without the name that ends it, and that name ("" when it
+    has none): the name flag cleared in the type code, the Pascal string dropped
+    and the size word not counting it."""
+    words = [w & 0xFFFF for w in type_string]
+    if len(words) < 2 or not words[1] & _NAME_FLAG:
+        return words, ""
+    label = read_type(type_from_string(type_string)).name or ""
+    raw = label.encode("latin-1")
+    count = (len(raw) + 2) // 2
+    words = words[: len(words) - count]
+    words[0] -= 2 * count
+    words[1] &= ~_NAME_FLAG
+    return words, label
+
+
 def variant_from_flattened(data: str, type_string: Any) -> Variant:
     """A variant of the type ``type_string`` describes, holding the value the
-    flattened string ``data`` has (big-endian, sizes prepended)."""
-    lv_type = type_from_string(type_string)
-    return Variant(unflatten_data(data.encode("latin-1"), lv_type), lv_type)
+    flattened string ``data`` has (big-endian, sizes prepended). The name that ends
+    the type string is the variant's ``name``, not part of its type."""
+    words, label = _split_label(type_string)
+    lv_type = type_from_string(words)
+    value = unflatten_data(data.encode("latin-1"), lv_type)
+    return Variant(value, lv_type, {}, label)
+
+
+def variant_of_member(value: Any, lv_type: LVType) -> Variant:
+    """A variant holding ``value``, a member of a cluster or an element of an array
+    of type ``lv_type`` (``read_type``'s ``fields`` and ``element``). The label
+    that ends the member's type string is the variant's ``name``, not part of its
+    type, as ``variant_from_flattened`` reads it."""
+    if lv_type.type_string is None:
+        return Variant(value, lv_type)
+    words, label = _split_label(lv_type.type_string)
+    if not label:
+        return Variant(value, lv_type)
+    return Variant(value, type_from_string(words), {}, label)
 '''
 
 
@@ -176,10 +223,17 @@ def flat_reader_source() -> str:
     """The reader's source, its tables written from ``flat_tables``."""
     numbers = {name: pair for name, pair in sorted(number_formats().items())}
     substitutions = {
+        "NAME_FLAG": hex(NAME_FLAG),
         "NUMBERS": repr(numbers),
         "UNIT_PREFIX": repr(UNIT_PREFIX),
         "NUMBER_PREFIX": repr(NUMBER_PREFIX),
         "EXTENDED_READER": EXTENDED_UNFLATTEN.format(name="_read_extended").rstrip(),
+        "TIMESTAMP_READER": UNFLATTEN_TIMESTAMP.format(
+            name="_read_timestamp",
+            order="order",
+            params=", order",
+            setup=LAZY_HIGHTIME_SETUP,
+        ).rstrip(),
     }
     text = _READER_TEMPLATE
     for key, value in sorted(substitutions.items(), key=lambda kv: -len(kv[0])):
