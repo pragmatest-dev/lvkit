@@ -417,6 +417,7 @@ class InMemoryVIGraph(
             dotnet_type=parsed_type.dotnet_type,
             unreadable=parsed_type.unreadable,
             pane=parsed_type.pane,
+            descriptor_label=parsed_type.descriptor_label,
             type_id=parsed_type.type_id,
         )
 

@@ -146,6 +146,8 @@ def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
             # Use VCTP result directly — it has the full type info
             if flat_id in vctp_types:
                 lv_type = vctp_types[flat_id]
+                if label:
+                    lv_type = dataclasses.replace(lv_type, descriptor_label=label)
                 type_map[heap_id] = lv_type
 
             # Add typedef identity if this heap_id is a typedef

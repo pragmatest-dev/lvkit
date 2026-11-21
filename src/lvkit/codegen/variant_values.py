@@ -47,17 +47,19 @@ def is_array_or_cluster(lv_type: LVType) -> bool:
 def variant_label(ctx: CodeGenContext, source: Terminal | None) -> str:
     """The label of the data a wire carries into a variant, which Get Type
     Information returns as its ``name`` and the variant's type string records: the
-    label the graph keeps for the wire's source. That is the label of a control or
-    indicator (``FPTerminal.name``), the field label of a Bundle or Unbundle By Name
-    lane (``Terminal.display_name``), the label of a constant (``label``) and the
-    label of a subVI output (``Terminal.name``: the label the calling VI records for
-    the called VI's connector-pane slot, its indicator's). A function's output has
-    none: NI's pages and the forum threads searched (forums.ni.com "Get the type of
-    the data in a variant", "Cluster Element Names") say only that the name is the
-    label of the data, an output indicator's by default, and none says a function's
-    terminal gives its type one; "" when the source records none."""
+    label the wire's type descriptor records in the VI's type pool
+    (``LVType.descriptor_label``), for every kind of source, a function's output
+    included (Variant To Data's ``data`` shares its descriptor with the constant
+    wired to its ``type``). Where the descriptor records none, the label the graph
+    keeps for the source: a control or indicator (``FPTerminal.name``), the field
+    label of a Bundle or Unbundle By Name lane (``Terminal.display_name``), a
+    constant's ``label`` and a subVI output's ``Terminal.name`` (the label the
+    calling VI records for the called VI's connector-pane slot). "" when neither
+    records one."""
     if source is None:
         return ""
+    if source.lv_type is not None and source.lv_type.descriptor_label:
+        return source.lv_type.descriptor_label
     if isinstance(source, FPTerminal):
         return source.name or ""
     if source.nmux_role == "list":

@@ -432,6 +432,11 @@ class LVType:
     # Why this type could not be read from the file, when the VI records a
     # descriptor that did not decode; None for a type that read cleanly.
     unreadable: str | None = None
+    # The label this type's descriptor records in the VI's type pool (``path in``,
+    # ``raw xml #xml``); None when it records none. A wire's type is that
+    # descriptor, so this is the name Get Type Information returns for data on the
+    # wire. ``compare=False`` -- a label, never type identity.
+    descriptor_label: str | None = field(default=None, compare=False)
     # For a MeasureData type (waveform / digital data): its LabVIEW "flavor"
     # (e.g. "Float64Waveform", "DigitalWaveform", "Digitaldata"). These are
     # opaque built-in structures with no VCTP children, so their component names

@@ -64,6 +64,7 @@ class ParsedType:
     dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
     unreadable: str | None = None  # Why the type's descriptor could not be read
     pane: tuple[PaneSlot, ...] | None = None  # A Function type: its connector pane
+    descriptor_label: str | None = None  # The label its type descriptor records
     type_id: int | None = None  # The type's position in its VI's type table
 
 

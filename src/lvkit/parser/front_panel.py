@@ -52,6 +52,7 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         dotnet_type=lv_type.dotnet_type,
         unreadable=lv_type.unreadable,
         pane=lv_type.pane,
+        descriptor_label=lv_type.descriptor_label,
         type_id=lv_type.type_id,
     )
 
