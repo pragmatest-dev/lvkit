@@ -38,6 +38,7 @@ from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..ini_module import imports_ini
 from ..label_names import python_label
+from ..local_time_module import imports_local_time
 from ..native_failure import (
     CatalogFailures,
     catch_failures,
@@ -392,9 +393,14 @@ def generate_inline(
 
     # Build imports from vilib imports
     # An import of the package's ``ini`` module is spelled for the calling module.
-    imports = {i for i in vilib_vi.imports if not imports_ini(i)}
-    if len(imports) != len(vilib_vi.imports):
+    imports = {
+        i for i in vilib_vi.imports if not imports_ini(i) and not imports_local_time(i)
+    }
+    if any(imports_ini(i) for i in vilib_vi.imports):
         ctx.import_ini()
+    for statement in vilib_vi.imports:
+        if imports_local_time(statement):
+            ctx.import_local_time(statement.split(" import ", 1)[1])
 
     return CodeFragment(
         statements=[*made_statements, *statements],

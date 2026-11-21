@@ -756,7 +756,7 @@ def test_a_format_with_no_conversion_raises_naming_it_when_the_code_runs() -> No
         function(text="1", format_="%d %d")
 
 
-def test_the_scan_module_imports_nothing_from_the_package_or_lvkit() -> None:
+def test_the_scan_module_imports_only_local_time_from_the_package() -> None:
     imported = [
         node
         for node in ast.walk(ast.parse(SCAN_MODULE_SOURCE))
@@ -764,7 +764,7 @@ def test_the_scan_module_imports_nothing_from_the_package_or_lvkit() -> None:
     ]
     for node in imported:
         if isinstance(node, ast.ImportFrom):
-            assert node.level == 0
+            assert node.level == 0 or (node.level, node.module) == (1, "local_time")
             assert (node.module or "").split(".")[0] != "lvkit"
         else:
             assert all(a.name.split(".")[0] != "lvkit" for a in node.names)

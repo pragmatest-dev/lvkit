@@ -53,6 +53,10 @@ from lvkit.codegen.live_io_module import (
     LIVE_IO_NAME,
     NO_LIVE_IO_NAME,
 )
+from lvkit.codegen.local_time_module import (
+    LOCAL_TIME_MODULE_NAME,
+    LOCAL_TIME_MODULE_SOURCE,
+)
 from lvkit.codegen.notifiers_module import (
     NOTIFIER_NAME,
     NOTIFIERS_MODULE_NAME,
@@ -548,6 +552,17 @@ def _write_scan_module(package_root: Path) -> None:
     )
 
 
+def _write_local_time_module(package_root: Path) -> None:
+    """Write ``local_time.py`` at the package root when a generated module imports
+    from it (``scan.py`` does for a time in local time, so it is written after it)."""
+    _write_support_module(
+        package_root,
+        f".{LOCAL_TIME_MODULE_NAME} import",
+        LOCAL_TIME_MODULE_NAME,
+        LOCAL_TIME_MODULE_SOURCE,
+    )
+
+
 def _write_ini_module(package_root: Path) -> None:
     """Write ``ini.py`` at the package root when a generated module imports from
     it."""
@@ -1010,6 +1025,7 @@ def generate_python(
             PANELS_MODULE_NAME,
             SCAN_MODULE_NAME,
             INI_MODULE_NAME,
+            LOCAL_TIME_MODULE_NAME,
         ],
     )
     package_modules = PackageModules.from_graph(
@@ -1025,6 +1041,7 @@ def generate_python(
             PANELS_MODULE_NAME,
             SCAN_MODULE_NAME,
             INI_MODULE_NAME,
+            LOCAL_TIME_MODULE_NAME,
         },
     )
     copies = PackageCopies(graph, layout, output_dir_resolved)
@@ -1308,6 +1325,7 @@ def generate_python(
     _write_errors_module(output_dir_resolved)
     _write_variants_module(output_dir_resolved)
     _write_scan_module(output_dir_resolved)
+    _write_local_time_module(output_dir_resolved)
     _write_ini_module(output_dir_resolved)
     _write_live_io_module(output_dir_resolved)
     for written in package_modules.write(output_dir_resolved):

@@ -1,27 +1,65 @@
-"""The offset of the computer's time zone from UTC at a time stamp, as the Python
-expression that generated code runs.
+"""The computer's time zone, as LabVIEW applies it to a time stamp.
 
-NI, Format Date/Time String and Scan From String: a time that is not UTC is "in
-the configured time zone for the computer". From 1970 on LabVIEW uses the
-computer's CURRENT time zone rule for every year (the old-version VI
-LV70DateRecToTimeStamp, the conversion in the other direction, has the same rule:
-see ``data/vilib/timing.json``), so a time stamp of 1976 is shifted by whole
-28-year cycles into 2010-2037, where the zone data holds the current rule, and
-the offset is read there (the Gregorian calendar repeats its weekdays and leap
-years every 28 years from 1901 to 2099, so a rule written as a weekday of a month
-repeats too). Before 1970 it is the computer's current offset
-(``time.localtime().tm_gmtoff``).
+LabVIEW converts between UTC and local time (Date/Time To Seconds, Format Date/Time
+String, Scan From String) with the computer's CURRENT daylight-saving rule for
+every date from 1970 on: a 1976 date is converted as if today's rule had held
+then. A date before 1970 uses the computer's current offset from UTC.
+
+LABVIEW_DAYLIGHT_SAVING is the one setting. True (the default) is LabVIEW's rule: a
+year before 2010 is read 28-year cycles later, where the zone data holds the
+current rule (the calendar repeats its weekdays and leap years every 28 years from
+1901 to 2099, so a rule written as a weekday of a month repeats too). False uses
+each date's own historical rule, the zone data of its year, and Date/Time To
+Seconds then honours the record's DST field (0 standard time, 1 daylight saving
+time, -1 lets the system decide). The value is read when the code runs.
+
+This file is the package's ``local_time.py``: generated modules import
+``local_offset`` and ``local_seconds`` from it.
 """
 
 from __future__ import annotations
 
+import calendar
+import datetime
+import time
 
-def local_offset_expression(stamp: str) -> str:
-    """The expression of the ``datetime.timedelta`` the computer's time zone is
-    ahead of UTC at the time stamp ``stamp`` (a name)."""
-    year = f"{stamp}.year"
-    return (
-        f"({stamp}.replace(year={year} + 28 * max(0, (2037 - {year}) // 28))"
-        f".astimezone().utcoffset() if {year} >= 1970 else "
-        "datetime.timedelta(seconds=time.localtime().tm_gmtoff))"
-    )
+# LabVIEW applies today's daylight-saving rule to every date.
+# Set False to use each date's own historical rule.
+LABVIEW_DAYLIGHT_SAVING = True
+
+# Seconds in 28 years (10227 days) from 1901 to 2099.
+_CYCLE_SECONDS = 883612800
+
+
+def _cycles(year):
+    """How many 28-year cycles a year before 2010 moves forward to reach 2010-2037,
+    where the zone data holds the current rule; none with the setting False."""
+    if not LABVIEW_DAYLIGHT_SAVING:
+        return 0
+    return max(0, (2037 - year) // 28)
+
+
+def local_offset(stamp):
+    """The ``datetime.timedelta`` the computer's time zone is ahead of UTC at the
+    aware time stamp ``stamp``."""
+    if stamp.year < 1970:
+        return datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+    shifted = stamp.replace(year=stamp.year + 28 * _cycles(stamp.year))
+    return shifted.astimezone().utcoffset()
+
+
+def local_seconds(record):
+    """The seconds since 1970-01-01 UTC of a date and time record (seconds,
+    minutes, hours, day, month, year, day of week, day of year, DST) read as local
+    time. ``time.mktime`` raises OverflowError before 1970 on Windows, so those
+    dates use ``calendar.timegm`` minus the computer's current offset."""
+    second, minute, hour, day, month, year = record[:6]
+    if year < 1970:
+        return (
+            calendar.timegm((year, month, day, hour, minute, second))
+            - time.localtime().tm_gmtoff
+        )
+    cycles = _cycles(year)
+    daylight = -1 if LABVIEW_DAYLIGHT_SAVING else record[8]
+    local = (year + 28 * cycles, month, day, hour, minute, second, 0, 0, daylight)
+    return time.mktime(local) - cycles * _CYCLE_SECONDS

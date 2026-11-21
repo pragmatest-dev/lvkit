@@ -72,6 +72,7 @@ from .ini_module import ini_import
 from .label_names import python_label
 from .live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_NAME, NO_LIVE_IO_NAME
 from .local_indicators import LocalIndicators
+from .local_time_module import local_time_import
 from .module_declarations import ModuleDeclarations
 from .notifiers_module import NOTIFIER_NAME, NOTIFIERS_MODULE_NAME
 from .panel_hooks import PanelHooks
@@ -735,6 +736,14 @@ class CodeGenContext:
         if isinstance(self.import_resolver, ImportResolver):
             statement = self.import_resolver.scan_import()
         self.add_import(statement or scan_import("."))
+
+    def import_local_time(self, names: str) -> None:
+        """Import ``names`` (``local_offset``, ``local_seconds``, comma separated)
+        from the package's ``local_time`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.local_time_import(names)
+        self.add_import(statement or local_time_import(".", names))
 
     def import_ini(self) -> None:
         """Import ``IniFile`` from the package's ``ini`` module."""
