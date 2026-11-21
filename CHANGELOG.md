@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: a Map constant keeps its value type, so its saved entries are read** — the graph dropped the Map's value type, so no Map constant could be decoded (an empty `{}` or `{'PinGroup1': ['Pin1', 'Pin2']}` read as "not read from the VI", a gap in 298 VIs); every view and `generate` now show the stored dict.
 - **Fix: the integer 0 read from flattened bytes or a Type Cast into a refnum is Not a Refnum** — Call By Reference on it is error 1026 on the error wire instead of calling the integer (OpenG's Dictionary Data Core).
 - **Fix: In Place Element of a data value reference that is Not a Refnum reads the type's default and gives error 1556** — the DVR Read border node's error out carries "The reference is invalid." and the write is skipped, so a class method on a default object (measurement-plugin-labview's Session Reservation) takes its invalid-reference path instead of failing on `None[0]`.
 - **Fix: Concatenate Strings of a Picture is a gap** — a Picture is an image in Python, with no string of drawing records to append to (JKI's Draw Flattened Pixmap (Fast) added `None + str`).

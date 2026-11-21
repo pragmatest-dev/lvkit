@@ -45,6 +45,9 @@ def _lvtype_to_parsed(lv_type: LVType) -> ParsedType:
         element_type=(
             _lvtype_to_parsed(lv_type.element_type) if lv_type.element_type else None
         ),
+        value_type=(
+            _lvtype_to_parsed(lv_type.value_type) if lv_type.value_type else None
+        ),
         dimensions=lv_type.dimensions,
         measure_flavor=lv_type.measure_flavor,
         user_event_name=lv_type.user_event_name,

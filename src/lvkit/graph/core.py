@@ -410,6 +410,7 @@ class InMemoryVIGraph(
             typedef_file=parsed_type.typedef_file,
             values=parsed_type.enum_values,
             element_type=self._enrich_type(parsed_type.element_type, file_key),
+            value_type=self._enrich_type(parsed_type.value_type, file_key),
             dimensions=parsed_type.dimensions,
             measure_flavor=parsed_type.measure_flavor,
             user_event_name=parsed_type.user_event_name,

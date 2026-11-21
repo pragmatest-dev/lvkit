@@ -57,6 +57,7 @@ class ParsedType:
     fields: list[ClusterField] | None = None  # Recursive cluster fields
     enum_values: dict | None = None  # {name: EnumValue} from VCTP
     element_type: ParsedType | None = None  # Array element type (recursive)
+    value_type: ParsedType | None = None  # Map value type (recursive)
     dimensions: int | None = None  # Array dimension count
     measure_flavor: str | None = None  # MeasureData flavor (waveform/digital data)
     user_event_name: str | None = None  # User Event refnum: its data type label
