@@ -170,13 +170,16 @@ def test_the_delete_with_no_hierarchy_input(
     assert package.function(file).error_out.code == 7
 
 
-def test_a_failed_delete_gives_the_empty_path(
+def test_a_failed_delete_still_gives_the_path_it_was_given(
     project: Project,  # noqa: F811
     tmp_path: Path,
 ) -> None:
     package = _delete(project, hierarchy=False)
-    # The Path type's default, the empty path (plan decision 1).
-    assert package.function(tmp_path / "missing").deleted == Path("")
+    # The pane's label for the output is "dup path": a duplicate of the input,
+    # whether or not the delete worked (JKI-EasyXML's tests write to the "deleted
+    # path" of a temporary file that need not exist).
+    result = package.function(tmp_path / "missing")
+    assert (result.deleted, result.error_out.code) == (tmp_path / "missing", 7)
 
 
 @pytest.mark.parametrize("hierarchy", [True, None], ids=["constant", "run-time"])

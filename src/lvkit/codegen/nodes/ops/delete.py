@@ -10,7 +10,8 @@ Error Codes: "The path is empty or relative. You must use an absolute path.").
 The failures of the operation are the node's error out through the catalog
 entry's ``errors`` (``native_failure``): 1430, 1 for a path with a null
 character, then 7, 8 and 6 as Copy's are.
-``cancelled`` is FALSE (no dialog is shown); ``deleted path`` is ``path``.
+``cancelled`` is FALSE (no dialog is shown); ``deleted path`` is ``path``, also
+when the delete fails (the pane labels it "dup path").
 
 Terminals (from the primitives entries; 9 and 10 from the callers' wiring, see
 ``labview-binary-format.md``, "Delete"):
@@ -74,14 +75,16 @@ def delete(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
         + f"if os.path.isdir({path}):\n    {folder}\n"
         + f"else:\n    os.remove({path})"
     )
-    statements.extend(ast.parse(source).body)
     bindings: dict[str, str] = {}
     deleted = terminal(node, "output", pane["deleted"])
     if deleted is not None:
-        # A variable of its own, so a failed delete gives it its default.
+        # The pane's own label for it is "dup path" (1417): the path comes out as
+        # it went in, assigned before the delete can fail, and the catalog keeps
+        # it on a failure (``keeps_on_failure``).
         var = ctx.make_output_var("deleted_path", node.id, terminal_id=deleted.id)
         statements.append(build_assign(var, parse_expr(path)))
         bindings[deleted.id] = var
+    statements.extend(ast.parse(source).body)
     cancelled = terminal(node, "output", 1) if node.prim_id == 8056 else None
     if cancelled is not None:
         var = ctx.make_output_var("cancelled", node.id, terminal_id=cancelled.id)
