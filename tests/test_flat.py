@@ -163,6 +163,9 @@ def test_not_a_refnum_is_the_integer_zero_when_cast_or_flattened() -> None:
     assert cast(_DVR, U32)(None).r == 0
     flattened = RefnumInteger("I", "c_uint32", 4).flatten("x", False, 0, None)
     assert "0 if x is None else x" in str(flattened)
+    text = scalar("String")
+    assert cast(text, refnum)("\x00\x00\x00\x00").r is None
+    assert cast(text, refnum)("\x00\x00\x12\x34").r == 0x1234
 
 
 _DVR = LVType(

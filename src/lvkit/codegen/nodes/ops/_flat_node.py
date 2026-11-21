@@ -12,7 +12,7 @@ from lvkit.models import Terminal
 
 from ...ast_utils import build_assign, parse_expr
 from ...context import CodeGenContext
-from ...flat import Functions, Integer, Layout, Real
+from ...flat import Functions, Integer, Layout, Real, RefnumInteger
 
 
 def terminal(node: PrimitiveNode, direction: str, index: int) -> Terminal | None:
@@ -91,6 +91,10 @@ def read_flattened(
         variable = ctx.make_output_var("value", node.id, terminal_id=value_term.id)
         if position is None:
             statements.append(build_assign(variable, parse_expr(value or "None")))
+            if isinstance(layout, RefnumInteger):
+                # The integer 0 is Not a Refnum.
+                zero = f"None if {variable} == 0 else {variable}"
+                statements.append(build_assign(variable, parse_expr(zero)))
         else:
             statements.append(
                 ast.parse(

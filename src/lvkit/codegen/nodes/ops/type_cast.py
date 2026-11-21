@@ -39,6 +39,7 @@ from ...flat import (
     Functions,
     Integer,
     Real,
+    RefnumInteger,
     UnsupportedLayout,
     layout_of,
     render_parts,
@@ -112,5 +113,8 @@ def type_cast(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     else:
         expression = f"{fns.reader(dst, False)}({data}, 0)[0]"
     statements.append(build_assign(variable, parse_expr(expression)))
+    if isinstance(dst, RefnumInteger):
+        zero = f"None if {variable} == 0 else {variable}"
+        statements.append(build_assign(variable, parse_expr(zero)))
     add_flat_imports(ctx, statements)
     return CodeFragment(statements=statements, bindings={result.id: variable})
