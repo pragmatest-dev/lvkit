@@ -203,6 +203,25 @@ def test_a_variant_read_from_a_named_type_string_equals_the_unnamed_one() -> Non
     assert v.variant_to_flattened(read)[0] == named
 
 
+def test_a_variant_of_an_error_cluster_flattens_the_errors_fields() -> None:
+    """The value of an error wire is a LabVIEWError, not a tuple: status, code
+    and source are written in the cluster's order; no error is the defaults."""
+    from types import SimpleNamespace
+
+    from tests.helpers import error_cluster_type
+
+    v = generated_variants()
+    runtime = v.type_from_string(encode(error_cluster_type()))
+    warning = SimpleNamespace(status=False, code=1, source="x")
+    _, flat = v.variant_to_flattened(v.Variant(warning, runtime))
+    assert flat == "\x00\x00\x00\x00\x01\x00\x00\x00\x01x"
+    error = SimpleNamespace(status=True, code=2, source="")
+    _, flat = v.variant_to_flattened(v.Variant(error, runtime))
+    assert flat == "\x01\x00\x00\x00\x02\x00\x00\x00\x00"
+    _, flat = v.variant_to_flattened(v.Variant(None, runtime))
+    assert flat == "\x00" * 9
+
+
 def test_truncated_data_is_reported() -> None:
     v = generated_variants()
     lv_type = v.type_from_string(encode(STR))

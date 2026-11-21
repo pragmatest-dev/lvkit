@@ -87,7 +87,12 @@ def _flatten_value(value: Any, lv_type: LVType) -> bytes:
             parts.append(_flatten_value(item, info.element))
         return b"".join(parts)
     if info.kind == "cluster":
-        members = list(value)
+        if hasattr(value, "status") and hasattr(value, "code"):
+            # An error cluster's value is a LabVIEWError: its fields in the
+            # cluster's order, status, code and source.
+            members = [value.status, value.code, value.source]
+        else:
+            members = list(value)
         if len(members) != len(info.fields):
             raise ValueError(
                 f"a cluster of {len(info.fields)} members was given "
