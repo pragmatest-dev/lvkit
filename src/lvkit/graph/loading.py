@@ -107,6 +107,7 @@ from .recorded_paths import (
     member_tokens,
     redirect_member_beside_container,
 )
+from .retie_types import retie_unresolved_types
 from .type_records import NamedRecord, TypeRecords, type_names
 
 logger = logging.getLogger(__name__)
@@ -620,6 +621,10 @@ class LoadingMixin:
         # from batch loaders (load_lvclass/load_lvlib/load_directory, which
         # all funnel through load_vi per member) are cheap.
         stamp_nmux_lane_names(cast("InMemoryVIGraph", self))
+
+        # Tie the class and typedef types a cycle of loading left without a file
+        # (see retie_types).
+        retie_unresolved_types(cast("InMemoryVIGraph", self))
 
         # Resolve + stamp Property Node accessed-property NAMES onto their
         # correlated VALUE terminal's Terminal.display_name -- same seam,
