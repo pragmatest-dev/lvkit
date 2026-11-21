@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import pytest
 
+from lvkit import type_string
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.error_flow import own_error_terminals
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.helpers import error_cluster_type, generated_variants
-from tests.native_vi import generate, node, scalar
+from tests.native_vi import array, generate, node, scalar
 
 VARIANT_TO_DATA = 8003
 VARIANT = scalar("Variant")
@@ -276,3 +277,41 @@ def test_with_data_unwired_a_cluster_type_check_still_runs() -> None:
     held = variants.Variant((1,), variants.LVType(80, "cluster"))
     assert run.function(held).error_out is None
     assert run.function(variant("x", "String")).error_out.code == 91
+
+
+def _held(lv_type: LVType, value: object, code: int):
+    """A variant holding ``value`` of ``lv_type``, its type string encoded."""
+    variants = generated_variants()
+    recorded = variants.LVType(code, "held", tuple(type_string.encode(lv_type)))
+    return variants.Variant(value, recorded)
+
+
+def test_a_cluster_converts_to_an_array_of_variants_of_its_members() -> None:
+    members = LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[
+            ClusterField(name="n", type=I32),
+            ClusterField(name="s", type=scalar("String")),
+        ],
+    )
+    run = _convert(array(VARIANT))
+    assert "read_type" in run.source
+    result = run.function(_held(members, (5, "a"), 80))
+    assert result.error_out is None
+    assert [(e.value, e.type.code) for e in result.d] == [(5, 3), ("a", 48)]
+
+
+def test_an_array_converts_to_an_array_of_variants_of_its_elements() -> None:
+    run = _convert(array(VARIANT))
+    result = run.function(_held(array("NumInt32"), [1, 2, 3], 64))
+    assert [(e.value, e.type.code) for e in result.d] == [(1, 3), (2, 3), (3, 3)]
+    assert result.error_out is None
+
+
+def test_other_variants_into_an_array_of_variants_are_error_91() -> None:
+    run = _convert(array(VARIANT))
+    _error_91(run, variant("x", "String"), [])
+    _error_91(run, variant(), [])
+    # A two-dimensional array is not a list of its elements.
+    _error_91(run, _held(array("NumInt32", 2), [[1]], 64), [])

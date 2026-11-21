@@ -11,6 +11,9 @@ the variant records against the data type, in this order:
   enum or a ring takes it rounded to the nearest integer, ties to even, as LabVIEW
   coerces a floating-point number to an integer; a floating-point type takes
   ``float``, a complex type ``complex``). A Boolean is not a number;
+* a one-dimensional array of variants: the variant must hold an array or a
+  cluster, and the data is its elements, each a variant of its own type
+  (``_array_of_variants``);
 * a class or another typedef (the data type has a name): the variant's type must
   have the same code and the same name; variants do not recognise inheritance, so
   a child class in the variant is not the parent class (NI, Variant To Data:
@@ -55,7 +58,7 @@ from lvkit.lv_type_codes import (
 from lvkit.models import LVType, LVTypeKind, Terminal, TerminalDirection
 from lvkit.primitive_resolver.models import PrimitiveTerminal
 
-from ...ast_utils import build_assign, parse_expr, terminal_annotation
+from ...ast_utils import build_assign, parse_expr, parse_stmt, terminal_annotation
 from ...context import CodeGenContext
 from ...error_flow import own_error_terminals
 from ...errors import TerminalNotOnCall
@@ -218,6 +221,65 @@ def _type_imports(ctx: CodeGenContext, data: Terminal, annotation: str) -> None:
         ctx.add_import("from pathlib import Path")
 
 
+def _is_array_of_variants(lv_type: LVType) -> bool:
+    """Whether ``lv_type`` is a one-dimensional array of variants."""
+    return (
+        lv_type.kind == LVTypeKind.ARRAY
+        and (lv_type.dimensions or 1) == 1
+        and is_variant_type(lv_type.element_type)
+    )
+
+
+def _array_of_variants(
+    ctx: CodeGenContext,
+    node: PrimitiveNode,
+    data: Terminal,
+    data_wired: bool,
+    value: str,
+) -> CodeFragment:
+    """Variant To Data into an array of variants: a variant that holds an array or
+    a cluster converts to the array of its elements, each a variant of its own type
+    (the first dimension of an array, the members of a cluster in order). Anything
+    else is not compatible. NI's page for the node does not describe this; the
+    answers at https://lavag.org/topic/19831-how-to-recover-variant-type-info/
+    ("turn it into an array of variants. If it returns no error, then your input
+    is either an array, or a cluster") and the purpose of OpenG's Cluster to Array
+    of VData, which is this node, do."""
+    ctx.import_variant("read_type")
+    prelude: list[ast.stmt] = []
+    if not value.isidentifier():
+        local = ctx.make_output_var("variant", node.id)
+        prelude.append(build_assign(local, parse_expr(value)))
+        value = local
+    info = ctx.make_output_var("type_info", node.id)
+    statements = [
+        *prelude,
+        parse_stmt(f"{info} = read_type({value}.type)"),
+        ast.If(
+            test=parse_expr(
+                f"{info}.kind not in ('array', 'cluster') or "
+                f"({info}.kind == 'array' and len({info}.dimensions) != 1)"
+            ),
+            body=[_raise_incompatible()],
+            orelse=[],
+        ),
+    ]
+    if not data_wired:
+        return CodeFragment(statements=statements)
+    variable = ctx.make_output_var("data", node.id, terminal_id=data.id)
+    statements.append(
+        build_assign(
+            variable,
+            parse_expr(
+                f"[Variant(element, element_type) for element, element_type in "
+                f"zip({value}.value, {info}.fields if {info}.kind == 'cluster' "
+                f"else [{info}.element] * len({value}.value))]"
+            ),
+        )
+    )
+    return CodeFragment(statements=statements, bindings={data.id: variable})
+
+
 @register_op_fragment("VARIANT_TO_DATA")
 def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     variant_entry = _catalog_terminal(
@@ -255,6 +317,8 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
     lv_type = data.lv_type
     if lv_type is None or is_variant_type(lv_type):
         return CodeFragment(bindings={data.id: value})
+    if _is_array_of_variants(lv_type):
+        return _array_of_variants(ctx, node, data, data_wired, value)
     convert = _numeric_conversion(lv_type)
     target: ast.expr | None = None
     if _type_check(value, lv_type, convert) is None:
