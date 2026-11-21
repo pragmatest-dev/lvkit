@@ -5598,6 +5598,12 @@
       ],
       "errors": [
         {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "zip_file_in"
+        },
+        {
           "exception": "FileNotFoundError",
           "code": 7
         },

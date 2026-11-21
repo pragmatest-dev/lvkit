@@ -188,7 +188,7 @@ PRIMITIVES = {
     "file-io:Compare Two Paths": [("ValueError", None)],
     "file-io:New Zip File": FILE_PATH_OPS,
     "file-io:Add File to Zip": [("InvalidRefnumError", 1), *FILE_PATH_OPS],
-    "file-io:Close Zip File": FILE_PATH_OPS,
+    "file-io:Close Zip File": [("InvalidRefnumError", 1), *FILE_PATH_OPS],
     "file-io:Read Characters From File": FILE_PATH_OPS,
     "file-io:Open Config Data": FILE_PATH_OPS,
     "file-io:Open Config Data (compatibility)": FILE_PATH_OPS,
