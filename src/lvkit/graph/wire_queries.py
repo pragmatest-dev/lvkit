@@ -110,6 +110,37 @@ class WireQueriesMixin:
                 return call.display_name, term.index
         return None
 
+    def callee_pane_terminal(self, terminal_id: str) -> Terminal | None:
+        """The input control the called VI has at the connector-pane slot of the
+        subVI call input ``terminal_id``; None when the terminal is not a subVI
+        call's input, the called VI is not loaded or it has no control there.
+
+        A call to a VI with an adapt-to-type input records the caller's own type
+        on the terminal; the control is the type the called VI declares."""
+        term = self.get_terminal(terminal_id)
+        if (
+            term is None
+            or term.index is None
+            or term.direction != TerminalDirection.INPUT
+        ):
+            return None
+        call = self.get_graph_node(self.terminal_node_id(terminal_id))
+        if not isinstance(call, VINode) or call.id == call.vi_path:
+            return None
+        key = self.loaded_callee_key(call)
+        if key is None:
+            return None
+        return next(
+            (
+                t
+                for t in self.pane_terminals(
+                    key, TerminalDirection.INPUT, public_only=False
+                )
+                if t.index == term.index
+            ),
+            None,
+        )
+
     def wire_readers(self, terminal_id: str) -> list[WireEnd]:
         """The terminals of the terminal's own VI that the wire from the output
         ``terminal_id`` goes to."""

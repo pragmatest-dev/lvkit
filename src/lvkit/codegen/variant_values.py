@@ -107,12 +107,18 @@ def _coerced_source(
     ctx: CodeGenContext, terminal_id: str, source_id: str | None
 ) -> Terminal | None:
     """The terminal of the typed wire a Variant terminal is fed by; None when the
-    terminal is not a Variant or its wire is a Variant or has no known type."""
+    terminal is not a Variant or its wire is a Variant or has no known type. A
+    subVI call input is a Variant when the called VI's control there is (a call
+    to an adapt-to-type input records the caller's own type on the terminal)."""
     if ctx.graph is None:
         return None
     terminal = ctx.graph.get_terminal(terminal_id)
-    if terminal is None or not is_variant_type(terminal.lv_type):
+    if terminal is None:
         return None
+    if not is_variant_type(terminal.lv_type):
+        control = ctx.graph.callee_pane_terminal(terminal_id)
+        if control is None or not is_variant_type(control.lv_type):
+            return None
     source = _source(ctx, terminal_id, source_id)
     if source is None or source.lv_type is None or is_variant_type(source.lv_type):
         return None
