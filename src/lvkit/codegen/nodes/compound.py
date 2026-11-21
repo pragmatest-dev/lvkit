@@ -20,6 +20,7 @@ from ..fragment import CodeFragment
 from ..native_array import replace_column_statements, replace_subarray_statements
 from ..output_binding import bind_output
 from ..type_default import type_default
+from .picture import concatenate_pictures
 from .terminal_roles import laid_out_roles
 
 _MUTABLE_KINDS = (LVTypeKind.ARRAY, LVTypeKind.CLUSTER)
@@ -314,13 +315,7 @@ def generate_concat_strings(
         t.lv_type is not None and t.lv_type.underlying_type == "Picture"
         for t in (*inputs, *outputs)
     ):
-        # A Picture wire is a Pillow image, not the string of drawing records
-        # LabVIEW keeps it as, so appending records to it has no Python meaning.
-        raise ConversionGap(
-            "Concatenate Strings joins drawing records onto a Picture; a Picture "
-            "is an image in Python, with no string of records to append to",
-            node,
-        )
+        return concatenate_pictures(node, ctx, inputs, outputs[0])
 
     parts: list[ast.expr] = []
     for inp in sorted(inputs, key=lambda t: t.index):
