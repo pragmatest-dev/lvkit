@@ -81,8 +81,11 @@ TCP_READ_WRITE = [
 VISA = [("VisaIOError", None)]
 
 # The gRPC library's own InvalidEnumValueException code (its exceptions.h), not
-# one of NI's listed codes: the message is the exception's text.
-GRPC_LIBRARY_CODES = {-2003}
+# one of NI's listed codes: the message is the exception's text. -1 is what each
+# library function returns for an id that is not the object it expects
+# (``grpc_client.cc``, ``grpc_interop.cc``: ``if (!client) return -1``).
+GRPC_LIBRARY_CODES = {-2003, -1}
+GRPC_ID = ("InvalidGrpcIdError", -1)
 # A cluster element missing from the JSON: LabVIEW reports -375006, "the cluster
 # element is not found in the JSON string" (forums.ni.com/t5/LabVIEW/unflatten-jason/
 # td-p/4058219); NI's code list skips it, so the message is the exception's text.
@@ -184,7 +187,7 @@ PRIMITIVES = {
     "file-io:Recursive File List": FILE_PATH_OPS,
     "file-io:Compare Two Paths": [("ValueError", None)],
     "file-io:New Zip File": FILE_PATH_OPS,
-    "file-io:Add File to Zip": FILE_PATH_OPS,
+    "file-io:Add File to Zip": [("InvalidRefnumError", 1), *FILE_PATH_OPS],
     "file-io:Close Zip File": FILE_PATH_OPS,
     "file-io:Read Characters From File": FILE_PATH_OPS,
     "file-io:Open Config Data": FILE_PATH_OPS,
@@ -221,15 +224,22 @@ PRIMITIVES = {
     "addons:Get LV Enum Value from Proto Value": GRPC_ENUM_VALUE,
     "addons:Get Proto Enum Value from LV Value": GRPC_ENUM_VALUE,
     "addons:Create Client": [("OSError", None)],
-    "addons:Client Unary Call.vim": [("RpcError", None)],
+    "addons:Client Unary Call.vim": [GRPC_ID, ("RpcError", None)],
+    "addons:Close Client": [GRPC_ID],
+    "addons:Client Begin Server Streaming Call.vim": [GRPC_ID],
+    "addons:Client Read From Stream.vim": [GRPC_ID],
+    "addons:Client Cancel Call.vi": [GRPC_ID],
+    "addons:Complete Call.vi": [GRPC_ID],
+    "addons:Set Call Status.vi": [GRPC_ID],
+    "addons:Is Call Cancelled.vi": [GRPC_ID],
     "cluster-class-variant:Get Array Information.vi": [("ValueError", None)],
     "cluster-class-variant:Get Cluster Information.vi": [("ValueError", None)],
     "cluster-class-variant:Get Numeric Information.vi": [("ValueError", None)],
     "cluster-class-variant:Get Refnum Information.vi": [("ValueError", None)],
     "addons:Start Server.vi": [("RpcError", None)],
-    "addons:Read Call Request.vim": [("RpcError", None)],
-    "addons:Write Call Response.vim": [("RpcError", None)],
-    "addons:Client Complete Streaming Call.vi": [("RpcError", None)],
+    "addons:Read Call Request.vim": [GRPC_ID, ("RpcError", None)],
+    "addons:Write Call Response.vim": [GRPC_ID, ("RpcError", None)],
+    "addons:Client Complete Streaming Call.vi": [GRPC_ID, ("RpcError", None)],
     "addons:UnpackFromAny.vim": [("DecodeError", None)],
     "connectivity:Open Registry Key": REGISTRY_OPEN,
     "connectivity:Close Registry Key": REGISTRY_REFNUM,

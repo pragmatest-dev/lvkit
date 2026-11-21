@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from lvkit.graph.models import AnyGraphNode
-from lvkit.models import ScalarValue, contains_class_instance
+from lvkit.models import ScalarValue, TerminalDirection, contains_class_instance
 from lvkit.primitive_resolver import NativeError, PrimitiveEntry
 from lvkit.vilib_resolver import VIEntry
 
@@ -109,6 +109,44 @@ def own_exception_class(failure: NativeError) -> ast.ClassDef:
     ).body
     assert isinstance(definition, ast.ClassDef)
     return definition
+
+
+def invalid_reference_guards(
+    node: AnyGraphNode, ctx: CodeGenContext, entry: VIEntry
+) -> list[ast.stmt]:
+    """For each failure of ``entry`` that names a reference input
+    (``NativeError.invalid_input``), ``if isinstance(<input>, int): raise <it>``:
+    a reference is an object, and a number there refers to nothing. The message
+    is built when the code runs and names the value. An unwired input has none."""
+    statements: list[ast.stmt] = []
+    for failure in entry.errors:
+        if failure.invalid_input is None:
+            continue
+        catalog_term = next(
+            t
+            for t in entry.terminals
+            if t.python_param == failure.invalid_input
+            and t.direction == TerminalDirection.INPUT
+        )
+        call_term = next(
+            (
+                t
+                for t in getattr(node, "terminals", ())
+                if t.index == catalog_term.index
+                and t.direction == TerminalDirection.INPUT
+            ),
+            None,
+        )
+        value = ctx.wired_input(call_term.id, node) if call_term else None
+        if value is None or value == "None":
+            continue
+        text = f"{entry.name}: the input {catalog_term.name!r} is not a reference: "
+        [guard] = ast.parse(
+            f"if isinstance({value}, int):\n"
+            f"    raise {failure.exception}({text!r} + repr({value}))"
+        ).body
+        statements.append(guard)
+    return statements
 
 
 def catch_failures(

@@ -112,6 +112,12 @@ class NativeError(BaseModel):
     # The failure is listed only for a node whose terminals hold a class object
     # (the failure of reading class data).
     only_with_class: bool = False
+    # The ``python_param`` of the catalog input that holds a reference the
+    # operation uses (``exception`` is then a class of its own, ``base``). A
+    # reference is an object in Python, so a wired number (the default of the
+    # control: a reference that refers to nothing) raises ``exception`` before
+    # the operation runs (``codegen/native_failure.py``).
+    invalid_input: str | None = None
 
 
 class LiveIOWhenInput(BaseModel):
