@@ -313,6 +313,27 @@ def test_an_error_cluster_converts_to_its_status_code_and_source() -> None:
     assert [e.value for e in result.d] == [False, 1, "x"]
 
 
+def test_a_member_variant_takes_its_label_as_its_name_not_as_part_of_its_type() -> None:
+    """A labelled member's variant has the member's label as its ``name`` and the
+    type of an unlabelled value, so it equals a variant made from that value."""
+    members = LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[ClusterField(name="MyArray", type=array("String"), labelled=True)],
+    )
+    run = _convert(array(VARIANT))
+    result = run.function(_held(members, (["foo", "bar"],), 80))
+    assert result.error_out is None
+    (member,) = result.d
+    variants = generated_variants()
+    plain = variants.Variant(
+        ["foo", "bar"],
+        variants.LVType(64, "[String]", tuple(type_string.encode(array("String")))),
+    )
+    assert (member.name, member.value) == ("MyArray", ["foo", "bar"])
+    assert member == plain
+
+
 def test_an_array_converts_to_an_array_of_variants_of_its_elements() -> None:
     run = _convert(array(VARIANT))
     result = run.function(_held(array("NumInt32"), [1, 2, 3], 64))

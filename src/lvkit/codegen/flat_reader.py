@@ -203,6 +203,19 @@ def variant_from_flattened(data: str, type_string: Any) -> Variant:
     lv_type = type_from_string(words)
     value = unflatten_data(data.encode("latin-1"), lv_type)
     return Variant(value, lv_type, {}, label)
+
+
+def variant_of_member(value: Any, lv_type: LVType) -> Variant:
+    """A variant holding ``value``, a member of a cluster or an element of an array
+    of type ``lv_type`` (``read_type``'s ``fields`` and ``element``). The label
+    that ends the member's type string is the variant's ``name``, not part of its
+    type, as ``variant_from_flattened`` reads it."""
+    if lv_type.type_string is None:
+        return Variant(value, lv_type)
+    words, label = _split_label(lv_type.type_string)
+    if not label:
+        return Variant(value, lv_type)
+    return Variant(value, type_from_string(words), {}, label)
 '''
 
 

@@ -276,7 +276,7 @@ def _array_of_variants(
     ("turn it into an array of variants. If it returns no error, then your input
     is either an array, or a cluster") and the purpose of OpenG's Cluster to Array
     of VData, which is this node, do."""
-    ctx.import_variant("read_type", "cluster_members")
+    ctx.import_variant("read_type", "cluster_members", "variant_of_member")
     prelude: list[ast.stmt] = []
     if not value.isidentifier():
         local = ctx.make_output_var("variant", node.id)
@@ -302,7 +302,8 @@ def _array_of_variants(
         build_assign(
             variable,
             parse_expr(
-                f"[Variant(element, element_type) for element, element_type in "
+                f"[variant_of_member(element, element_type) "
+                f"for element, element_type in "
                 f"zip(cluster_members({value}.value), {info}.fields if "
                 f"{info}.kind == 'cluster' else [{info}.element] * "
                 f"len({value}.value))]"
