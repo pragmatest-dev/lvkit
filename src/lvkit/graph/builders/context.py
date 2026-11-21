@@ -32,6 +32,8 @@ class GraphBuildContext:
     iuse_to_qpath: dict[str, str]  # iUse uid -> qualified on-disk path
     iuse_to_callee_key: dict[str, str]  # iUse uid -> identity of the VI it calls
     poly_to_callee_key: dict[str, str]  # polymorphic call uid -> its polymorphic VI
+    # uid of every call that is an embedded instance (a malleable VI's private copy)
+    instance_call_uids: set[str]
     # uid of every node referring to another VI -> that VI's recorded name + path
     iuse_refs: dict[str, ParsedDependencyRef]
     # uid of every Shared Variable node -> the link-table record of its variable

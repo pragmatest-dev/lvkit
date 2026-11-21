@@ -466,6 +466,7 @@ class ConstructionMixin:
         iuse_to_qname: dict[str, str] | None = None,
         iuse_to_qpath: dict[str, str] | None = None,
         iuse_to_callee_key: dict[str, str] | None = None,
+        instance_call_uids: set[str] | None = None,
         poly_to_callee_key: dict[str, str] | None = None,
         iuse_refs: dict[str, ParsedDependencyRef] | None = None,
         shared_variable_links: dict[str, SharedVariableLink] | None = None,
@@ -758,6 +759,7 @@ class ConstructionMixin:
             iuse_to_qname=iuse_to_qname or {},
             iuse_to_qpath=iuse_to_qpath,
             iuse_to_callee_key=iuse_to_callee_key or {},
+            instance_call_uids=instance_call_uids or set(),
             poly_to_callee_key=poly_to_callee_key or {},
             iuse_refs=iuse_refs or {},
             shared_variable_links=shared_variable_links or {},
@@ -1579,6 +1581,19 @@ class ConstructionMixin:
         # made a 487-VI build 11x a 106-VI one. Intra-VI wires have both ends in
         # vi_node_uids, so out-edges of vi_node_uids cover this VI's wires exactly
         # once; other VIs' wires were already propagated in their own calls.
+        # A terminal on an ordinary subVI call's connector pane is the type the
+        # called VI declares; a call of an embedded instance (a malleable VI)
+        # takes the wired types, so only the ordinary call's terminals are kept.
+        declared: set[int] = set()
+
+        def _keeps_declared_type(node_id: str) -> bool:
+            node = g.nodes.get(node_id, {}).get("node")
+            return (
+                isinstance(node, VINode)
+                and node.id != node.vi_path
+                and not node.is_embedded_instance
+            )
+
         pairs: list[tuple[Terminal, Terminal]] = []
         for nid in vi_node_uids:
             for _u, _v, _k, d in g.out_edges(nid, data=True, keys=True):
@@ -1590,6 +1605,9 @@ class ConstructionMixin:
                 dst_term = _term(dst.node_id, dst.terminal_id)
                 if src_term is not None and dst_term is not None:
                     pairs.append((src_term, dst_term))
+                    for end, term in ((src, src_term), (dst, dst_term)):
+                        if _keeps_declared_type(end.node_id):
+                            declared.add(id(term))
 
         # Propagate: if one side of a wire has lv_type and the other doesn't
         changed = True
@@ -1617,7 +1635,8 @@ class ConstructionMixin:
                     # typedef the other end names, so both ends write and read
                     # it the same way (an attribute object, not a tuple).
                     if (
-                        dst_type.typedef_name
+                        id(src_term) not in declared
+                        and dst_type.typedef_name
                         and not src_type.typedef_name
                         and not src_type.classname
                         and len(src_type.fields or ()) == len(dst_type.fields or ())
@@ -1626,7 +1645,8 @@ class ConstructionMixin:
                         src_term.lv_type = dst_type
                         changed = True
                     elif (
-                        src_type.typedef_name
+                        id(dst_term) not in declared
+                        and src_type.typedef_name
                         and not dst_type.typedef_name
                         and not dst_type.classname
                         and len(src_type.fields or ()) == len(dst_type.fields or ())
