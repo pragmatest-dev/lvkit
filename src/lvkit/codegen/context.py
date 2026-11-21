@@ -982,10 +982,9 @@ class CodeGenContext:
                 const.structured_value is not None
                 and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
             )
-            or (
-                const.structured_value is not None
-                and lv_type.underlying_type in ("Set", "Map")
-            )
+            # A Set or Map constant whose entries were not read is a gap, not the
+            # text of its undecoded value.
+            or lv_type.underlying_type in ("Set", "Map")
         ):
             return constant_value_expression(
                 self,
