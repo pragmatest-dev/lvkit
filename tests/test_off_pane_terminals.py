@@ -35,7 +35,7 @@ from lvkit.graph.netlist_models import (
     WiringRequirement,
 )
 from lvkit.load_mode import LoadMode
-from lvkit.models import FPTerminal, LVType, LVTypeKind
+from lvkit.models import ClusterField, FPTerminal, LVType, LVTypeKind
 from lvkit.parser.models import ParsedWiringRule
 from lvkit.pipeline import create_import_resolver
 from tests.helpers import GENERATED_PACKAGE, exec_module, install_generated_package
@@ -255,13 +255,53 @@ def test_partly_wired_vi_reads_its_off_pane_control_instead_of_none() -> None:
         function(testcase_in=named_case, task="parsing")
 
 
-def _fp(tid: str, name: str, direction: str, index: int | None, default=None):
+def test_off_pane_cluster_control_starts_at_its_saved_value() -> None:
+    """An off-pane cluster control that saves ``{b: '1', c: ''}`` is a local
+    variable that starts there, not at the cluster's default of two empty
+    strings; the front-panel description states it, and an array control saves
+    its elements the same way."""
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    cluster = LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[
+            ClusterField("b", string, labelled=True),
+            ClusterField("c", string, labelled=True),
+        ],
+    )
+    saved = _fp("c1", "a", "input", None, "{'b': '1', 'c': ''}", cluster)
+    numbers = LVType(
+        kind=LVTypeKind.ARRAY,
+        underlying_type="Array",
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+        dimensions=1,
+    )
+    listed = _fp("c2", "nums", "input", None, "[1, 2, 3]", numbers)
+    context = VIContext(
+        name="Saved.vi", inputs=[], outputs=[], off_pane_inputs=[saved, listed]
+    )
+    code = build_module(context, "Saved.vi")
+    assert "a: tuple = ('1', '')" in code
+    assert "nums: list[int] = [1, 2, 3]" in code
+    assert "'a': lambda: ('1', '')" in code
+    assert exec_module(code, "<saved>").__dict__["saved"]() is None
+
+
+def _fp(
+    tid: str,
+    name: str,
+    direction: str,
+    index: int | None,
+    default=None,
+    lv_type: LVType | None = None,
+):
     return FPTerminal(
         id=tid,
         index=index,
         direction=direction,
         name=name,
-        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
+        lv_type=lv_type
+        or LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
         is_indicator=direction == "output",
         is_public=index is not None,
         default_value=default,
