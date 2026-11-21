@@ -898,6 +898,11 @@ class Terminal(BaseModel):
     nmux_field_index: int | None = None  # class field index
     wiring_rule: int = 0  # 0=unknown, 1=required, 2=recommended, 3=optional
     default_value: ScalarValue = None
+    # The decoded saved default of a cluster or array control, by field name for a
+    # cluster and by element for an array (the form ``ConstantNode.structured_value``
+    # holds), which code generation writes the control's starting value from; None
+    # for any other control.
+    default_structured: object = None
     # Set when ``default_value`` shows a part (an array too large to keep, a
     # Picture's drawing) that code generation has no value to write for.
     unwritable: UnwritableValue | None = None
@@ -1599,4 +1604,14 @@ def contains_class_instance(lv_type: LVType | None) -> bool:
         contains_class_instance(lv_type.element_type)
         or contains_class_instance(lv_type.value_type)
         or any(contains_class_instance(f.type) for f in lv_type.fields or [])
+    )
+
+
+def keeps_default_bytes(lv_type: LVType | None) -> bool:
+    """Whether a control's saved default of ``lv_type`` is kept as its stored bytes,
+    to be decoded again where it is needed: a class instance's private data is
+    known only once the class is loaded, and a cluster's or array's value is
+    written from its decoded parts (``Terminal.default_structured``)."""
+    return contains_class_instance(lv_type) or (
+        lv_type is not None and lv_type.kind in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
     )

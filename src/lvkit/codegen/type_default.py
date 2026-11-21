@@ -120,21 +120,27 @@ def control_default(ctx: CodeGenContext, control: Terminal) -> ast.expr:
 def _saved_composite_default(
     ctx: CodeGenContext, control: Terminal
 ) -> ast.expr | None:
-    """A cluster or array control's saved value, written through the same path a
-    cluster or array constant of its type goes through; None when the control
-    saves none, holds a class, or its value cannot be written."""
+    """A cluster or array control's saved value, written from its decoded parts
+    (``Terminal.default_structured``) the way a cluster or array constant of its
+    type is; None when the control saves none, holds a class, or its value cannot
+    be written."""
     lv_type = control.lv_type
     default = control.default_value
     if (
         lv_type is None
         or lv_type.kind not in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY)
         or not isinstance(default, str)
+        or control.default_structured is None
         or control.unwritable is not None
         or holds_class(lv_type)
     ):
         return None
     constant = Constant(
-        id=control.id, value=default, lv_type=lv_type, label=control.name
+        id=control.id,
+        value=default,
+        lv_type=lv_type,
+        structured_value=control.default_structured,
+        label=control.name,
     )
     try:
         return ast.parse(ctx.constant_expression(constant), mode="eval").body

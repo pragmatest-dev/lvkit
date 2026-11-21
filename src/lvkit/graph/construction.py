@@ -186,17 +186,21 @@ def _control_ring_type(lv_type: LVType | None, ctrl: Any) -> LVType | None:
     return _ring_type(lv_type, ctrl.enum_values, ctrl.ring_values)
 
 
-def _default_for(ctrl: ParsedFPControl | None, lv_type: LVType | None) -> str | None:
-    """A control's default value. A default holding a class instance is read again
-    with the class's private-data fields, which are known only once the class is
-    loaded (``lv_type`` carries them); every other default is as the parse read it."""
+def _default_for(
+    ctrl: ParsedFPControl | None, lv_type: LVType | None
+) -> tuple[str | None, object]:
+    """A control's default value and, for a cluster or array, its decoded parts
+    (``Terminal.default_structured``). A default holding a class instance is read
+    again with the class's private-data fields, which are known only once the class
+    is loaded (``lv_type`` carries them); every other default is as the parse read
+    it."""
     if ctrl is None:
-        return None
+        return None, None
     if ctrl.default_raw is not None and lv_type is not None:
-        value, _, _ = _decode_element(ctrl.default_raw, lv_type)
+        value, _, structured = _decode_element(ctrl.default_raw, lv_type)
         if value is not None:
-            return value
-    return ctrl.default_value
+            return value, structured
+    return ctrl.default_value, None
 
 
 class DecodedConstant(NamedTuple):
@@ -558,6 +562,7 @@ class ConstructionMixin:
                     vi_key, ctrl.unwritable, f"the control {ctrl.name or fp_term.uid!r}"
                 )
             q_term_uid = self._qid(vi_key, fp_term.uid)
+            default_value, default_structured = _default_for(ctrl, lv_type)
             terminal = FPTerminal(
                 id=q_term_uid,
                 index=slot_index,
@@ -579,7 +584,8 @@ class ConstructionMixin:
                 fp_dco_uid=fp_term.fp_dco_uid,
                 tab_index=fp.tab_index(fp_term.fp_dco_uid) if fp else None,
                 control_type=ctrl.control_type if ctrl else None,
-                default_value=_default_for(ctrl, lv_type),
+                default_value=default_value,
+                default_structured=default_structured,
                 unwritable=ctrl.unwritable if ctrl else None,
                 enum_values=ctrl.enum_values if ctrl else [],
                 undecoded_strings=ctrl.undecoded_strings if ctrl else 0,
@@ -1341,6 +1347,7 @@ class ConstructionMixin:
             lv_type = control_type_to_lvtype(ctrl.control_type)
         lv_type = _control_ring_type(lv_type, ctrl)
         lv_type = self.with_class_levels(lv_type)
+        default_value, default_structured = _default_for(ctrl, lv_type)
         return FPTerminal(
             id=self._qid(vi_key, f"fp{ctrl.uid}"),
             index=None,
@@ -1359,7 +1366,8 @@ class ConstructionMixin:
             fp_dco_uid=ctrl.uid,
             tab_index=tab_index,
             control_type=ctrl.control_type,
-            default_value=_default_for(ctrl, lv_type),
+            default_value=default_value,
+            default_structured=default_structured,
             unwritable=ctrl.unwritable,
             enum_values=ctrl.enum_values,
             undecoded_strings=ctrl.undecoded_strings,
