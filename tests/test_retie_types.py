@@ -45,8 +45,7 @@ class _Graph:
         )
         self.nodes = [node]
 
-    def list_vis(self) -> list[str]:
-        return ["vi"]
+        self._untied_type_vis: set[str] = {"vi"}
 
     def type_records_of(self, key: str) -> TypeRecords | None:
         return self.records.get(key)
@@ -68,6 +67,20 @@ def test_a_class_type_left_without_a_file_is_tied_after_the_load() -> None:
     graph = _Graph(lv_type)
     retie_unresolved_types(graph)  # type: ignore[arg-type]
     assert lv_type.file_key == "thing.lvclass"
+
+
+def test_a_vi_whose_tie_did_not_miss_is_not_walked() -> None:
+    lv_type = _class_type()
+    graph = _Graph(lv_type)
+    graph._untied_type_vis.clear()
+    retie_unresolved_types(graph)  # type: ignore[arg-type]
+    assert lv_type.file_key is None
+
+
+def test_the_recorded_misses_are_cleared_after_the_retie() -> None:
+    graph = _Graph(_class_type())
+    retie_unresolved_types(graph)  # type: ignore[arg-type]
+    assert graph._untied_type_vis == set()
 
 
 def test_a_type_already_tied_is_not_touched() -> None:

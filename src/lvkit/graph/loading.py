@@ -126,7 +126,9 @@ def _with_extraction_pool(method: _F) -> _F:
     """Run a public load entry point with the graph's extraction pool open.
 
     The outermost entry point opens the pool and closes it on exit; entry points
-    nested inside it (a class load calling ``load_vi`` per member) reuse it.
+    nested inside it (a class load calling ``load_vi`` per member) reuse it. When
+    the outermost entry point finishes, the class and typedef types a cycle of
+    loading left without a file are tied (see ``retie_types``).
     """
 
     @wraps(method)
@@ -136,7 +138,9 @@ def _with_extraction_pool(method: _F) -> _F:
         with ExtractionPool(self.cache_roots) as pool:
             self._extract_pool = pool
             try:
-                return method(self, *args, **kwargs)
+                result = method(self, *args, **kwargs)
+                retie_unresolved_types(self)
+                return result
             finally:
                 self._extract_pool = None
 
@@ -421,6 +425,7 @@ class LoadingMixin:
     vilib_catalog: VILibResolver
     _poly_info: dict[str, PolyInfo]
     _loaded_vis: set[str]
+    _untied_type_vis: set[str]
     _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
     _vi_display_names: dict[str, str]
@@ -622,10 +627,6 @@ class LoadingMixin:
         # all funnel through load_vi per member) are cheap.
         stamp_nmux_lane_names(cast("InMemoryVIGraph", self))
 
-        # Tie the class and typedef types a cycle of loading left without a file
-        # (see retie_types).
-        retie_unresolved_types(cast("InMemoryVIGraph", self))
-
         # Resolve + stamp Property Node accessed-property NAMES onto their
         # correlated VALUE terminal's Terminal.display_name -- same seam,
         # same idempotency/cheapness rationale as the nMux stamp just above
@@ -824,6 +825,8 @@ class LoadingMixin:
         for lv_type in type_names(types):
             lv_type.file_key = self.recorded_type_key(file_key, lv_type)
             lv_type.strict_typedef = self.is_strict_typedef(lv_type)
+            if lv_type.file_key is None:
+                self._untied_type_vis.add(file_key)
 
     def _record_key(
         self, ref: ParsedDependencyRef, caller_file: Path

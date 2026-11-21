@@ -5,7 +5,10 @@ A type is tied to its file once, when its VI or control loads
 the dependencies it is nested in. When files load in a cycle (a control whose class
 lists a method that calls back into the class), the dependency that holds the
 record is still loading when the VI is tied, so the type stays without a file.
-Once the load has finished every record is there, so this ties them again.
+
+Each tie that gives no file adds the VI to ``graph._untied_type_vis``. When a load
+finishes every record is there, so this ties the types of those VIs again and
+clears the set; a type still without a file after that has no file on record.
 """
 
 from __future__ import annotations
@@ -21,10 +24,12 @@ if TYPE_CHECKING:
 
 
 def retie_unresolved_types(graph: InMemoryVIGraph) -> None:
-    """Give each class or typedef type of a loaded VI that has no file the file
-    the records now give it. Idempotent: a type already tied is not touched, and a
-    miss recorded while the load was running is forgotten first."""
-    for vi_key in graph.list_vis():
+    """Give each class or typedef type, in a VI whose tie missed while loading,
+    that has no file the file the records now give it. A miss recorded while the
+    load was running is forgotten first."""
+    untied_vis = sorted(graph._untied_type_vis)
+    graph._untied_type_vis.clear()
+    for vi_key in untied_vis:
         records = graph.type_records_of(vi_key)
         if records is None:
             continue
