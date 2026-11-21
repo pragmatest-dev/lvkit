@@ -285,6 +285,15 @@ class MembershipMixin:
             parent = self._parent_class_key(parent)
         return chain
 
+    def class_descendant_keys(self, class_key: str) -> list[str]:
+        """The keys of the loaded classes that have the class at ``class_key`` among
+        their ancestors, sorted."""
+        return sorted(
+            key
+            for key in self.list_class_keys()
+            if class_key in self.class_ancestor_keys(key)
+        )
+
     def overridden_method(
         self, class_key: str, name: str
     ) -> tuple[str, str] | None:

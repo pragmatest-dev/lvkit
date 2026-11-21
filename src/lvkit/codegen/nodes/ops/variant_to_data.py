@@ -14,10 +14,17 @@ the variant records against the data type, in this order:
 * a one-dimensional array of variants: the variant must hold an array or a
   cluster, and the data is its elements, each a variant of its own type
   (``_array_of_variants``);
-* a class or another typedef (the data type has a name): the variant's type must
-  have the same code and the same name; variants do not recognise inheritance, so
-  a child class in the variant is not the parent class (NI, Variant To Data:
-  "variants do not recognize inheritance hierarchies");
+* a typedef (the data type has a name): the variant's type must have the same
+  code and the same name;
+* a class: the variant's type must be that class or one of its loaded
+  descendants. A variant records the class of the wire it was made from, never the
+  runtime class (NI, Variant To Data: "variants do not recognize inheritance
+  hierarchies ... If you wire a child data type to the Variant to Data function to
+  extract the child data, LabVIEW returns an error"), so a parent in the variant is
+  not the child wired. A child in the variant read as its parent is what JKI VI
+  Tester's `WaitOnTestComplete.vi` does with the indicator of a test's `setUp.vi`
+  (typed as the test's own class) when it searches the controls for the one whose
+  variant is `TestCase.lvclass`; it is the only way that search finds one;
 * any other type with a type-descriptor code: the variant's type must have the
   same code;
 * a type with no code: the variant's value must be of the data type's Python class
@@ -57,6 +64,7 @@ from lvkit.lv_type_codes import (
 )
 from lvkit.models import LVType, LVTypeKind, Terminal, TerminalDirection
 from lvkit.primitive_resolver.models import PrimitiveTerminal
+from lvkit.type_names import ROOT_CLASS
 
 from ...ast_utils import build_assign, parse_expr, parse_stmt, terminal_annotation
 from ...context import CodeGenContext
@@ -147,8 +155,25 @@ def _descriptor(lv_type: LVType) -> tuple[int, str] | None:
         return None
 
 
+def _accepted_names(ctx: CodeGenContext, lv_type: LVType, name: str) -> tuple[str, ...]:
+    """The names a variant's type may have for the data type ``lv_type`` named
+    ``name``: the name itself, and for a class the names of its loaded descendants
+    (a variant records the class of the wire it was made from, which may be a
+    child of the class wired to ``type``; the reverse, a parent in the variant and
+    a child wired, is refused)."""
+    graph = ctx.graph
+    if graph is None or not lv_type.classname:
+        return (name,)
+    if lv_type.classname == ROOT_CLASS:
+        keys = graph.list_class_keys()
+    else:
+        class_key = graph.class_type_key(lv_type)
+        keys = [] if class_key is None else graph.class_descendant_keys(class_key)
+    return (name, *sorted({graph.vi_display_name(key) for key in keys} - {name}))
+
+
 def _type_check(
-    value: str, lv_type: LVType, convert: str | None
+    ctx: CodeGenContext, value: str, lv_type: LVType, convert: str | None
 ) -> tuple[str, str] | None:
     """The test that the variant ``value`` is not of the data type ``lv_type``
     (it is empty, or its type is not the one the data type accepts) and the
@@ -162,7 +187,13 @@ def _type_check(
         result = f"{convert}({value}.value)"
     elif lv_type.type_ref() is not None and described is not None:
         code, name = described
-        accepted = f"{value}.type.code == {code} and {value}.type.name == {name!r}"
+        names = _accepted_names(ctx, lv_type, name)
+        same = (
+            f"{value}.type.name == {name!r}"
+            if len(names) == 1
+            else f"{value}.type.name in {names!r}"
+        )
+        accepted = f"{value}.type.code == {code} and {same}"
         result = f"{value}.value"
     elif described is not None:
         accepted = f"{value}.type.code == {described[0]}"
@@ -321,7 +352,7 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
         return _array_of_variants(ctx, node, data, data_wired, value)
     convert = _numeric_conversion(lv_type)
     target: ast.expr | None = None
-    if _type_check(value, lv_type, convert) is None:
+    if _type_check(ctx, value, lv_type, convert) is None:
         annotation = terminal_annotation(data, ctx.type_namer())
         target = _isinstance_target(parse_expr(annotation))
         if target is None:
@@ -338,7 +369,7 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
         prelude.append(build_assign(local, parse_expr(value)))
         value = local
 
-    checked = _type_check(value, lv_type, convert)
+    checked = _type_check(ctx, value, lv_type, convert)
     if checked is not None:
         mismatch = parse_expr(checked[0])
         result = parse_expr(checked[1])

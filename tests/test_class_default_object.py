@@ -128,11 +128,46 @@ def test_a_failed_variant_to_data_gives_the_class_default_object(
         base_type = variants.LVType(112, "Base.lvclass")
         same = convert(v=variants.Variant(mine, base_type))
         assert (same.d is mine, same.error_out) == (True, None)
-        # Variants do not recognise inheritance: a Variant of a child class is
-        # not the parent class.
+        # A class that is not loaded has no known descendants.
         child_type = variants.LVType(112, "Child.lvclass")
         child = convert(v=variants.Variant(mine, child_type))
         assert child.error_out.code == 91
+
+
+def test_a_variant_of_a_child_class_reads_as_its_parent_and_not_the_reverse(
+    tmp_path: Path,
+) -> None:
+    """A variant records the class of the wire it was made from. Variant To Data
+    with a parent class wired takes a variant of the parent or of a loaded child
+    (JKI VI Tester's WaitOnTestComplete.vi reads the indicator of a test's own class
+    as TestCase.lvclass); a parent in the variant with a child wired is NI's error
+    91, and so is a sibling."""
+    project = Project(tmp_path)
+    project.add_class("Base", [COUNT])
+    project.add_class("Child", [COUNT], parent="Base")
+    project.add_class("Sibling", [COUNT], parent="Base")
+    project.add_class("Grand", [COUNT], parent="Child")
+    project.add_vi("ToBase", convert_to(BASE))
+    project.add_vi("ToChild", convert_to(class_type("Child")))
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        to_base, to_child = module("tobase").tobase, module("tochild").tochild
+        variants = module("variants")
+        mine = module("base").Base()
+
+        def variant(name: str):
+            return variants.Variant(mine, variants.LVType(112, f"{name}.lvclass"))
+
+        for name in ("Base", "Child", "Grand"):
+            read = to_base(v=variant(name))
+            assert (read.d is mine, read.error_out) == (True, None), name
+        assert to_base(v=variant("Sibling")).error_out is None
+        assert to_child(v=variant("Grand")).error_out is None
+        assert to_child(v=variant("Child")).error_out is None
+        assert to_child(v=variant("Base")).error_out.code == 91
+        assert to_child(v=variant("Sibling")).error_out.code == 91
+        assert to_base(v=variant("Stranger")).error_out.code == 91
 
 
 def test_a_cluster_with_a_class_field_defaults_that_field_to_the_object(
