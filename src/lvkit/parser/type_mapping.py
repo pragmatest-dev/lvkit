@@ -143,20 +143,21 @@ def parse_type_map_rich(xml_path: Path | str) -> TypeMap:
             if label:
                 type_map.labels[heap_id] = label
 
-            # Use VCTP result directly — it has the full type info
+            # The typedef identity goes on the shared VCTP type first, so every
+            # use of it (a heap type, a nested field) carries it, and so does
+            # the labelled copy below.
+            typedef_names = (
+                flat_to_typedef[flat_id][1] if flat_id in flat_to_typedef else []
+            )
             if flat_id in vctp_types:
                 lv_type = vctp_types[flat_id]
+                if typedef_names:
+                    _apply_typedef_identity(lv_type, typedef_names, vicc_paths)
                 if label:
                     lv_type = dataclasses.replace(lv_type, descriptor_label=label)
                 type_map[heap_id] = lv_type
-
-            # Add typedef identity if this heap_id is a typedef
-            if flat_id in flat_to_typedef:
-                _, typedef_names = flat_to_typedef[flat_id]
-                if typedef_names and heap_id in type_map:
-                    _apply_typedef_identity(
-                        type_map[heap_id], typedef_names, vicc_paths
-                    )
+            elif typedef_names and heap_id in type_map:
+                _apply_typedef_identity(type_map[heap_id], typedef_names, vicc_paths)
 
     except ET.ParseError:
         pass  # Fall back to comment-based parsing only
