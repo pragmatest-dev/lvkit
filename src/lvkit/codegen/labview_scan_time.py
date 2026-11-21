@@ -32,6 +32,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .labview_local_time import local_offset_expression
+
 # Code -> (name of its group, the pattern of its text).
 _NUMBERS = {
     "Y": ("Y", "[0-9]{4}"),
@@ -43,10 +45,7 @@ _NUMBERS = {
     "S": ("S", "[0-5]?[0-9]"),
 }
 _CODE = re.compile(r"%(?:\.(\d))?(\d*)(.)", re.DOTALL)
-_LOCAL_OFFSET = (
-    "(x.astimezone().utcoffset() if x.year >= 1970 else "
-    "datetime.timedelta(seconds=time.localtime().tm_gmtoff))"
-)
+_LOCAL_OFFSET = local_offset_expression("x")
 
 
 @dataclass(frozen=True)

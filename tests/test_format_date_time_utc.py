@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import datetime
 import time
+from pathlib import Path
 
 import hightime
+import pytest
 
 from lvkit.models import LVType, LVTypeKind
 from lvkit.timestamp_value import TIMESTAMP_FLAVOR
@@ -86,6 +88,32 @@ def test_a_wired_utc_format_chooses_at_run_time(time_zone) -> None:
     when = _stamp(2020, 1, 15, 12, 0, 0)
     assert function(when, FORMAT, True).out == "2020-01-15 12:00:00"
     assert function(when, FORMAT, False).out == "2020-01-15 07:00:00"
+
+
+@needs_posix_tz
+@pytest.mark.skipif(
+    not Path("/usr/share/zoneinfo/America/Los_Angeles").exists(),
+    reason="needs the system's time zone database",
+)
+@pytest.mark.parametrize(
+    ("zone", "when", "local"),
+    [
+        # the current rule holds on 1976-03-17 (JKI EasyXML's testtimestamp: 20:02:03
+        # UTC is 13:02:03 in US Pacific), though its own zone data has no daylight
+        # saving time yet
+        ("America/Los_Angeles", (1976, 3, 17, 20, 2, 3), "1976-03-17 13:02:03"),
+        ("America/Los_Angeles", (1976, 1, 15, 20, 2, 3), "1976-01-15 12:02:03"),
+        ("America/Los_Angeles", (2020, 7, 15, 20, 0, 0), "2020-07-15 13:00:00"),
+        ("Europe/Berlin", (1976, 3, 30, 12, 0, 0), "1976-03-30 14:00:00"),
+        ("Europe/Berlin", (1976, 7, 1, 12, 0, 0), "1976-07-01 14:00:00"),
+        ("Europe/Berlin", (1976, 1, 15, 12, 0, 0), "1976-01-15 13:00:00"),
+    ],
+)
+def test_local_time_from_1970_uses_the_current_zone_rule(
+    time_zone, zone, when, local
+) -> None:
+    time_zone(zone)
+    assert _format(False)(_stamp(*when), FORMAT).out == local
 
 
 @needs_posix_tz

@@ -513,6 +513,27 @@ def test_a_time_stamp_without_the_flag_is_local_time(time_zone) -> None:
     assert _values(result, 1) == [_utc(2026, 1, 1, 19, 0)]
 
 
+@needs_posix_tz
+@pytest.mark.parametrize(
+    ("zone", "text", "utc"),
+    [
+        # the computer's current zone rule holds for every year from 1970 (the
+        # 1976 zone data of these zones differs from it on these dates)
+        ("America/Los_Angeles", "1976-03-17 09:00", _utc(1976, 3, 17, 16, 0)),
+        ("America/Los_Angeles", "1976-01-15 09:00", _utc(1976, 1, 15, 17, 0)),
+        ("Europe/Berlin", "1976-03-30 12:00", _utc(1976, 3, 30, 10, 0)),
+        ("Europe/Berlin", "1976-07-01 12:00", _utc(1976, 7, 1, 10, 0)),
+        ("Europe/Berlin", "1976-01-15 12:00", _utc(1976, 1, 15, 11, 0)),
+    ],
+)
+def test_a_local_time_stamp_before_2010_uses_the_current_zone_rule(
+    time_zone, zone, text, utc
+) -> None:
+    time_zone(zone)
+    result = _result("%<%Y-%m-%d %H:%M>T", [TIME], text)
+    assert _values(result, 1) == [utc]
+
+
 def test_a_text_that_does_not_match_gives_the_default() -> None:
     result = _result("%^<%Y-%m-%d>T", [TIME], "20x6-11-16")
     assert _values(result, 1) == [_utc(1904, 1, 1)]
