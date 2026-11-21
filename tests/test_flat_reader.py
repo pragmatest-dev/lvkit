@@ -185,6 +185,24 @@ def test_a_variant_named_by_its_label_flattens_a_time_stamp_with_the_name() -> N
     assert v.read_type(v.LVType(0x54, "MeasureData", tuple(numbers))).name == "when"
 
 
+def test_a_variant_read_from_a_named_type_string_equals_the_unnamed_one() -> None:
+    """The name that ends a type string is the variant's name, which two equal
+    variants need not share, and the label a type is written with for messages
+    is not part of what it is."""
+    v = generated_variants()
+    unnamed = encode(cluster(STR))
+    named = encode(cluster(STR), "gangster")
+    data = "\x00\x00\x00\x03abc"
+    read = v.variant_from_flattened(data, named)
+    plain = v.variant_from_flattened(data, unnamed)
+    assert read.name == "gangster"
+    assert read.type.type_string == tuple(unnamed)
+    assert read == plain
+    labelled = v.LVType(read.type.code, "cluster{f0}", read.type.type_string)
+    assert read == v.Variant(("abc",), labelled, {}, "other")
+    assert v.variant_to_flattened(read)[0] == named
+
+
 def test_truncated_data_is_reported() -> None:
     v = generated_variants()
     lv_type = v.type_from_string(encode(STR))

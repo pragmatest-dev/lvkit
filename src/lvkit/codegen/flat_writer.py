@@ -15,8 +15,6 @@ waveform, a path, a class) raises ``NotImplementedError`` naming it.
 
 from __future__ import annotations
 
-from lvkit.type_string import NAME_FLAG
-
 from .flat_timestamp_source import FLATTEN_TIMESTAMP, LAZY_HIGHTIME_SETUP
 
 _WRITER_SOURCE = '''
@@ -102,9 +100,6 @@ def _flatten_value(value: Any, lv_type: LVType) -> bytes:
     raise _unwritable(lv_type)
 
 
-_NAME_FLAG = $NAME_FLAG
-
-
 def _labelled(numbers: tuple[int, ...], label: str) -> list[int]:
     """The type string ``numbers`` ending in ``label``: the name flag set in the
     type code, the label after the descriptor as a Pascal string padded to an even
@@ -148,6 +143,4 @@ def flat_writer_source() -> str:
         params=", order",
         setup=LAZY_HIGHTIME_SETUP,
     ).rstrip()
-    return _WRITER_SOURCE.replace("$NAME_FLAG", hex(NAME_FLAG)).replace(
-        "$TIMESTAMP_WRITER", timestamp_writer
-    )
+    return _WRITER_SOURCE.replace("$TIMESTAMP_WRITER", timestamp_writer)

@@ -197,10 +197,12 @@ from datetime import UTC
 from typing import Any
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class LVType:
     """A LabVIEW type: the type-descriptor ``code``, its ``name`` for messages
-    and, where it has one, the bytes of its type string. A refnum also records
+    and, where it has one, the bytes of its type string. Two types are equal by
+    what they record: the type string where there is one, the ``name`` only for a
+    type that has none. A refnum also records
     what its code does not: its kind (``refnum_kind``, ``Queue``, ``LVObjCtl``,
     ...), the VI Server class of a generic reference (``server_class``, ``VI`` or
     ``Application``) and the type of what a typed refnum refers to (``strict``).
@@ -216,6 +218,26 @@ class LVType:
     strict: LVType | None = None
     typedef_name: str | None = None
     strict_typedef: bool = False
+
+    def _identity(self) -> tuple:
+        return (
+            self.code,
+            self.name if self.type_string is None else None,
+            self.type_string,
+            self.refnum_kind,
+            self.server_class,
+            self.strict,
+            self.typedef_name,
+            self.strict_typedef,
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LVType):
+            return NotImplemented
+        return self._identity() == other._identity()
+
+    def __hash__(self) -> int:
+        return hash(self._identity())
 
 
 @dataclass
