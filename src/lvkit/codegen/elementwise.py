@@ -22,7 +22,10 @@ import ast
 from collections.abc import Mapping
 
 # Operators and conversion calls that apply to every element of an array.
-_UNARY_CALLS = frozenset({"int", "float", "bool", "round", "abs"})
+_UNARY_CALLS = frozenset({"int", "float", "bool", "round", "abs", "Path"})
+# ``math`` functions that take a whole iterable (a reduction of an array), so an
+# array operand is their one argument, not an element-wise input.
+_MATH_REDUCTIONS = frozenset({"prod", "fsum", "sumprod", "dist"})
 # ``max(a, b)`` / ``min(a, b)`` of two or more values pick per element when a
 # value is an array (``max(arr)`` of one argument is a reduction, not this).
 _PICK_CALLS = frozenset({"max", "min"})
@@ -81,6 +84,7 @@ def _unary_call(node: ast.AST) -> bool:
         isinstance(func, ast.Attribute)
         and isinstance(func.value, ast.Name)
         and func.value.id == "math"
+        and func.attr not in _MATH_REDUCTIONS
     )
 
 
