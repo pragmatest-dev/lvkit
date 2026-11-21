@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from lvkit.graph.models import AnyGraphNode
@@ -62,12 +62,15 @@ class CatalogFailures:
     caught in order; ``on_failure``, the value NI documents for an output (by
     terminal index) when the operation fails; ``source``, the node's name;
     ``kept``, the outputs (by terminal index) that keep what the operation had
-    assigned when it failed."""
+    assigned when it failed; ``passes``, the outputs (by terminal index) that
+    still give an input's value when it failed, each with that input's terminal
+    index."""
 
     failures: tuple[NativeError, ...]
     on_failure: dict[int, ScalarValue]
     source: str
     kept: frozenset[int] = frozenset()
+    passes: dict[int, int] = field(default_factory=dict)
 
     @classmethod
     def of_primitive(cls, entry: Mapping[str, Any]) -> CatalogFailures:
@@ -84,6 +87,11 @@ class CatalogFailures:
             },
             parsed.name,
             frozenset(t.index for t in parsed.terminals if t.keeps_on_failure),
+            {
+                t.index: t.passes_input
+                for t in parsed.terminals
+                if t.passes_input is not None
+            },
         )
 
     @classmethod
@@ -97,6 +105,12 @@ class CatalogFailures:
                 if t.index is not None and t.on_failure is not None
             },
             entry.name,
+            frozenset(),
+            {
+                t.index: t.passes_input
+                for t in entry.terminals
+                if t.index is not None and t.passes_input is not None
+            },
         )
 
 
@@ -147,6 +161,45 @@ def invalid_reference_guards(
         ).body
         statements.append(guard)
     return statements
+
+
+def passed_inputs(
+    node: AnyGraphNode, ctx: CodeGenContext, passes: Mapping[int, int]
+) -> dict[int, str]:
+    """For each output (by terminal index) of ``passes`` the expression of the
+    input it passes on: the wired input, when it has the output's type (a path
+    wired to Read from Text File's ``file`` input is not the refnum its output
+    gives). An unwired input, or one that is a gap, passes nothing."""
+    terminals = getattr(node, "terminals", ())
+    values: dict[int, str] = {}
+    for out_index, in_index in passes.items():
+        out = next(
+            (
+                t
+                for t in terminals
+                if t.index == out_index and t.direction == TerminalDirection.OUTPUT
+            ),
+            None,
+        )
+        source = next(
+            (
+                t
+                for t in terminals
+                if t.index == in_index and t.direction == TerminalDirection.INPUT
+            ),
+            None,
+        )
+        if out is None or source is None or out.lv_type is None:
+            continue
+        if source.lv_type is None or (
+            source.lv_type.underlying_type,
+            source.lv_type.ref_type,
+        ) != (out.lv_type.underlying_type, out.lv_type.ref_type):
+            continue
+        value = ctx.wired_input(source.id, node)
+        if value is not None and value != "None":
+            values[out_index] = value
+    return values
 
 
 def catch_failures(
@@ -200,13 +253,15 @@ def catch_failures(
                 fragment.bindings[term.id] = error
     elif automatic_error_handling(ctx):
         return fragment
+    values = {index: repr(value) for index, value in catalog.on_failure.items()}
+    values.update(passed_inputs(node, ctx, catalog.passes))
     defaults = output_defaults(
         node,
         ctx,
         fragment.bindings,
         assigned_names(fragment.statements),
         None,
-        {index: repr(value) for index, value in catalog.on_failure.items()},
+        values,
         catalog.kept,
     )
     exception = ctx.make_output_var("exception", node.id)

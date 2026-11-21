@@ -5481,7 +5481,8 @@
           "type": null,
           "enum_values": null,
           "python_param": "zip_file_out",
-          "description": "zip file out returns the open zip file. zip file out is analogous to a refnum or task ID."
+          "description": "zip file out returns the open zip file. zip file out is analogous to a refnum or task ID.",
+          "passes_input": 11
         },
         {
           "name": "error in (no error)",
@@ -7469,7 +7470,8 @@
           "type": "Path",
           "enum_values": null,
           "python_param": "dup_folder_path",
-          "description": "dup Folder Path returns Folder Path unchanged."
+          "description": "dup Folder Path returns Folder Path unchanged.",
+          "passes_input": 11
         },
         {
           "name": "Folders to Exclude",
@@ -8590,7 +8592,8 @@
           "direction": "output",
           "type": "Refnum",
           "enum_values": null,
-          "python_param": "dup_refnum"
+          "python_param": "dup_refnum",
+          "passes_input": 11
         },
         {
           "name": "EOF?",
@@ -8803,7 +8806,8 @@
           "direction": "output",
           "type": "Refnum",
           "enum_values": null,
-          "python_param": "dup_refnum"
+          "python_param": "dup_refnum",
+          "passes_input": 9
         },
         {
           "name": "convert eol? (no:F)",

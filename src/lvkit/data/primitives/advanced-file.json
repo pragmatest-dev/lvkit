@@ -663,7 +663,8 @@
           "index": 3,
           "direction": "output",
           "name": "refnum out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 7
         }
       ],
       "python_code": {
@@ -712,7 +713,8 @@
           "index": 3,
           "direction": "output",
           "name": "refnum out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 7
         }
       ],
       "python_code": {
@@ -1019,7 +1021,8 @@
           "index": 3,
           "direction": "output",
           "name": "refnum out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 7
         }
       ],
       "python_code": {
@@ -1045,7 +1048,8 @@
           "direction": "output",
           "name": "refnum out",
           "type": "Refnum",
-          "refnum_type": "byte_stream"
+          "refnum_type": "byte_stream",
+          "passes_input": 7
         },
         {
           "index": 4,
@@ -1091,7 +1095,8 @@
           "index": 3,
           "direction": "output",
           "name": "path out",
-          "type": "Path"
+          "type": "Path",
+          "passes_input": 11
         },
         {
           "index": 7,
@@ -1238,7 +1243,8 @@
           "index": 3,
           "direction": "output",
           "name": "path out",
-          "type": "Path"
+          "type": "Path",
+          "passes_input": 11
         },
         {
           "index": 4,

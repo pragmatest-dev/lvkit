@@ -41,6 +41,11 @@ class PrimitiveTerminal(TerminalDefault):
     # when it failed (TCP Read's bytes so far on a timeout); the operation's code
     # assigns the output before it can fail, and a failure leaves it as it is.
     keeps_on_failure: bool = False
+    # On an output: the catalog index of the input this output passes on (NI's
+    # page says "returns refnum unchanged"). When the node fails, the output still
+    # gives that input's value, if the wired input has the output's type
+    # (``codegen/native_failure.py``).
+    passes_input: int | None = None
     # NI's page says that when an error cluster is wired to this input, only
     # the error cluster's status passes to it.
     error_cluster_status: bool = False

@@ -234,7 +234,8 @@
           "index": 8,
           "direction": "output",
           "name": "queue out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 0
         },
         {
           "index": 10,
@@ -292,7 +293,8 @@
           "direction": "output",
           "name": "queue out",
           "type": "Refnum",
-          "refnum_type": "queue"
+          "refnum_type": "queue",
+          "passes_input": 0
         },
         {
           "index": 9,
@@ -355,7 +357,8 @@
           "index": 8,
           "direction": "output",
           "name": "queue out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 0
         },
         {
           "index": 9,
@@ -411,7 +414,8 @@
           "index": 8,
           "direction": "output",
           "name": "queue out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 0
         },
         {
           "index": 9,
@@ -474,7 +478,8 @@
           "index": 8,
           "direction": "output",
           "name": "queue out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 0
         },
         {
           "index": 10,
