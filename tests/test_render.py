@@ -4445,6 +4445,42 @@ def test_string_constant_has_full_text_tooltip():
     assert f"<title>{full}</title>" in svg
 
 
+def _express_call(saved_copy: bool):
+    from lvkit.graph.models import VINode
+    from lvkit.models import Terminal
+    from lvkit.render.glyph import WrappedBoxGlyph
+    from lvkit.render.scene import RenderNode
+
+    out = Terminal(
+        id="t0",
+        index=0,
+        direction="output",
+        name="Tick Count(uSec)",
+        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt8"),
+    )
+    return RenderNode(
+        node=VINode(id="n1", vi_path="v", name="Tick Count", terminals=[out]),
+        bounds=(0.0, 0.0, 30.0, 30.0),
+        glyph=WrappedBoxGlyph("Tick Count"),
+        saved_copy=saved_copy,
+    )
+
+
+def test_call_of_an_express_vi_copy_is_captioned_with_its_outputs():
+    """The box of an Express VI's call shows only its name, so a caption under it
+    gives the outputs of the saved copy: the units (output name) and the counter
+    size (output type) the dialog saved."""
+    b = SvgBackend()
+    draw_node(_express_call(saved_copy=True), b)
+    assert ">Tick Count(uSec): U8</text>" in b.render((0.0, 0.0, 120.0, 60.0))
+
+
+def test_call_of_another_vi_gets_no_caption():
+    b = SvgBackend()
+    draw_node(_express_call(saved_copy=False), b)
+    assert "Tick Count(uSec): U8</text>" not in b.render((0.0, 0.0, 120.0, 60.0))
+
+
 def test_bundle_by_name_glyph_draws_field_names():
     """Bundle/Unbundle By Name draws one row per field, each LABELED with the
     field name, AND the cluster-direction arrow cell (task #89) — matching

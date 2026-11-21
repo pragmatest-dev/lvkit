@@ -441,11 +441,35 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
             x1, y1, x2, y2 = node.bounds
             backend.text((x1 + x2) / 2, y2 + 9, name, 8.0, fill=theme.text)
 
+    if node.saved_copy:
+        caption = _saved_copy_caption(node.node)
+        if caption:
+            x1, y1, x2, y2 = node.bounds
+            backend.text((x1 + x2) / 2, y2 + 9, caption, 8.0, fill=theme.text)
+
     if node.owned_label is not None:
         _draw_owned_label(node.owned_label, backend, theme)
 
     if group_needed:
         backend.end_group()
+
+
+def _saved_copy_caption(node: AnyGraphNode) -> str:
+    """The caption under the call of an Express VI's saved copy: each output of
+    the copy as ``label: type``, in connector-pane order, as the hover text
+    lists it. Empty when the copy has no informative output."""
+    outs = sorted(
+        (
+            t
+            for t in (getattr(node, "terminals", None) or [])
+            if t.direction == "output" and _terminal_is_informative(t)
+        ),
+        key=lambda t: t.index,
+    )
+    return ", ".join(
+        f"{t.field_path or _terminal_label(t)}: {lv_type_label(t.lv_type)}"
+        for t in outs
+    )
 
 
 # Owned-label (constant free-label) text metrics — left-aligned, drawn top-down
