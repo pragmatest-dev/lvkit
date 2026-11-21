@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Fix: the picture VIs read and make a typedef image data cluster as its attribute object** — Picture to Pixmap, Flatten/Unflatten Pixmap, Draw Flattened Pixmap, Get Image Subset and Create Mask wrote and unpacked the image data as a tuple whatever its wire's type was, so a wire with a typedef raised `AttributeError` or `TypeError` where it ran (ni-labview-icon-editor's `Flood Glyph.vi`, JKI VI Tester's `Get Tree Symbols.vi`); a typedef cluster is now its attribute object and a plain cluster a tuple.
 - **Fix: a class type is tied to its file even when its files load in a cycle** — a VI loaded while the control holding the class's record was still loading kept the type without a file for good, so a default object of the class was a "class that is not loaded" gap (measurement-plugin-labview's Measure Call Context Destroy, 75 VIs); the load ties such types again when it finishes.
 - **Fix: a Map constant keeps its value type, so its saved entries are read** — the graph dropped the Map's value type, so no Map constant could be decoded (an empty `{}` or `{'PinGroup1': ['Pin1', 'Pin2']}` read as "not read from the VI", a gap in 298 VIs); every view and `generate` now show the stored dict.
 - **Fix: the integer 0 read from flattened bytes or a Type Cast into a refnum is Not a Refnum** — Call By Reference on it is error 1026 on the error wire instead of calling the integer (OpenG's Dictionary Data Core).
