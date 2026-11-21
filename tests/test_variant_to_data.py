@@ -302,6 +302,17 @@ def test_a_cluster_converts_to_an_array_of_variants_of_its_members() -> None:
     assert [(e.value, e.type.code) for e in result.d] == [(5, 3), ("a", 48)]
 
 
+def test_an_error_cluster_converts_to_its_status_code_and_source() -> None:
+    """The value of an error wire is a LabVIEWError, not a tuple."""
+    from types import SimpleNamespace
+
+    run = _convert(array(VARIANT))
+    warning = SimpleNamespace(status=False, code=1, source="x")
+    result = run.function(_held(error_cluster_type(), warning, 80))
+    assert result.error_out is None
+    assert [e.value for e in result.d] == [False, 1, "x"]
+
+
 def test_an_array_converts_to_an_array_of_variants_of_its_elements() -> None:
     run = _convert(array(VARIANT))
     result = run.function(_held(array("NumInt32"), [1, 2, 3], 64))

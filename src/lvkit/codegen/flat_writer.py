@@ -30,6 +30,15 @@ def _unwritable(lv_type: LVType) -> NotImplementedError:
     )
 
 
+def cluster_members(value: Any) -> list:
+    """The members of the cluster value ``value`` in order: those of a tuple or
+    list; an error cluster's value is a LabVIEWError, whose members are its
+    status, code and source."""
+    if hasattr(value, "status") and hasattr(value, "code"):
+        return [value.status, value.code, value.source]
+    return list(value)
+
+
 def _array_sizes(value: Any, dimensions: int) -> list[int]:
     """The size of each of ``dimensions`` nested lists of ``value``, outermost
     first (0 below an empty list)."""
@@ -87,12 +96,7 @@ def _flatten_value(value: Any, lv_type: LVType) -> bytes:
             parts.append(_flatten_value(item, info.element))
         return b"".join(parts)
     if info.kind == "cluster":
-        if hasattr(value, "status") and hasattr(value, "code"):
-            # An error cluster's value is a LabVIEWError: its fields in the
-            # cluster's order, status, code and source.
-            members = [value.status, value.code, value.source]
-        else:
-            members = list(value)
+        members = cluster_members(value)
         if len(members) != len(info.fields):
             raise ValueError(
                 f"a cluster of {len(info.fields)} members was given "
