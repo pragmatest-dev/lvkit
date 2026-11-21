@@ -310,6 +310,18 @@ def generate_concat_strings(
 
     output_id = outputs[0].id
 
+    if any(
+        t.lv_type is not None and t.lv_type.underlying_type == "Picture"
+        for t in (*inputs, *outputs)
+    ):
+        # A Picture wire is a Pillow image, not the string of drawing records
+        # LabVIEW keeps it as, so appending records to it has no Python meaning.
+        raise ConversionGap(
+            "Concatenate Strings joins drawing records onto a Picture; a Picture "
+            "is an image in Python, with no string of records to append to",
+            node,
+        )
+
     parts: list[ast.expr] = []
     for inp in sorted(inputs, key=lambda t: t.index):
         val = ctx.wired_input(inp.id, node)
