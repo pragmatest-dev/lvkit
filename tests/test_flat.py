@@ -14,6 +14,7 @@ from lvkit.codegen.flat import (
     Integer,
     Real,
     Record,
+    RefnumInteger,
     Sequence,
     Text,
     UnsupportedLayout,
@@ -154,23 +155,44 @@ _VI_REF = LVType(
 )
 
 
-def test_a_reference_cast_to_an_integer_or_bytes_is_a_gap() -> None:
+def test_not_a_refnum_cast_or_flattened_is_four_zero_bytes() -> None:
+    assert cast(_VI_REF, U32)(None).r == 0
+    assert cast(_DVR, U32)(None).r == 0
+    assert cast(_VI_REF, STR)(None).r == "\x00\x00\x00\x00"
+
+
+def test_a_live_reference_cast_or_flattened_raises_where_it_runs() -> None:
     # A reference is a Python object (a VI reference is a function): it has no
-    # integer value, so the cast raises where it runs and names the reference.
+    # integer value, so the cast raises, naming the kind of reference.
+    def live() -> None:
+        return None
+
     for target in (U32, STR):
-        with pytest.raises(NotImplementedError, match="VI refnum as an integer"):
-            cast(_VI_REF, target)(None)
-    with pytest.raises(NotImplementedError, match="DataValueRef refnum"):
+        with pytest.raises(NotImplementedError, match="Flatten of a VI reference"):
+            cast(_VI_REF, target)(live)
+    with pytest.raises(NotImplementedError, match="Flatten of a DataValueRef"):
         cast(_DVR, U32)([2.5])
-    with pytest.raises(NotImplementedError, match="VI refnum"):
-        cast(STR, _VI_REF)("\x00\x00\x00\x00")
 
 
-def test_an_integer_zero_cast_to_a_reference_is_not_a_reference() -> None:
+def test_the_integer_zero_read_into_a_reference_is_not_a_refnum() -> None:
     assert cast(U32, _DVR)(0).r is None
     assert cast(I32, _VI_REF)(0).r is None
-    held = [2.5]
-    assert cast(U32, _DVR)(held).r is held
+    assert cast(STR, _VI_REF)("\x00\x00\x00\x00").r is None
+
+
+def test_a_nonzero_integer_read_into_a_reference_raises_where_it_runs() -> None:
+    with pytest.raises(NotImplementedError, match="the integer 5 as a VI reference"):
+        cast(U32, _VI_REF)(5)
+    with pytest.raises(NotImplementedError, match="DataValueRef reference"):
+        cast(STR, _DVR)("\x00\x00\x00\x07")
+
+
+def test_a_cluster_holding_a_reference_flattens_and_reads_back() -> None:
+    record = cluster(("count", U16), ("ref", _VI_REF))
+    assert flattened_hex((3, None), record) == "000300000000"
+    assert cast(STR, record)(text(bytes.fromhex("000300000000"))).r == (3, None)
+    with pytest.raises(NotImplementedError, match="Flatten of a VI reference"):
+        flattened_hex((3, len), record)
 
 
 def test_a_reference_cast_to_another_reference_is_kept() -> None:
@@ -231,8 +253,7 @@ def test_layouts_of_wire_types() -> None:
     visa = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="VisaRef"
     )
-    with pytest.raises(UnsupportedLayout, match="ByteStream refnum"):
-        layout_of(byte_stream)
+    assert layout_of(byte_stream) == RefnumInteger("ByteStream")
     assert layout_of(visa) == Text()  # flattened as a string
 
 

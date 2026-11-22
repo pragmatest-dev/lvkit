@@ -278,6 +278,65 @@ class Integer(Layout):
 
 
 @dataclass(frozen=True)
+class RefnumInteger(Layout):
+    """A reference (``kind`` names it) flattened as the 32-bit integer LabVIEW
+    writes for a refnum. Not a Refnum (``None``) is 0 and the integer 0 is Not a
+    Refnum; a live reference is a Python object with no integer value, and no
+    other integer names a reference, so both raise where they run."""
+
+    kind: str = "reference"
+    code: str = "I"
+    width: int = 4
+
+    def fixed_size(self) -> int | None:
+        return self.width
+
+    def helper_label(self) -> str:
+        return f"{self.kind}_refnum"
+
+    def to_integer(self, fns: Functions) -> str:
+        """The name of the function that gives a reference's integer."""
+
+        def source(name: str) -> str:
+            return (
+                f"def {name}(reference):\n"
+                "    if reference is None:\n"
+                "        return 0\n"
+                f'    raise NotImplementedError(f"Flatten of a {self.kind} '
+                "reference: a live reference "
+                '({type(reference).__name__}) is a Python object, which has no '
+                'integer value")\n'
+            )
+
+        return fns.named("refnum_to_integer", self.kind, (self.kind,), source)
+
+    def from_integer(self, fns: Functions) -> str:
+        """The name of the function that gives the reference an integer was read
+        as."""
+
+        def source(name: str) -> str:
+            return (
+                f"def {name}(value):\n"
+                "    if value == 0:\n"
+                "        return None\n"
+                f'    raise NotImplementedError(f"Unflatten of the integer '
+                "{value} as a "
+                f'{self.kind} reference: only 0 (Not a Refnum) names a reference, '
+                'the others have no Python object")\n'
+            )
+
+        return fns.named("integer_to_refnum", self.kind, (self.kind,), source)
+
+    def flatten(self, value, prefix, depth, fns):
+        return [Fixed(self.code, (f"{self.to_integer(fns)}({value})",))]
+
+    def unflatten(self, target, prefix, out, fns):
+        read = f"struct.unpack_from({fns.order + self.code!r}, data, pos)[0]"
+        out.add(f"{target} = {self.from_integer(fns)}({read})")
+        out.add(f"pos += {self.width}")
+
+
+@dataclass(frozen=True)
 class Real(Layout):
     """A floating-point number, a Boolean or a complex number: the values
     ``struct`` packs as they are."""
@@ -883,11 +942,7 @@ def layout_of(lv_type: LVType | None, ctx: CodeGenContext | None = None) -> Layo
 
         return collection_layout(lv_type, ctx)
     if underlying == "Refnum" and lv_type.ref_type not in _STRING_REFNUMS:
-        raise UnsupportedLayout(
-            f"a {lv_type.ref_type or 'reference'} refnum as an integer or bytes: "
-            "a reference is a Python object (a VI reference is a function), "
-            "which has no integer value"
-        )
+        return RefnumInteger(lv_type.ref_type or "reference")
     if underlying == "Refnum":
         return Text()
     if is_string_type_name(underlying):

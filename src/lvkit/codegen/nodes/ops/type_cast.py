@@ -11,10 +11,10 @@ zeros", so a shorter value is padded with zero bytes on the right.
 
 A cast whose source and destination type are the same, or from one refnum to
 another (an opaque handle, not bytes), keeps the value as it is. A refnum cast
-to an integer or to bytes is a gap: a reference is a Python object (a VI
-reference is a function), which has no integer value and cannot be mapped back
-without a run-time table. An integer ``0`` cast to a refnum is ``None``, Not a
-Refnum, and any other integer is kept as it is.
+to an integer or to bytes is its 32-bit integer (``flat.RefnumInteger``): Not a
+Refnum (``None``) is 0 and a live reference, a Python object with no integer
+value, raises where it runs. An integer 0 (or four zero bytes) cast to a refnum
+is ``None``, Not a Refnum, and any other integer raises where it runs.
 
 Terminals (from the primitives.json entry):
   in  index 0 = x (data to reinterpret)
@@ -27,7 +27,6 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import PrimitiveNode
-from lvkit.lv_type_codes import INTEGER_TYPE_NAMES
 from lvkit.models import LVType
 
 from ...ast_utils import build_assign, parse_expr
@@ -50,22 +49,6 @@ def _is_refnum(lt: LVType | None) -> bool:
     return lt is not None and lt.underlying_type == "Refnum"
 
 
-def _is_integer(lt: LVType | None) -> bool:
-    return lt is not None and lt.underlying_type in INTEGER_TYPE_NAMES
-
-
-def _integer_to_refnum(
-    node: PrimitiveNode, ctx: CodeGenContext, value: str, result_id: str
-) -> CodeFragment:
-    """The integer is the reference it was cast from; ``0`` is Not a Refnum."""
-    variable = ctx.make_output_var("reference", node.id, terminal_id=result_id)
-    expression = f"None if {value} == 0 else {value}"
-    return CodeFragment(
-        statements=[build_assign(variable, parse_expr(expression))],
-        bindings={result_id: variable},
-    )
-
-
 @register_op_fragment("TYPE_CAST")
 def type_cast(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     source = terminal(node, "input", 0)
@@ -79,8 +62,6 @@ def type_cast(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
         _is_refnum(src_type) and _is_refnum(dst_type)
     ):
         return CodeFragment(bindings={result.id: value})
-    if _is_integer(src_type) and _is_refnum(dst_type):
-        return _integer_to_refnum(node, ctx, value, result.id)
     try:
         src = layout_of(src_type)
         dst = layout_of(dst_type)
