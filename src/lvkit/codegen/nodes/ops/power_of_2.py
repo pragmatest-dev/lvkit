@@ -55,14 +55,15 @@ def power_of_2(node: PrimitiveNode, resolved: ResolvedPrimitive) -> str:
     inp = next(
         (t for t in node.terminals if t.direction == "input" and t.index == 1), None
     )
-    if out is None or inp is None or not is_real(out.lv_type):
+    if out is None or inp is None or not is_real(inp.lv_type):
         raise ConversionGap(
             "Power Of 2 supports real numbers and arrays of them only", node
         )
-    if is_float(out.lv_type):
+    # The output has the numeric representation of x (NI), so x's type is read.
+    if is_float(inp.lv_type):
         expression = _FLOAT
     else:
-        underlying = _scalar_underlying(out.lv_type)
+        underlying = _scalar_underlying(inp.lv_type)
         assert underlying is not None
         expression = _integer(underlying)
     rank = array_rank(inp.lv_type) or 0
