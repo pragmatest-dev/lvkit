@@ -284,7 +284,7 @@ class RefnumInteger(Layout):
     Refnum; a live reference is a Python object with no integer value, and no
     other integer names a reference, so both raise where they run."""
 
-    kind: str = "reference"
+    kind: str = "refnum"
     code: str = "I"
     width: int = 4
 
@@ -302,10 +302,12 @@ class RefnumInteger(Layout):
                 f"def {name}(reference):\n"
                 "    if reference is None:\n"
                 "        return 0\n"
-                f'    raise NotImplementedError(f"Flatten of a {self.kind} '
-                "reference: a live reference "
-                '({type(reference).__name__}) is a Python object, which has no '
-                'integer value")\n'
+                "    raise NotImplementedError("
+                + repr(
+                    f"Flatten of a {self.kind}: only Not a Refnum has an integer "
+                    "value, a live reference has none"
+                )
+                + ")\n"
             )
 
         return fns.named("refnum_to_integer", self.kind, (self.kind,), source)
@@ -319,10 +321,13 @@ class RefnumInteger(Layout):
                 f"def {name}(value):\n"
                 "    if value == 0:\n"
                 "        return None\n"
-                f'    raise NotImplementedError(f"Unflatten of the integer '
-                "{value} as a "
-                f'{self.kind} reference: only 0 (Not a Refnum) names a reference, '
-                'the others have no Python object")\n'
+                '    raise NotImplementedError("Unflatten of the integer " + '
+                "str(value) + "
+                + repr(
+                    f" as a {self.kind}: only 0 (Not a Refnum) names a "
+                    "reference, the other integers name none"
+                )
+                + ")\n"
             )
 
         return fns.named("integer_to_refnum", self.kind, (self.kind,), source)
@@ -942,7 +947,7 @@ def layout_of(lv_type: LVType | None, ctx: CodeGenContext | None = None) -> Layo
 
         return collection_layout(lv_type, ctx)
     if underlying == "Refnum" and lv_type.ref_type not in _STRING_REFNUMS:
-        return RefnumInteger(lv_type.ref_type or "reference")
+        return RefnumInteger(lv_type.type_descriptor())
     if underlying == "Refnum":
         return Text()
     if is_string_type_name(underlying):

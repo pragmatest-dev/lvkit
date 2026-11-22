@@ -168,10 +168,23 @@ def test_a_live_reference_cast_or_flattened_raises_where_it_runs() -> None:
         return None
 
     for target in (U32, STR):
-        with pytest.raises(NotImplementedError, match="Flatten of a VI reference"):
+        with pytest.raises(NotImplementedError, match="Flatten of a VI refnum"):
             cast(_VI_REF, target)(live)
-    with pytest.raises(NotImplementedError, match="Flatten of a DataValueRef"):
+    with pytest.raises(NotImplementedError, match="Flatten of a DataValueRef refnum"):
         cast(_DVR, U32)([2.5])
+
+
+def test_a_parametrized_reference_names_its_element_in_the_message() -> None:
+    queue = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="Queue",
+        element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Float64"),
+    )
+    with pytest.raises(NotImplementedError, match=r"a Queue refnum\{Float64\}"):
+        cast(queue, U32)([1.0])
+    with pytest.raises(NotImplementedError, match=r"as a Queue refnum\{Float64\}"):
+        cast(U32, queue)(7)
 
 
 def test_the_integer_zero_read_into_a_reference_is_not_a_refnum() -> None:
@@ -181,9 +194,9 @@ def test_the_integer_zero_read_into_a_reference_is_not_a_refnum() -> None:
 
 
 def test_a_nonzero_integer_read_into_a_reference_raises_where_it_runs() -> None:
-    with pytest.raises(NotImplementedError, match="the integer 5 as a VI reference"):
+    with pytest.raises(NotImplementedError, match="the integer 5 as a VI refnum"):
         cast(U32, _VI_REF)(5)
-    with pytest.raises(NotImplementedError, match="DataValueRef reference"):
+    with pytest.raises(NotImplementedError, match="as a DataValueRef refnum"):
         cast(STR, _DVR)("\x00\x00\x00\x07")
 
 
@@ -191,7 +204,7 @@ def test_a_cluster_holding_a_reference_flattens_and_reads_back() -> None:
     record = cluster(("count", U16), ("ref", _VI_REF))
     assert flattened_hex((3, None), record) == "000300000000"
     assert cast(STR, record)(text(bytes.fromhex("000300000000"))).r == (3, None)
-    with pytest.raises(NotImplementedError, match="Flatten of a VI reference"):
+    with pytest.raises(NotImplementedError, match="Flatten of a VI refnum"):
         flattened_hex((3, len), record)
 
 
@@ -253,7 +266,7 @@ def test_layouts_of_wire_types() -> None:
     visa = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="VisaRef"
     )
-    assert layout_of(byte_stream) == RefnumInteger("ByteStream")
+    assert layout_of(byte_stream) == RefnumInteger("ByteStream refnum")
     assert layout_of(visa) == Text()  # flattened as a string
 
 
