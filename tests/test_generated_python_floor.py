@@ -35,6 +35,10 @@ from lvkit.codegen.grpc_server_module import (
 )
 from lvkit.codegen.ini_module import INI_MODULE_NAME, INI_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
+from lvkit.codegen.local_time_module import (
+    LOCAL_TIME_MODULE_NAME,
+    LOCAL_TIME_MODULE_SOURCE,
+)
 from lvkit.codegen.module_function import function_source
 from lvkit.codegen.notifiers_module import (
     NOTIFIERS_MODULE_NAME,
@@ -111,6 +115,7 @@ MODULES = {
     PANELS_MODULE_NAME: PANELS_MODULE_SOURCE,
     SCAN_MODULE_NAME: SCAN_MODULE_SOURCE,
     INI_MODULE_NAME: INI_MODULE_SOURCE,
+    LOCAL_TIME_MODULE_NAME: LOCAL_TIME_MODULE_SOURCE,
     NOTIFIERS_MODULE_NAME: NOTIFIERS_MODULE_SOURCE,
     GRPC_SERVER_MODULE_NAME: GRPC_SERVER_MODULE_SOURCE,
     QUEUES_MODULE: _queues_source(),

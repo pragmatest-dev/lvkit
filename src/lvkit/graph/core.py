@@ -231,6 +231,10 @@ class InMemoryVIGraph(
         self._poly_info: dict[str, PolyInfo] = {}
         # Track loaded VIs across multiple load_vi() calls to prevent re-parsing
         self._loaded_vis: set[str] = set()
+        # VIs with a class or typedef type the tie gave no file while loading;
+        # tied again, and the set cleared, when the load finishes
+        # (``retie_unresolved_types``).
+        self._untied_type_vis: set[str] = set()
         # Depth a VI's DEPENDENCIES were loaded at (NONE/MINIMAL/FULL). A VI
         # first seen as a leaf (a caller's SubVI, child NONE) records NONE here;
         # a later load at a higher depth UPGRADES it (progressive partial->full)
@@ -410,6 +414,7 @@ class InMemoryVIGraph(
             typedef_file=parsed_type.typedef_file,
             values=parsed_type.enum_values,
             element_type=self._enrich_type(parsed_type.element_type, file_key),
+            value_type=self._enrich_type(parsed_type.value_type, file_key),
             dimensions=parsed_type.dimensions,
             measure_flavor=parsed_type.measure_flavor,
             user_event_name=parsed_type.user_event_name,
@@ -446,6 +451,8 @@ class InMemoryVIGraph(
         if parsed_type.classname or parsed_type.typedef_name:
             lv_type.file_key = self.recorded_type_key(file_key, lv_type)
             lv_type.strict_typedef = self.is_strict_typedef(lv_type)
+            if lv_type.file_key is None:
+                self._untied_type_vis.add(file_key)
         if parsed_type.classname:
             class_key = self.class_type_key(lv_type)
             if class_key is not None:

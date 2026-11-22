@@ -51,6 +51,7 @@ from .digital_values import (
 from .digital_values import (
     IMPORTS as DIGITAL_IMPORTS,
 )
+from .type_default import type_default
 from .variant_values import type_expression
 from .variants_module import VARIANT_NAME
 from .waveform_values import IMPORTS as WAVEFORM_IMPORTS
@@ -104,6 +105,8 @@ def constant_value_expression(
         return _array(ctx, lv_type.element_type, lv_type.dimensions or 1, value, where)
     if underlying in ("Set", "Map") and isinstance(value, list):
         return _collection(ctx, lv_type, value, where)
+    if underlying in ("Set", "Map"):
+        raise ConversionGap(_not_read(where, lv_type))
     if (
         lv_type.kind in (LVTypeKind.ENUM, LVTypeKind.RING)
         or underlying in _SCALAR_TYPES
@@ -350,8 +353,14 @@ def _cluster(
         trailing = "," if len(expressions) == 1 else ""
         return f"({', '.join(expressions)}{trailing})"
     # An instance of a loaded typedef takes the typedef's field names, each at
-    # its saved position.
+    # its saved position; a field the typedef gained after the VI saved its copy
+    # follows them at its default value.
     named = ctx.typedef_instance(lv_type).fields or lv_type.fields
+    for f in named[len(expressions) :]:
+        part = f"the field {f.name!r} of {where}"
+        if f.type is None:
+            raise ConversionGap(f"The type of {part} is not known")
+        expressions.append(ast.unparse(type_default(ctx, f.type, part)))
     attributes = field_attribute_names(f.name for f in named)
     arguments = ", ".join(
         f"{attribute}={expression}"

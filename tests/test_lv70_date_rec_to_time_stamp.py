@@ -3,10 +3,12 @@ generated from the catalog entry and its Python is run.
 
 The pane is the one the caller Get UTC Offset.vi (JKI EasyXML) saves for the call;
 the behaviour is NI's Date/Time To Seconds page (a date and time record, with is
-UTC FALSE, is in the computer's time zone; DST 0 is standard time, 1 daylight
-saving time, -1 lets the system decide; day of week and day of year are
-ignored). The caller subtracts the record of 1 January 1904 from 0 to get the
-offset of local time from UTC, which only a local-time reading makes meaningful."""
+UTC FALSE, is in the computer's time zone; day of week and day of year are
+ignored). This old-version VI lets the system decide the DST status and applies
+the computer's current zone rule to every year from 1970 (JKI EasyXML's own tests,
+written in US Pacific, expect 1976-03-17 09:00 with DST 0 to be 16:00 UTC). The
+caller subtracts the record of 1 January 1904 from 0 to get the offset of local
+time from UTC, which only a local-time reading makes meaningful."""
 
 from __future__ import annotations
 
@@ -85,7 +87,7 @@ def test_the_record_is_local_time(
 
 
 @needs_posix_tz
-def test_the_dst_field_picks_standard_or_daylight_time(
+def test_the_dst_field_is_ignored_and_the_system_decides(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, time_zone
 ) -> None:
     time_zone("EST5EDT,M3.2.0,M11.1.0")
@@ -93,9 +95,44 @@ def test_the_dst_field_picks_standard_or_daylight_time(
     standard = _to_time_stamp(tmp_path, monkeypatch, summer)[1]
     daylight = _to_time_stamp(tmp_path, monkeypatch, (*summer[:8], 1))[1]
     automatic = _to_time_stamp(tmp_path, monkeypatch, (*summer[:8], -1))[1]
-    assert standard.time_stamp.isoformat() == "2001-07-15T17:00:00+00:00"
-    assert daylight.time_stamp.isoformat() == "2001-07-15T16:00:00+00:00"
-    assert automatic.time_stamp == daylight.time_stamp
+    assert standard.time_stamp.isoformat() == "2001-07-15T16:00:00+00:00"
+    assert daylight.time_stamp == standard.time_stamp
+    assert automatic.time_stamp == standard.time_stamp
+
+
+needs_zone_data = pytest.mark.skipif(
+    not Path("/usr/share/zoneinfo/America/Los_Angeles").exists(),
+    reason="needs the system's time zone database",
+)
+
+
+@needs_posix_tz
+@needs_zone_data
+@pytest.mark.parametrize(
+    ("zone", "record", "utc"),
+    [
+        # the current rule (second Sunday of March) holds on 1976-03-17, whose own
+        # zone data has no daylight saving time yet: JKI EasyXML's tests
+        ("America/Los_Angeles", (0, 0, 9, 17, 3, 1976), "1976-03-17T16:00:00"),
+        ("America/Los_Angeles", (0, 0, 0, 17, 3, 1976), "1976-03-17T07:00:00"),
+        ("America/Los_Angeles", (0, 0, 9, 15, 1, 1976), "1976-01-15T17:00:00"),
+        ("America/Los_Angeles", (0, 0, 9, 15, 7, 2020), "2020-07-15T16:00:00"),
+        ("America/Los_Angeles", (0, 0, 9, 29, 2, 1980), "1980-02-29T17:00:00"),
+        # the current rule (last Sunday of March) has 1976-03-30 in daylight time
+        ("Europe/Berlin", (0, 0, 12, 30, 3, 1976), "1976-03-30T10:00:00"),
+        ("Europe/Berlin", (0, 0, 12, 1, 7, 1976), "1976-07-01T10:00:00"),
+        ("Europe/Berlin", (0, 0, 12, 15, 1, 1976), "1976-01-15T11:00:00"),
+        ("Europe/Berlin", (0, 0, 12, 20, 3, 2024), "2024-03-20T11:00:00"),
+    ],
+)
+def test_a_record_from_1970_on_uses_the_current_zone_rule(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, time_zone, zone, record, utc
+) -> None:
+    time_zone(zone)
+    result = _to_time_stamp(
+        tmp_path, monkeypatch, (record[0], record[1], *record[2:], 1, 1, 0)
+    )[1]
+    assert result.time_stamp.isoformat() == f"{utc}+00:00"
 
 
 @needs_posix_tz
@@ -144,7 +181,7 @@ def test_2020_record_runs_on_every_os(
 ) -> None:
     record = (0, 30, 12, 15, 3, 2020, 1, 75, 0)
     result = _to_time_stamp(tmp_path, monkeypatch, record)[1]
-    expected = time.mktime((2020, 3, 15, 12, 30, 0, 0, 0, 0))
+    expected = time.mktime((2020, 3, 15, 12, 30, 0, 0, 0, -1))
     assert _seconds_since_1904(result) == expected + EPOCH_1970_IN_1904_SECONDS
 
 

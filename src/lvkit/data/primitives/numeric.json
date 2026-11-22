@@ -155,6 +155,7 @@
     },
     "1054": {
       "name": "Absolute Value",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,

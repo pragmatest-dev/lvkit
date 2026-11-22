@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import ast
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import NamedTuple, NoReturn
 
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import lay_out_node
-from lvkit.models import LVType, LVTypeKind, Terminal, TerminalDirection
+from lvkit.models import (
+    ClusterField,
+    LVType,
+    LVTypeKind,
+    Terminal,
+    TerminalDirection,
+)
 from lvkit.parser.constants import OPERATION_NODE_CLASSES
 from lvkit.parser.node_types import get_display_name
 from lvkit.primitive_resolver import (
@@ -29,6 +35,7 @@ from ..ast_utils import (
     to_var_name,
 )
 from ..catalog_names import catalog_python_names
+from ..cluster_arithmetic import can_hold_arithmetic, clusterify
 from ..context import CodeGenContext, terminal_default_expression
 from ..elementwise import arrayify
 from ..error_flow import merge_errors, status_read, wire_typed_terminal_ids
@@ -60,6 +67,50 @@ def _array_operand_ranks(
             if operand:
                 ranks[ast.unparse(parse_expr(operand))] = term.lv_type.dimensions or 1
     return ranks
+
+
+Broadcast = Callable[[ast.expr], ast.expr]
+
+
+def _cluster_operands(
+    node: PrimitiveNode, input_map: Mapping[str, str]
+) -> dict[str, LVType]:
+    """The type of each cluster-typed input, keyed like ``_array_operand_ranks``."""
+    clusters: dict[str, LVType] = {}
+    for term in node.terminals:
+        if (
+            term.direction == "input"
+            and term.lv_type is not None
+            and can_hold_arithmetic(term.lv_type)
+        ):
+            operand = input_map.get(f"in_{term.index}")
+            if operand:
+                clusters[ast.unparse(parse_expr(operand))] = term.lv_type
+    return clusters
+
+
+def _broadcaster(
+    node: PrimitiveNode, input_map: Mapping[str, str], ctx: CodeGenContext
+) -> Broadcast | None:
+    """The rewrite that makes an expression's operators apply per element of the
+    array operands, or per member of the cluster operands, else None."""
+    ranks = _array_operand_ranks(node, input_map)
+    clusters = _cluster_operands(node, input_map)
+    if not ranks and not clusters:
+        return None
+
+    def fields_of(lv_type: LVType) -> list[ClusterField] | None:
+        found = ctx.graph.get_type_fields(lv_type) if ctx.graph else None
+        return found or lv_type.fields
+
+    def broadcast(expr: ast.expr) -> ast.expr:
+        expr, rewritten = clusterify(expr, clusters, fields_of)
+        if rewritten:
+            ctx.add_import("from types import SimpleNamespace")
+            return expr
+        return arrayify(expr, ranks)[0] if ranks else expr
+
+    return broadcast
 
 
 def _int_input_terminal(node: PrimitiveNode) -> Terminal | None:
@@ -231,11 +282,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         skip_term_ids=passthrough_term_ids,
     )
 
-    # Numeric primitives are element-wise over arrays. When this op is flagged
-    # elementwise and an operand is an array, broadcast its operators.
-    operand_ranks = (
-        _array_operand_ranks(node, input_map) if resolved.elementwise else None
-    )
+    # Numeric primitives are element-wise over arrays and clusters. When this op
+    # is flagged elementwise and an operand is one, broadcast its operators.
+    broadcast = _broadcaster(node, input_map, ctx) if resolved.elementwise else None
 
     # Build code based on code type
     if isinstance(resolved.python_code, dict):
@@ -246,7 +295,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             wired_outputs,
             ctx,
             resolved,
-            operand_ranks,
+            broadcast,
         )
     else:
         fragment = _build_string_hint(
@@ -256,7 +305,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             wired_outputs,
             ctx,
             resolved,
-            operand_ranks,
+            broadcast,
         )
 
     # Merge passthrough bindings
@@ -748,7 +797,7 @@ def _build_dict_hint(
     wired_outputs: list[_WiredOutput],
     ctx: CodeGenContext,
     resolved: ResolvedPrimitive | None,
-    operand_ranks: Mapping[str, int] | None = None,
+    broadcast: Broadcast | None = None,
 ) -> CodeFragment:
     """Build code from dict-format hint.
 
@@ -790,8 +839,8 @@ def _build_dict_hint(
             expr_ast = parse_expr(
                 _substitute_template(exprs[expr_idx], input_map, resolved)
             )
-            if operand_ranks:
-                expr_ast, _ = arrayify(expr_ast, operand_ranks)
+            if broadcast:
+                expr_ast = broadcast(expr_ast)
         fragment.extend(
             bind_output(
                 node,
@@ -812,7 +861,7 @@ def _build_string_hint(
     wired_outputs: list[_WiredOutput],
     ctx: CodeGenContext,
     resolved: ResolvedPrimitive | None,
-    operand_ranks: Mapping[str, int] | None = None,
+    broadcast: Broadcast | None = None,
 ) -> CodeFragment:
     """Build code from string-format hint."""
     statements: list[ast.stmt] = []
@@ -834,8 +883,8 @@ def _build_string_hint(
     expr_substituted = _substitute_template(expr, input_map, resolved)
 
     expr_ast = parse_expr(expr_substituted)
-    if operand_ranks:
-        expr_ast, _ = arrayify(expr_ast, operand_ranks)
+    if broadcast:
+        expr_ast = broadcast(expr_ast)
 
     # Assign to output variables
     if len(wired_outputs) == 1:

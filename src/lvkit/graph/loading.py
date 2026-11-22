@@ -107,6 +107,7 @@ from .recorded_paths import (
     member_tokens,
     redirect_member_beside_container,
 )
+from .retie_types import retie_unresolved_types
 from .type_records import NamedRecord, TypeRecords, type_names
 
 logger = logging.getLogger(__name__)
@@ -125,7 +126,9 @@ def _with_extraction_pool(method: _F) -> _F:
     """Run a public load entry point with the graph's extraction pool open.
 
     The outermost entry point opens the pool and closes it on exit; entry points
-    nested inside it (a class load calling ``load_vi`` per member) reuse it.
+    nested inside it (a class load calling ``load_vi`` per member) reuse it. When
+    the outermost entry point finishes, the class and typedef types a cycle of
+    loading left without a file are tied (see ``retie_types``).
     """
 
     @wraps(method)
@@ -135,7 +138,9 @@ def _with_extraction_pool(method: _F) -> _F:
         with ExtractionPool(self.cache_roots) as pool:
             self._extract_pool = pool
             try:
-                return method(self, *args, **kwargs)
+                result = method(self, *args, **kwargs)
+                retie_unresolved_types(self)
+                return result
             finally:
                 self._extract_pool = None
 
@@ -420,6 +425,7 @@ class LoadingMixin:
     vilib_catalog: VILibResolver
     _poly_info: dict[str, PolyInfo]
     _loaded_vis: set[str]
+    _untied_type_vis: set[str]
     _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
     _vi_display_names: dict[str, str]
@@ -819,6 +825,8 @@ class LoadingMixin:
         for lv_type in type_names(types):
             lv_type.file_key = self.recorded_type_key(file_key, lv_type)
             lv_type.strict_typedef = self.is_strict_typedef(lv_type)
+            if lv_type.file_key is None:
+                self._untied_type_vis.add(file_key)
 
     def _record_key(
         self, ref: ParsedDependencyRef, caller_file: Path

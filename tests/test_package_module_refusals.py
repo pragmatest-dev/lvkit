@@ -25,6 +25,7 @@ from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.grpc_server_module import GRPC_SERVER_MODULE_SOURCE
 from lvkit.codegen.ini_module import INI_MODULE_SOURCE
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_SOURCE
+from lvkit.codegen.local_time_module import LOCAL_TIME_MODULE_SOURCE
 from lvkit.codegen.notifiers_module import NOTIFIERS_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_SOURCE
 from lvkit.codegen.scan_module import SCAN_MODULE_SOURCE
@@ -35,6 +36,7 @@ SOURCES = {
     "grpc_server": GRPC_SERVER_MODULE_SOURCE,
     "ini": INI_MODULE_SOURCE,
     "live_io": LIVE_IO_MODULE_SOURCE,
+    "local_time": LOCAL_TIME_MODULE_SOURCE,
     "notifiers": NOTIFIERS_MODULE_SOURCE,
     "panels": PANELS_MODULE_SOURCE,
     "scan": SCAN_MODULE_SOURCE,

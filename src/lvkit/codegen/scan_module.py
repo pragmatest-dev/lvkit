@@ -6,11 +6,12 @@ generating (``labview_scan.scan_plan``). A format string wired from a value the
 code computes needs the same translation at run time, so the package gets
 ``scan.py``: the source of that translator, copied from the modules the generator
 imports (``labview_scan``, ``labview_scan_time``, ``labview_format``'s
-``_lv_parse``, ``_lv_decode_escapes`` and ``_lv_default_code``, and
-``FormatKind``), so the pattern and
-the conversion of each output are the ones a constant format gets and the two
-cannot differ. Nothing is re-typed: the module's body is the bodies of those
-modules (``ast.unparse``) with their imports replaced by the header below.
+``_lv_parse``, ``_lv_decode_escapes`` and ``_lv_default_code``, and ``FormatKind``),
+so the pattern and the conversion of each output are the ones a constant format
+gets and the two cannot differ. Nothing is re-typed: the module's body is the
+bodies of those modules (``ast.unparse``) with their imports replaced by the header
+below. A time in local time calls ``local_offset`` of the package's ``local_time``
+module, which holds the one daylight-saving setting.
 
 The run-time entry is ``scan_text``: it translates the format string once for
 each (format string, kinds of the outputs) pair, matches the text, and returns a
@@ -20,7 +21,8 @@ string with no conversion (a specifier or output type the generator would call a
 gap) raises ``NotImplementedError`` naming the format string and the reason.
 
 It is written once into the package root as ``scan.py``, only when a generated
-module imports it, and imports nothing from the package or from lvkit.
+module imports it, and imports nothing from lvkit and from the package only
+``local_time``.
 """
 
 from __future__ import annotations
@@ -66,6 +68,8 @@ import functools
 import re
 from dataclasses import dataclass
 from typing import NamedTuple
+
+from .local_time import local_offset
 '''
 
 _RUNTIME = '''
@@ -84,9 +88,10 @@ def _compiled(format_text, kinds):
         plan = scan_plan(pieces, [FormatKind(*kind) for kind in kinds])
     except ValueError as reason:
         raise NotImplementedError(f"{reason} (format string {format_text!r})") from None
-    namespace = {"re": re}
+    namespace = {"re": re, "local_offset": local_offset}
     for statement in plan.imports:
-        exec(statement, namespace)
+        if not statement.startswith("from ."):
+            exec(statement, namespace)
     converters = [
         eval("lambda g, d: " + value.format(g="g", d="d"), namespace)
         for value in plan.values

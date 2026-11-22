@@ -117,6 +117,16 @@ def test_module_pass_reaches_call_keywords_and_conditions():
     assert ast.unparse(body[1].test) == "[_e0 == 0 for _e0 in a]"  # type: ignore[attr-defined]
 
 
+def test_a_path_of_a_string_array_is_a_path_per_element():
+    assert lifted("Path(s)", s=1) == "[Path(_e0) for _e0 in s]"
+    assert lifted("Path(s)", s=0) == "Path(s)"
+
+
+def test_a_math_reduction_of_an_array_is_not_element_wise():
+    assert lifted("math.prod(a)", a=1) == "math.prod(a)"
+    assert lifted("math.log10(a)", a=1) == "[math.log10(_e0) for _e0 in a]"
+
+
 def test_var_name_avoids_builtins():
     assert to_var_name("sum") == "sum_"
     assert to_var_name("list") == "list_"

@@ -271,7 +271,7 @@ def test_a_part_with_no_python_value_is_a_gap_naming_the_field_and_type() -> Non
         lv_type=lv_type,
         structured_value={"map": "{}"},
     )
-    with pytest.raises(ConversionGap, match="'map'.*Map value"):
+    with pytest.raises(ConversionGap, match="'map'.*(Map)"):
         CodeGenContext().constant_expression(node)
 
 

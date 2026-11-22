@@ -306,10 +306,12 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     assert _all_undefined(package) == {}
     assert _unresolved_relative_imports(package) == []
     source = _module_named(package, "session_reservation/session_reservation.py")
-    assert (
-        "is_dvr_valid(dvr_error_in=None, "
-        "dvr_valid_in=self.__data_dvr[0].dvr_valid)"
-    ) in source.read_text(encoding="utf-8")
+    text = source.read_text(encoding="utf-8")
+    # The borders take the structure's data; a reference that is Not a Refnum
+    # reads the type's default and puts error 1556 on the border's error out.
+    assert "is_dvr_valid(dvr_error_in=None if self.__data_dvr is not None else" in text
+    assert "dvr_valid_in=(self.__data_dvr[0] if self.__data_dvr is not None" in text
+    assert ").dvr_valid)" in text
 
 
 WAVEGEN_LIB = SAMPLES / "lv-flex-channel-examples/WaveGen/WaveGen.lvlib"

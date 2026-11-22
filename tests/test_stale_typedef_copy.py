@@ -212,14 +212,27 @@ def test_a_typedef_that_gained_fields_maps_each_saved_field_by_name() -> None:
     saved = _saved_copy("alpha", "beta")
     graph, _context = _unbundle(saved, 1, loaded)
     assert graph.stale_typedef_copy(saved) is None
-    assert [f.name for f in graph.get_type_fields(saved) or []] == ["alpha", "beta"]
+    # The fields the typedef gained follow the saved ones, at their defaults.
+    assert [f.name for f in graph.get_type_fields(saved) or []] == list(loaded)
     value = SimpleNamespace(alpha="A", beta="B", gamma="C", delta="D")
     assert _run_unbundle(saved, 1, loaded, value) == "B"
     ctx = CodeGenContext(graph=graph)
     default = eval(  # noqa: S307
         ast.unparse(type_default(ctx, saved)), {"SimpleNamespace": SimpleNamespace}
     )
-    assert list(vars(default)) == ["alpha", "beta"]
+    assert list(vars(default)) == list(loaded)
+    # A constant of the older copy carries the gained fields at their defaults.
+    constant = ConstantNode(
+        id="c",
+        vi_path="Caller.vi",
+        value="{'alpha': 'A', 'beta': 'B'}",
+        structured_value={"alpha": "A", "beta": "B"},
+        lv_type=saved,
+    )
+    made = eval(  # noqa: S307
+        ctx.constant_expression(constant), {"SimpleNamespace": SimpleNamespace}
+    )
+    assert vars(made) == {"alpha": "A", "beta": "B", "gamma": "", "delta": ""}
 
 
 def test_a_typedef_with_reordered_fields_maps_each_saved_field_by_name() -> None:

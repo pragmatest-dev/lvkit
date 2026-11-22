@@ -15,6 +15,7 @@ from lvkit.models import LVType
 
 from .ast_utils import numbered_name
 from .errors import CodeGenError
+from .local_time_module import LOCAL_TIME_MODULE_NAME
 
 if TYPE_CHECKING:
     from .package_modules import PackageModules
@@ -266,6 +267,13 @@ class ImportResolver:
         ):
             return None
         return self._root_names_import(self._package_modules.queues_stem, names)
+
+    def local_time_import(self, names: str) -> str | None:
+        """The statement importing ``names`` from the package root's ``local_time``
+        module; None when this resolver has no package."""
+        if self._root_names_import is None:
+            return None
+        return self._root_names_import(LOCAL_TIME_MODULE_NAME, names)
 
     def queue_use(self, node: AnyGraphNode) -> tuple[QueueUse, ModuleImport]:
         """How the Obtain Queue ``node`` names its queue, from the package's

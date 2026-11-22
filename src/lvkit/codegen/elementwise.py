@@ -22,7 +22,10 @@ import ast
 from collections.abc import Mapping
 
 # Operators and conversion calls that apply to every element of an array.
-_UNARY_CALLS = frozenset({"int", "float", "bool", "round", "abs"})
+_UNARY_CALLS = frozenset({"int", "float", "bool", "round", "abs", "Path"})
+# ``math`` functions that take a whole iterable (a reduction of an array), so an
+# array operand is their one argument, not an element-wise input.
+_MATH_REDUCTIONS = frozenset({"prod", "fsum", "sumprod", "dist"})
 # ``max(a, b)`` / ``min(a, b)`` of two or more values pick per element when a
 # value is an array (``max(arr)`` of one argument is a reduction, not this).
 _PICK_CALLS = frozenset({"max", "min"})
@@ -61,7 +64,7 @@ def _is_list_shaped(node: ast.expr) -> bool:
     return False
 
 
-def _unary_call(node: ast.AST) -> bool:
+def unary_call(node: ast.AST) -> bool:
     """A conversion of one value (``int(x)``, ``round(x)``, …), ``max``/``min`` of
     several values, or a ``math`` function of its arguments (``math.log10(x)``,
     ``math.copysign(a, b)``)."""
@@ -81,6 +84,7 @@ def _unary_call(node: ast.AST) -> bool:
         isinstance(func, ast.Attribute)
         and isinstance(func.value, ast.Name)
         and func.value.id == "math"
+        and func.attr not in _MATH_REDUCTIONS
     )
 
 
@@ -143,7 +147,7 @@ class _Ranks:
             # expression applies per element.
             branches = max(self(node.body), self(node.orelse))
             return max(self(node.test), branches) if self.conditionals else branches
-        if _unary_call(node):
+        if unary_call(node):
             assert isinstance(node, ast.Call)
             return max(self(a) for a in node.args)
         conversion = _fixed_width_value(node)
@@ -175,7 +179,7 @@ def _applies_per_element(
         return all(isinstance(op, _COMPARE_OPS) for op in node.ops)
     if isinstance(node, ast.IfExp):
         return ranks.conditionals
-    return _unary_call(node) or _fixed_width_value(node) is not None
+    return unary_call(node) or _fixed_width_value(node) is not None
 
 
 def _operands(node: ast.expr) -> list[ast.expr]:
