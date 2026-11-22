@@ -33,6 +33,18 @@ def test_integer_scalar_is_an_int_usable_as_a_range_bound() -> None:
     assert len(range(result - 10)) == 246
 
 
+def test_the_type_of_x_decides_not_the_catalog_default_of_the_output() -> None:
+    integer, double = scalar("NumInt32"), scalar("NumFloat64")
+    _, fn = generate(
+        1223,
+        "Power Of 2",
+        [Pin(1, "input", integer, source="x"), Pin(0, "output", double, sink="power")],
+        {"x": integer},
+        {"power": double},
+    )
+    assert type(fn(8).power) is int
+
+
 def test_integer_wraps_to_the_width_of_the_type() -> None:
     _, fn = _vi("NumInt32")
     assert fn(30).power == 1 << 30
