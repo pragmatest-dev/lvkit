@@ -171,7 +171,9 @@ def test_a_live_reference_cast_or_flattened_raises_where_it_runs() -> None:
     for target in (U32, STR):
         with pytest.raises(NotImplementedError, match="Flatten of a VI refnum"):
             cast(_VI_REF, target)(live)
-    with pytest.raises(NotImplementedError, match="Flatten of a DataValueRef refnum"):
+    with pytest.raises(
+        NotImplementedError, match="Flatten of a Data Value Reference refnum"
+    ):
         cast(_DVR, U32)([2.5])
 
 
@@ -291,7 +293,7 @@ def test_layouts_of_wire_types() -> None:
     visa = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="VisaRef"
     )
-    assert layout_of(byte_stream) == RefnumInteger("ByteStream refnum")
+    assert layout_of(byte_stream) == RefnumInteger("Byte Stream File refnum")
     assert layout_of(visa) == Text()  # flattened as a string
 
 

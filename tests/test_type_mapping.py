@@ -214,7 +214,7 @@ class TestRefnumElementType:
         ev = result[2]
         assert ev.ref_type == "EventReg"
         assert ev.element_type is None
-        assert ev.type_descriptor() == "EventReg refnum"
+        assert ev.type_descriptor() == "Event Registration refnum"
 
     def test_class_refnum_keeps_class_name_not_element(self, tmp_path):
         result = self._vctp(
@@ -255,7 +255,7 @@ class TestUserEventName:
             </TypeDesc>""",
         )
         assert result[1].user_event_name == "stopped"
-        assert result[1].type_descriptor() == "UserEvent refnum{stopped: TF}"
+        assert result[1].type_descriptor() == "User Event refnum{stopped: TF}"
 
     def test_typedef_instance_label_wins_over_ctl_name(self, tmp_path):
         result = self._vctp(
@@ -275,7 +275,7 @@ class TestUserEventName:
         assert ev.element_type is not None
         assert ev.element_type.typedef_name == "Lib.lvlib:Network Endpoint.ctl"
         assert ev.type_descriptor() == (
-            "UserEvent refnum{Drive Status: Network Endpoint}"
+            "User Event refnum{Drive Status: Network Endpoint}"
         )
 
     def test_other_parametrized_refnums_carry_no_name(self, tmp_path):

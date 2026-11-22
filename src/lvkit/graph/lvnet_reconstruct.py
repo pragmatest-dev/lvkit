@@ -92,6 +92,7 @@ from ..models import (
     ScalarValue,
     TunnelMode,
 )
+from ..refnum_kinds import parse_refnum_kind
 from .interface_order import WiringRequirement
 from .lvnet_grammar import (
     _LVNET_CLUSTER_OPEN,
@@ -432,21 +433,24 @@ def _reconstruct_type_ref(
         # A brace before `` refnum{`` means it's nested inside a
         # ``Cluster{ ... refnum{...} ... }`` field -- the whole text is a
         # cluster (handled below), not a top-level refnum.
-        ref_type = text[:refnum_idx]
+        ref_type, server_class = parse_refnum_kind(text[:refnum_idx])
         event_name, inner = _split_event_name(text[refnum_idx + len(" refnum{") : -1])
         elem = _reconstruct_type_ref(inner, types_dict, memo)
         return LVType(
             kind=LVTypeKind.PRIMITIVE,
             underlying_type="Refnum",
             ref_type=ref_type,
+            server_class=server_class,
             element_type=elem,
             user_event_name=event_name,
         )
     if text.endswith(" refnum") and "{" not in text:
+        ref_type, server_class = parse_refnum_kind(text[: -len(" refnum")])
         return LVType(
             kind=LVTypeKind.PRIMITIVE,
             underlying_type="Refnum",
-            ref_type=text[: -len(" refnum")],
+            ref_type=ref_type,
+            server_class=server_class,
         )
     if text == "refnum":
         return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")

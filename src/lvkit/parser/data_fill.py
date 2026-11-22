@@ -29,6 +29,7 @@ from ..lv_type_codes import (
     is_variant_type_name,
 )
 from ..models import LVType, LVTypeKind
+from ..refnum_kinds import refnum_head
 from ..text_encoding import xml_text_encoding
 from .refnum_value import holds_handle
 from .utils import saved_version
@@ -404,5 +405,5 @@ def _type_label(lv_type: LVType | None) -> str:
     if lv_type.underlying_type == "Refnum" and lv_type.classname:
         return f"class value of {lv_type.classname}"
     if lv_type.underlying_type == "Refnum" and lv_type.ref_type:
-        return f"{lv_type.ref_type} refnum"
+        return refnum_head(lv_type.ref_type, lv_type.server_class)
     return lv_type.underlying_type or str(lv_type.kind.value)

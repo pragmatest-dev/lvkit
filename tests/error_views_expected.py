@@ -65,14 +65,14 @@ Bundle/Unbundle By Name""",
         "lvnet": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   file      : ByteStream refnum required @0
-    in   error in  : Error             recommended @1
-    out  path      : Path              recommended @2
-    out  error out : Error             recommended @3
+    in   file      : Byte Stream File refnum required @0
+    in   error in  : Error                   recommended @1
+    out  path      : Path                    recommended @2
+    out  error out : Error                   recommended @3
   block-diagram :
     function Close_File_120 : Close File
-      in   error in  : Error             = error in
-      in   refnum    : ByteStream refnum = file
+      in   error in  : Error                   = error in
+      in   refnum    : Byte Stream File refnum = file
       out  error out : Error
       out  path      : Path
     path = Close_File_120::path
@@ -80,27 +80,27 @@ Bundle/Unbundle By Name""",
         "terse": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   file      : ByteStream refnum @0
-    in   error in  : Error             @1
-    out  path      : Path              @2
-    out  error out : Error             @3
+    in   file      : Byte Stream File refnum @0
+    in   error in  : Error                   @1
+    out  path      : Path                    @2
+    out  error out : Error                   @3
   block-diagram :
     function Close_File_120 : Close File
-      in   error in  : Error             = error in
-      in   refnum    : ByteStream refnum = file
+      in   error in  : Error                   = error in
+      in   refnum    : Byte Stream File refnum = file
       out  error out : Error
       out  path      : Path
     path = Close_File_120::path
     error out = Close_File_120::error out""",
         "describe": r"""# Err.vi
 
-  err(file: ByteStream refnum, error in: Error) -> path: Path, error out: Error
+  err(file: Byte Stream File refnum, error in: Error) -> path: Path, error out: Error
 
 ## Properties
   lock_state: unlocked
 
 ## Inputs
-  file: ByteStream refnum (required)
+  file: Byte Stream File refnum (required)
   error in: Error
 
 ## Outputs
@@ -115,44 +115,44 @@ Close File [prim 8052]""",
         "lvnet": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   file      : ByteStream refnum required @0
-    in   error in  : Error             recommended @1
-    out  size      : I64               recommended @2
-    out  error out : Error             recommended @3
+    in   file      : Byte Stream File refnum required @0
+    in   error in  : Error                   recommended @1
+    out  size      : I64                     recommended @2
+    out  error out : Error                   recommended @3
   block-diagram :
     function Get_File_Size_122 : Get File Size
-      in   error in        : Error             = error in
-      in   file            : ByteStream refnum = file
+      in   error in        : Error                   = error in
+      in   file            : Byte Stream File refnum = file
       out  error out       : Error
       out  size (in bytes) : I64
-      out  refnum out      : ByteStream refnum
+      out  refnum out      : Byte Stream File refnum
     size = Get_File_Size_122::size (in bytes)
     error out = Get_File_Size_122::error out""",
         "terse": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   file      : ByteStream refnum @0
-    in   error in  : Error             @1
-    out  size      : I64               @2
-    out  error out : Error             @3
+    in   file      : Byte Stream File refnum @0
+    in   error in  : Error                   @1
+    out  size      : I64                     @2
+    out  error out : Error                   @3
   block-diagram :
     function Get_File_Size_122 : Get File Size
-      in   error in        : Error             = error in
-      in   file            : ByteStream refnum = file
+      in   error in        : Error                   = error in
+      in   file            : Byte Stream File refnum = file
       out  error out       : Error
       out  size (in bytes) : I64
-      out  refnum out      : ByteStream refnum
+      out  refnum out      : Byte Stream File refnum
     size = Get_File_Size_122::size (in bytes)
     error out = Get_File_Size_122::error out""",
         "describe": r"""# Err.vi
 
-  err(file: ByteStream refnum, error in: Error) -> size: I64, error out: Error
+  err(file: Byte Stream File refnum, error in: Error) -> size: I64, error out: Error
 
 ## Properties
   lock_state: unlocked
 
 ## Inputs
-  file: ByteStream refnum (required)
+  file: Byte Stream File refnum (required)
   error in: Error
 
 ## Outputs
@@ -1213,38 +1213,38 @@ Step C.vi(x, error in) -> r, error out""",
         "lvnet": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   path      : Path              required @0
-    in   error in  : Error             recommended @1
-    out  refnum    : ByteStream refnum recommended @2
-    out  error out : Error             recommended @3
+    in   path      : Path                    required @0
+    in   error in  : Error                   recommended @1
+    out  refnum    : Byte Stream File refnum recommended @2
+    out  error out : Error                   recommended @3
   block-diagram :
     function Open/Create/Replace_File_122 : Open/Create/Replace File
-      in   error in               : Error             = error in
-      in   file path (use dialog) : Path              = path
+      in   error in               : Error                   = error in
+      in   file path (use dialog) : Path                    = path
       out  error out              : Error
       out  cancelled              : TF
-      out  refnum out             : ByteStream refnum
+      out  refnum out             : Byte Stream File refnum
     refnum = Open/Create/Replace_File_122::refnum out
     error out = Open/Create/Replace_File_122::error out""",
         "terse": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   path      : Path              @0
-    in   error in  : Error             @1
-    out  refnum    : ByteStream refnum @2
-    out  error out : Error             @3
+    in   path      : Path                    @0
+    in   error in  : Error                   @1
+    out  refnum    : Byte Stream File refnum @2
+    out  error out : Error                   @3
   block-diagram :
     function Open/Create/Replace_File_122 : Open/Create/Replace File
-      in   error in               : Error             = error in
-      in   file path (use dialog) : Path              = path
+      in   error in               : Error                   = error in
+      in   file path (use dialog) : Path                    = path
       out  error out              : Error
       out  cancelled              : TF
-      out  refnum out             : ByteStream refnum
+      out  refnum out             : Byte Stream File refnum
     refnum = Open/Create/Replace_File_122::refnum out
     error out = Open/Create/Replace_File_122::error out""",
         "describe": r"""# Err.vi
 
-  err(path: Path, error in: Error) -> refnum: ByteStream refnum, error out: Error
+  err(path: Path, error in: Error) -> refnum: Byte Stream File refnum, error out: Error
 
 ## Properties
   lock_state: unlocked
@@ -1254,7 +1254,7 @@ Step C.vi(x, error in) -> r, error out""",
   error in: Error
 
 ## Outputs
-  refnum: ByteStream refnum
+  refnum: Byte Stream File refnum
   error out: Error
 
 ## Operations
