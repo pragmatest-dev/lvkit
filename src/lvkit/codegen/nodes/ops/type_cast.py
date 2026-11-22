@@ -10,13 +10,11 @@ moves the data to the upper bytes of type and fills the remaining bytes with
 zeros", so a shorter value is padded with zero bytes on the right.
 
 A cast whose source and destination type are the same, or from one refnum to
-another (an opaque handle, not bytes), keeps the value as it is. So does a cast
-between a refnum and an integer: LabVIEW code keeps a reference in an integer
-(a class's private data, a U32 field) and casts it back, and in Python the
-reference is the object itself, so the integer holds that object (maintainer,
-2026-11-10: pass the object through, no table of handles). Not a Refnum
-(``None``) cast to an integer is ``0``, and an integer ``0`` cast to a refnum is
-``None``.
+another (an opaque handle, not bytes), keeps the value as it is. A refnum cast
+to an integer or to bytes is a gap: a reference is a Python object (a VI
+reference is a function), which has no integer value and cannot be mapped back
+without a run-time table. An integer ``0`` cast to a refnum is ``None``, Not a
+Refnum, and any other integer is kept as it is.
 
 Terminals (from the primitives.json entry):
   in  index 0 = x (data to reinterpret)
@@ -39,7 +37,6 @@ from ...flat import (
     Functions,
     Integer,
     Real,
-    RefnumInteger,
     UnsupportedLayout,
     layout_of,
     render_parts,
@@ -78,12 +75,6 @@ def type_cast(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     value = (ctx.wired_input(source.id, node) if source else None) or "None"
     src_type = source.lv_type if source else None
     dst_type = result.lv_type
-    if _is_refnum(src_type) and _is_integer(dst_type):
-        # Not a Refnum (``None``) is the integer 0, as ``_integer_to_refnum``
-        # reads 0 back as Not a Refnum.
-        return CodeFragment(
-            bindings={result.id: f"(0 if {value} is None else {value})"}
-        )
     if (src_type is not None and src_type == dst_type) or (
         _is_refnum(src_type) and _is_refnum(dst_type)
     ):
@@ -113,8 +104,5 @@ def type_cast(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     else:
         expression = f"{fns.reader(dst, False)}({data}, 0)[0]"
     statements.append(build_assign(variable, parse_expr(expression)))
-    if isinstance(dst, RefnumInteger):
-        zero = f"None if {variable} == 0 else {variable}"
-        statements.append(build_assign(variable, parse_expr(zero)))
     add_flat_imports(ctx, statements)
     return CodeFragment(statements=statements, bindings={result.id: variable})

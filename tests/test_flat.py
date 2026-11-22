@@ -14,7 +14,6 @@ from lvkit.codegen.flat import (
     Integer,
     Real,
     Record,
-    RefnumInteger,
     Sequence,
     Text,
     UnsupportedLayout,
@@ -147,46 +146,36 @@ def test_type_cast_pads_and_truncates_as_ni_describes() -> None:
     ]
 
 
-def test_type_cast_refnum_flattens_as_a_32_bit_integer() -> None:
-    refnum = LVType(
-        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="ByteStream"
-    )
-    assert cast(U32, refnum)(4660).r == 4660
-    assert cast(refnum, U32)(4660).r == 4660
-
-
-def test_not_a_refnum_is_the_integer_zero_when_cast_or_flattened() -> None:
-    refnum = LVType(
-        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="ByteStream"
-    )
-    assert cast(refnum, U32)(None).r == 0
-    assert cast(_DVR, U32)(None).r == 0
-    flattened = RefnumInteger("I", "c_uint32", 4).flatten("x", False, 0, None)
-    assert "0 if x is None else x" in str(flattened)
-    text = scalar("String")
-    assert cast(text, refnum)("\x00\x00\x00\x00").r is None
-    assert cast(text, refnum)("\x00\x00\x12\x34").r == 0x1234
-
-
 _DVR = LVType(
     kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="DataValueRef"
 )
+_VI_REF = LVType(
+    kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="VI"
+)
 
 
-def test_a_reference_kept_in_an_integer_is_the_same_object_after_the_cast_back() -> (
-    None
-):
-    # A class keeps its data value reference in a U32 field and casts it back:
-    # in Python the reference is the object, and the integer holds that object.
-    held = [2.5]
-    as_number = cast(_DVR, U32)(held).r
-    assert as_number is held
-    assert cast(U32, _DVR)(as_number).r is held
-    assert cast(I32, _DVR)(held).r is held
+def test_a_reference_cast_to_an_integer_or_bytes_is_a_gap() -> None:
+    # A reference is a Python object (a VI reference is a function): it has no
+    # integer value, so the cast raises where it runs and names the reference.
+    for target in (U32, STR):
+        with pytest.raises(NotImplementedError, match="VI refnum as an integer"):
+            cast(_VI_REF, target)(None)
+    with pytest.raises(NotImplementedError, match="DataValueRef refnum"):
+        cast(_DVR, U32)([2.5])
+    with pytest.raises(NotImplementedError, match="VI refnum"):
+        cast(STR, _VI_REF)("\x00\x00\x00\x00")
 
 
 def test_an_integer_zero_cast_to_a_reference_is_not_a_reference() -> None:
     assert cast(U32, _DVR)(0).r is None
+    assert cast(I32, _VI_REF)(0).r is None
+    held = [2.5]
+    assert cast(U32, _DVR)(held).r is held
+
+
+def test_a_reference_cast_to_another_reference_is_kept() -> None:
+    held = [2.5]
+    assert cast(_DVR, _VI_REF)(held).r is held
 
 
 def test_types_with_no_flattened_form_raise_where_they_run() -> None:
@@ -242,7 +231,8 @@ def test_layouts_of_wire_types() -> None:
     visa = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="VisaRef"
     )
-    assert layout_of(byte_stream) == RefnumInteger("I", "c_uint32", 4)
+    with pytest.raises(UnsupportedLayout, match="ByteStream refnum"):
+        layout_of(byte_stream)
     assert layout_of(visa) == Text()  # flattened as a string
 
 
