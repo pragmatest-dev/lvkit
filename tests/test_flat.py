@@ -5,6 +5,7 @@ run."""
 
 from __future__ import annotations
 
+import ast
 from datetime import UTC, datetime
 
 import hightime
@@ -183,8 +184,7 @@ def test_a_parametrized_reference_names_its_element_in_the_message() -> None:
     )
     with pytest.raises(NotImplementedError, match=r"a Queue refnum\{Float64\}"):
         cast(queue, U32)([1.0])
-    with pytest.raises(NotImplementedError, match=r"as a Queue refnum\{Float64\}"):
-        cast(U32, queue)(7)
+    assert cast(U32, queue)(7).r == 7
 
 
 def test_the_integer_zero_read_into_a_reference_is_not_a_refnum() -> None:
@@ -193,11 +193,36 @@ def test_the_integer_zero_read_into_a_reference_is_not_a_refnum() -> None:
     assert cast(STR, _VI_REF)("\x00\x00\x00\x00").r is None
 
 
-def test_a_nonzero_integer_read_into_a_reference_raises_where_it_runs() -> None:
-    with pytest.raises(NotImplementedError, match="the integer 5 as a VI refnum"):
-        cast(U32, _VI_REF)(5)
-    with pytest.raises(NotImplementedError, match="as a DataValueRef refnum"):
-        cast(STR, _DVR)("\x00\x00\x00\x07")
+def test_a_nonzero_integer_read_into_a_reference_passes_through() -> None:
+    # A handle the program got as an integer (e.g. from a DLL) has no object to
+    # look up; it stays that integer, and flattens back to it.
+    assert cast(U32, _VI_REF)(5).r == 5
+    assert cast(STR, _DVR)("\x00\x00\x00\x07").r == 7
+    assert cast(_VI_REF, U32)(5).r == 5
+
+
+def test_a_reference_flatten_refusal_is_composed_at_run_time() -> None:
+    source = generate(
+        {"x": _VI_REF},
+        {"r": U32},
+        [
+            node(
+                "tc",
+                1166,
+                [(0, "input", _VI_REF), (1, "input", U32), (2, "output", U32)],
+            )
+        ],
+        [("fp:x", "tc:0"), ("tc:2", "fp:r")],
+    ).source
+    raises = [
+        n.exc.args[0]
+        for n in ast.walk(ast.parse(source))
+        if isinstance(n, ast.Raise)
+        and isinstance(n.exc, ast.Call)
+        and getattr(n.exc.func, "id", "") == "NotImplementedError"
+    ]
+    assert raises
+    assert not any(isinstance(arg, ast.Constant) for arg in raises)
 
 
 def test_a_cluster_holding_a_reference_flattens_and_reads_back() -> None:
