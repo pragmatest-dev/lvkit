@@ -309,8 +309,7 @@ class RefnumInteger(Layout):
                 "        return reference\n"
                 "    raise NotImplementedError(\n"
                 '        f"Flatten of a {kind}: only Not a Refnum or an integer "\n'
-                '        f"handle has an integer value, got "\n'
-                '        f"{type(reference).__name__}"\n'
+                '        f"handle has an integer value; a live reference has none"\n'
                 "    )\n"
             )
 
