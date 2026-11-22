@@ -64,7 +64,7 @@ def _is_list_shaped(node: ast.expr) -> bool:
     return False
 
 
-def _unary_call(node: ast.AST) -> bool:
+def unary_call(node: ast.AST) -> bool:
     """A conversion of one value (``int(x)``, ``round(x)``, …), ``max``/``min`` of
     several values, or a ``math`` function of its arguments (``math.log10(x)``,
     ``math.copysign(a, b)``)."""
@@ -147,7 +147,7 @@ class _Ranks:
             # expression applies per element.
             branches = max(self(node.body), self(node.orelse))
             return max(self(node.test), branches) if self.conditionals else branches
-        if _unary_call(node):
+        if unary_call(node):
             assert isinstance(node, ast.Call)
             return max(self(a) for a in node.args)
         conversion = _fixed_width_value(node)
@@ -179,7 +179,7 @@ def _applies_per_element(
         return all(isinstance(op, _COMPARE_OPS) for op in node.ops)
     if isinstance(node, ast.IfExp):
         return ranks.conditionals
-    return _unary_call(node) or _fixed_width_value(node) is not None
+    return unary_call(node) or _fixed_width_value(node) is not None
 
 
 def _operands(node: ast.expr) -> list[ast.expr]:
