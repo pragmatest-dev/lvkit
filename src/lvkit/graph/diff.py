@@ -31,7 +31,7 @@ from .diff_frames import (
     match_frames,
     uid_sort,
 )
-from .lvnet_settings import settings_changes
+from .diff_settings import holders_by_uid, settings_change_text
 from .models import (
     CURATED_KIND_FLAGS,
     CURATED_PROPERTY_FLAGS,
@@ -2081,6 +2081,61 @@ def _variable_node_changes(
     return changes
 
 
+def _settings_changes(
+    graph_a: InMemoryVIGraph,
+    graph_b: InMemoryVIGraph,
+    va: str,
+    vb: str,
+    a: dict[str, _ElemInfo],
+    b: dict[str, _ElemInfo],
+    exact: dict[str, str],
+    fuzzy: dict[str, str],
+    layout_a: Layout | None,
+    layout_b: Layout | None,
+    existing: list[ElementChange],
+) -> list[ElementChange]:
+    """A MATCHED node or structure whose settings differ -- a Compound Arithmetic
+    mode, a loop's stop condition or parallel options, a case's Case Insensitive
+    Match, a Feedback Node's delay or initializer, a shift register's initializer,
+    a Shared Variable's path -- reported as ONE ``modified`` carrying
+    ``mode: and -> or``. A node that is already ``modified`` (its terminals
+    changed) gains the text in its ``detail``."""
+    holders_a = holders_by_uid(build_netlist_from_graph(graph_a, va))
+    holders_b = holders_by_uid(build_netlist_from_graph(graph_b, vb))
+    modified = {(c.kind, c.uid): c for c in existing if c.change == "modified"}
+    pairs = [*_matched_node_pairs(a, b, exact, fuzzy)]
+    pairs += _matched_structure_pairs(a, b, exact, fuzzy)
+    changes: list[ElementChange] = []
+    for ea, eb in pairs:
+        uid_a, uid_b = uid_of(ea.op.id), uid_of(eb.op.id)
+        before, after = holders_a.get(uid_a), holders_b.get(uid_b)
+        if before is None or after is None:
+            continue
+        text = settings_change_text(before, after)
+        if not text:
+            continue
+        prior = modified.get((eb.kind, uid_b))
+        if prior is not None:
+            prior.detail = f"{prior.detail}; {text}" if prior.detail else text
+            continue
+        changes.append(
+            ElementChange(
+                uid_b,
+                eb.op.id,
+                eb.kind,
+                "modified",
+                _elem_label(eb.op, eb.kind),
+                _node_bounds(layout_b, uid_b),
+                bounds_before=_node_bounds(layout_a, uid_a),
+                detail=text,
+                container_uid=eb.container_uid,
+                location_after=eb.location,
+                location_before=ea.location,
+            )
+        )
+    return changes
+
+
 def diff_uid(
     graph_a: InMemoryVIGraph,
     graph_b: InMemoryVIGraph,
@@ -2242,6 +2297,21 @@ def diff_uid(
     )
     cmap.changes.extend(node_term_changes)
     cmap.changes.extend(_variable_node_changes(a, b, exact, fuzzy, layout_a, layout_b))
+    cmap.changes.extend(
+        _settings_changes(
+            graph_a,
+            graph_b,
+            va,
+            vb,
+            a,
+            b,
+            exact,
+            fuzzy,
+            layout_a,
+            layout_b,
+            cmap.changes,
+        )
+    )
 
     # Sub-node terminal uids the wire diff can't infer from node membership
     # (they hang off a node that IS in ``unchanged`` — an FP terminal off the VI
@@ -2709,9 +2779,9 @@ def _netlist_diff(
         line = instance_line(inst, amb)
         before = inst_a.get(c.uid)
         if c.change == "modified" and before is not None:
-            changed = settings_changes(before.settings, inst.settings)
+            changed = settings_change_text(before, inst)
             if changed:
-                line += f" ({'; '.join(changed)})"
+                line += f" ({changed})"
         return line
 
     def struct_content(uid: str) -> str:
@@ -2722,7 +2792,10 @@ def _netlist_diff(
         (should-never-happen) case neither side's netlist has this uid."""
         scope = scope_b.get(uid)
         if scope is not None:
-            return scope_header(scope, amb_b)
+            line = scope_header(scope, amb_b)
+            before = scope_a.get(uid)
+            changed = settings_change_text(before, scope) if before else ""
+            return f"{line} ({changed})" if changed else line
         scope = scope_a.get(uid)
         if scope is not None:
             return scope_header(scope, amb_a)
@@ -2869,7 +2942,8 @@ def _netlist_diff(
         struct_by_uid = {
             c.uid: c
             for c in here
-            if c.kind == "structure" and c.change in ("added", "removed")
+            if c.kind == "structure"
+            and c.change in ("added", "removed", "modified")
         }
         # Tunnel changes list under their structure's header (a tunnel sits on
         # the structure's border, at the structure's own locality).
