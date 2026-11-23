@@ -29,6 +29,7 @@ from ..models import (
     WireStyle,
     _is_error_cluster,
 )
+from ..refnum_kinds import refnum_head
 from ..timestamp_value import TIMESTAMP_FLAVOR
 
 # LabVIEW help/description strings carry rich-text tags (<B>..</B>, <BR>, ...).
@@ -461,10 +462,10 @@ def lv_type_label(lv_type: LVType | None) -> str:
     if ut == "Refnum":
         # A class/DVR object refnum reads as the CLASS, never a generic "Refnum":
         # its short class name (lib qualifier stripped, ``.lvclass`` kept). Only a
-        # non-class typed refnum (queue, event, control ref, …) keeps "<t> Refnum".
+        # non-class typed refnum (queue, event, control ref, …) keeps "<kind> refnum".
         if lv_type.classname:
             return lv_type.class_file or lv_type.classname
-        return f"{lv_type.ref_type} Refnum" if lv_type.ref_type else "Refnum"
+        return refnum_head(lv_type.ref_type, lv_type.server_class)
     if is_boolean_type_name(ut) or is_string_type_name(ut) or ut == "Path":
         return ut
     return type_repr(lv_type) or ut or "?"
@@ -528,7 +529,7 @@ def context_help_type_text(lv_type: LVType | None) -> str:
     if fam == "enum":
         return "enum" if lv_type.kind == LVTypeKind.ENUM else "ring"
     if fam == "refnum":
-        return f"{lv_type.ref_type} refnum" if lv_type.ref_type else "refnum"
+        return refnum_head(lv_type.ref_type, lv_type.server_class)
     if fam == "array":
         dims = lv_type.dimensions or 1
         inner = context_help_type_text(lv_type.element_type)

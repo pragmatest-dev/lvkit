@@ -27,6 +27,7 @@ from ..models import (
     _strip_typedef_stem,
 )
 from ..num_format import format_numeric_const
+from ..refnum_kinds import REFNUM_WORD, refnum_head, refnum_kind_words
 from ..vi_files import strip_vi_extension
 from .interface_order import WiringRequirement
 from .lvnet_drives import (
@@ -363,8 +364,9 @@ def lvnet_type_lossless_def(lv_type: LVType) -> str:
       named, structural if anonymous, a scalar token otherwise).
     - array: ``[<type-ref>]``, nested once per ``dimensions``.
     - refnum: a class refnum shows its class name verbatim; a parametrized
-      refnum shows ``<ref_type> refnum{ <type-ref> }``; otherwise
-      ``<ref_type> refnum`` / ``"refnum"``.
+      refnum shows ``<kind words> refnum{ <type-ref> }``; otherwise
+      ``<kind words> refnum`` / ``"refnum"`` (the words come from
+      ``refnum_kinds``).
     - any other primitive: its own faithful scalar token
       (``type_descriptor``'s scalar path -- unaffected by ``expand_named``).
     - class identity: its ``classname`` verbatim.
@@ -396,15 +398,14 @@ def lvnet_type_lossless_def(lv_type: LVType) -> str:
         if lv_type.underlying_type == "Refnum":
             if lv_type.classname:
                 return lv_type.classname
-            if lv_type.ref_type:
-                if lv_type.element_type is not None:
-                    return (
-                        f"{lv_type.ref_type} refnum{{ "
-                        f"{_lvnet_event_name_prefix(lv_type)}"
-                        f"{lvnet_type_ref(lv_type.element_type)} }}"
-                    )
-                return f"{lv_type.ref_type} refnum"
-            return "refnum"
+            head = refnum_head(lv_type.ref_type, lv_type.server_class)
+            if head != REFNUM_WORD and lv_type.element_type is not None:
+                return (
+                    f"{head}{{ "
+                    f"{_lvnet_event_name_prefix(lv_type)}"
+                    f"{lvnet_type_ref(lv_type.element_type)} }}"
+                )
+            return head
         if lv_type.is_named_scalar():
             return lv_type.scalar_descriptor()
         return lv_type.type_descriptor(expand_named=False)
@@ -454,11 +455,12 @@ def _lvnet_type_inline(lv_type: LVType) -> str:
         lv_type.kind == LVTypeKind.PRIMITIVE
         and lv_type.underlying_type == "Refnum"
         and lv_type.classname is None
-        and lv_type.ref_type is not None
+        and refnum_kind_words(lv_type.ref_type, lv_type.server_class) is not None
         and lv_type.element_type is not None
     ):
         return (
-            f"{lv_type.ref_type} refnum{{{_lvnet_event_name_prefix(lv_type)}"
+            f"{refnum_head(lv_type.ref_type, lv_type.server_class)}"
+            f"{{{_lvnet_event_name_prefix(lv_type)}"
             f"{_lvnet_type_inline(lv_type.element_type)}}}"
         )
     if lvnet_named_stem(lv_type) is not None:
@@ -725,12 +727,12 @@ def _lv_type_comparison_shape(
         lv_type.kind == LVTypeKind.PRIMITIVE
         and lv_type.underlying_type == "Refnum"
         and lv_type.classname is None
-        and lv_type.ref_type is not None
+        and refnum_kind_words(lv_type.ref_type, lv_type.server_class) is not None
         and lv_type.element_type is not None
     ):
         return (
             "refnum",
-            lv_type.ref_type,
+            refnum_kind_words(lv_type.ref_type, lv_type.server_class),
             _lv_type_comparison_shape(
                 lv_type.element_type, seen, full=full, ambiguous=ambiguous
             ),

@@ -327,7 +327,7 @@ def test_a_tag_refnum_with_no_value_stays_a_gap(tmp_path: Path) -> None:
     views = _constant_vi(tmp_path, VISA_REFNUM, "stdRefNum", SLOTS, VISA_SLOT)
     _, _, gaps = _generate(views)
     (gap,) = gaps
-    assert "VisaRef refnum" in gap.reason
+    assert "VISA Resource Name refnum" in gap.reason
     assert "default data (DFDS)" in gap.reason
 
 

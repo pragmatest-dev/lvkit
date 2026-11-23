@@ -540,8 +540,8 @@ uses :
   version, culture and public key token as .NET spells them
   (`MccDaq, Version=3.0.0.0, Culture=neutral, PublicKeyToken=a37eefcf5c6ca10a`) and
   it has no `; ./path` (no file: it comes from the GAC). A .NET node's terminal type
-  is `DotNet refnum{MccDaq.ErrorInfo}` (the .NET type name inside braces; an array
-  keeps its own `[]`: `DotNet refnum{MccDaq.DaqDeviceDescriptor[]}`), or the bare
+  is `.NET refnum{MccDaq.ErrorInfo}` (the .NET type name inside braces; an array
+  keeps its own `[]`: `.NET refnum{MccDaq.DaqDeviceDescriptor[]}`), or the bare
   type name for a non-refnum parameter such as a .NET enum (`MccDaq.DaqDeviceInterface`).
   A `DNDA`/`DNVA` link record that could not be read is an `assembly` entry with no
   identity and the attribute form the `shared-variable` node uses:
@@ -805,7 +805,10 @@ Faithful LVType on every terminal, **never a Python type**:
   item carries its value (`ring{verify = 2, commit = 3}`) only when the values are not
   0, 1, 2, … A name needing quotes is quoted (§4). With no items loaded: `enum{?}`.
 - Class: `MyClass.lvclass` (qualified).
-- Refnum: `refnum{…}` — `Queue refnum{Error}`. A **User Event** leads its braces with the event name (the label of its data type), written as a name token and `:` like a cluster field: `UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, `UserEvent refnum{"Drive Status" : Network Endpoint}`. The name is quoted by the same name-safety rule as every other name (§4); a user event whose data type is unlabeled has no name part.
+- Refnum: `<kind words> refnum{<carried type>}`, or `<kind words> refnum` when it carries no type — `Queue refnum{Error}`, `Notifier refnum{DBL}`, `VI refnum`. The keyword `refnum` (lower case) is always present. The kind words are LabVIEW's own: Application, VI, Control, Occurrence, Menu, DataSocket, Byte Stream File, Data Log File, TCP / UDP / IrDA / Bluetooth Network Connection, .NET, Automation, Event Callback, IMAQ Session, TDMS File, Queue, Notifier, Data Value Reference, User Event, Event Registration, VISA Resource Name and IVI (`refnum_kinds.REFNUM_KINDS`, each row citing the NI page that gives the words). A generic VI Server reference prints by its class (`VI refnum`, `Application refnum`, otherwise `Control refnum`); a reference of no particular kind prints bare `refnum`; a class reference prints its class name alone; a kind NI's public documentation gives no name for prints its binary name (`FIFORef refnum`). Reading back, the words before ` refnum` name the kind; words that are not in the table are kept as written. A **User Event** leads its braces with the event name (the label of its data type), written as a name token and `:` like a cluster field: `User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, `User Event refnum{"Drive Status" : Network Endpoint}`. The name is quoted by the same name-safety rule as every other name (§4); a user event whose data type is unlabeled has no name part.
+- Set and map: `set{T}` and `map{key: value}` — the member types in braces; an unknown member type is `?`.
+- A named type expanded (verbose, §11): `Name{f1, f2}`, the type's name and its members' names.
+- **Braces.** A type word followed by `{…}` lists what the type contains: its members' names (an anonymous `cluster{…}`, `enum{…}`, `ring{…}`, a named type's expanded `Name{…}`), or the type it carries (`<kind> refnum{…}`, `set{…}`, `map{key: value}`). Arrays are `[T]`. The verbose `types :` entry's `Cluster{…}` lists each field with its type.
 - Typedefs referenced by qualified name, never expanded inline (full field
   expansion is verbose-only).
 - **A NAMED enum/ring/cluster/typedef renders by name alone in terse** (the
@@ -863,10 +866,10 @@ The lossless def grammar, keyed to the same closed set of `LVType` kinds:
   else faithful to show); a scalar as its own token.
 - **array**: `[<type-ref>]`, nested once per `dimensions` (`[[DBL]]` for a 2D
   array of `DBL`).
-- **refnum**: a class refnum shows its class name verbatim; a parametrized
-  refnum shows `<ref_type> refnum{ <type-ref> }` (a User Event:
-  `UserEvent refnum{ <name-token> : <type-ref> }`, its event name leading);
-  otherwise `<ref_type> refnum` / `"refnum"`.
+- **refnum**: a class refnum shows its class name verbatim; a refnum that
+  carries a type shows `<kind words> refnum{ <type-ref> }` (a User Event:
+  `User Event refnum{ <name-token> : <type-ref> }`, its event name leading);
+  otherwise `<kind words> refnum` / `"refnum"` (the words are §10's).
 - **typedef wrapping something with no enum/cluster shape of its own** (e.g.
   a `.ctl` typedef of a bare scalar): falls out of the same dispatch as its
   own underlying kind — there is no separate "typedef" keyword, the footnote
@@ -1084,7 +1087,7 @@ the document is wrapped in the `front-panel :` (connector-pane `pattern :`
 id + boundary terminals, each with its own `@<index>` pane-slot column) /
 `block-diagram :` (body + boundary-output-drive lines at the end) section
 layout (§2); `testSuiteStatusChanged EventRef`'s refnum collapses to its
-inner cluster's NAME (`UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, §10)
+inner cluster's NAME (`User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, §10)
 instead of expanding its fields; `TestSuite in`/that same refnum terminal
 render the bare word `default` (no literal to show, §4); and the block's own
 column width is capped, so that one refnum type doesn't stretch the
@@ -1139,7 +1142,7 @@ vi loadTestsFromTestCase.vi :
         subVI TestSuite_Init_115 : TestSuite.lvclass:TestSuite_Init.vi
           in   TestSuite in                    : TestSuite.lvclass default
           in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
-          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
+          in   testSuiteStatusChanged EventRef : User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
           in   GUID ("")                       : String            default ""
           in   error in (no error)             : Error             = loop_879::shift0
           out  TestSuite out                   : TestSuite.lvclass

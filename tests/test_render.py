@@ -1291,7 +1291,7 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence"
     )
     assert type_family(gen) == "refnum"
-    assert lv_type_label(gen) == "Occurrence Refnum"
+    assert lv_type_label(gen) == "Occurrence refnum"
     gen_glyph = _leaf_const_glyph(gen, raw="Refnum(1)")
     assert isinstance(gen_glyph, RefnumGlyph)
     assert gen_glyph.kind == "Occurrence"

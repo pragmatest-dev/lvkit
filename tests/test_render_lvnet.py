@@ -86,7 +86,7 @@ vi loadTestsFromTestCase.vi :
         subVI TestSuite_Init_115 : TestSuite.lvclass:TestSuite_Init.vi
           in   TestSuite in                    : TestSuite.lvclass default
           in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
-          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
+          in   testSuiteStatusChanged EventRef : User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
           in   GUID ("")                       : String            default
           in   error in (no error)             : Error             = loop_879::shift0
           out  TestSuite out                   : TestSuite.lvclass
@@ -157,7 +157,7 @@ vi loadTestsFromTestCase.vi :
 #    here with the same +1 padding as everywhere else, for one consistent
 #    rule rather than reproducing an isolated typo.
 # 7. `testSuiteStatusChanged EventRef`'s type renders
-#    `UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}` --
+#    `User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster}` --
 #    the event name, then the inner cluster's OWN `typedef_name` (verified: `LVType.typedef_name` on that terminal's
 #    element type is literally `"...suiteStatusChanged--Cluster"`, stripped
 #    the same way `type_descriptor()` always has) makes it a NAMED type, so
@@ -289,7 +289,7 @@ vi loadTestsFromTestCase.vi :
       in   TestSuite in                    : TestSuite.lvclass
       in   tests (none)                    : [LabVIEW Object]
       in   GUID ("")                       : String
-      in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}
+      in   testSuiteStatusChanged EventRef : User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster}
       in   error in (no error)             : Error
       out  TestSuite out                   : TestSuite.lvclass
       out  error out                       : Error

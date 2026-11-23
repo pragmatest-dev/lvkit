@@ -38,6 +38,12 @@ from .lv_type_codes import (
     is_string_type_name,
 )
 from .picture_records import PictureData
+from .refnum_kinds import (
+    REFNUM_WORD,
+    ServerClass,
+    refnum_head,
+    refnum_kind_words,
+)
 from .string_literal import quote_string
 from .timestamp_value import TIMESTAMP_FLAVOR, timestamp_value_text
 from .type_names import derive_python_name, is_enum_member_name
@@ -350,14 +356,6 @@ class PaneSlot:
     dynamic_dispatch: bool = False
 
 
-class ServerClass(StrEnum):
-    """The VI Server class a generic reference (``LVObjCtl``) is of, when its type
-    says (``CtlFlags``, ``labview-binary-format.md``)."""
-
-    VI = "VI"
-    APPLICATION = "Application"
-
-
 @dataclass(frozen=True)
 class EventRegRow:
     """One row of an Event Registration refnum type: the label of the event the
@@ -614,7 +612,7 @@ class LVType:
 
         - a type with a ``dotnet_type`` (a .NET node's terminal): the recorded
           .NET type name, ``MccDaq.DaqDeviceInterface``; as
-          ``DotNet refnum{MccDaq.ErrorInfo}`` when the terminal is a DotNet
+          ``.NET refnum{MccDaq.ErrorInfo}`` when the terminal is a DotNet
           refnum (or an array of them), the name keeping its own array suffix.
         - ``array``: bracket-nested element label, one pair per dimension
           (``[DBL]``, ``[[I32]]``); an unresolved element renders ``?``.
@@ -630,10 +628,13 @@ class LVType:
           (``TestCase.lvclass``); a parametrized refnum shows its element in
           braces like a cluster/enum (``Queue refnum{error cluster}``,
           ``Notifier refnum{DBL}``; a User Event leads with its event name,
-          ``UserEvent refnum{stopped: TF}``); otherwise ``"<ref_type> refnum"`` /
-          ``"refnum"``. Other primitives map through the shared numeric/scalar
-          token table, falling back to the raw ``underlying_type`` (never
-          "Any"/"int") for an unmapped token.
+          ``User Event refnum{stopped: TF}``); otherwise ``"<kind words> refnum"``
+          (``VI refnum``, ``Application refnum``, ``Control refnum`` for a generic
+          VI Server reference by its class; the words come from
+          ``refnum_kinds.REFNUM_KINDS``, a kind with no NI name keeping its binary
+          name) or bare ``"refnum"`` for a generic reference. Other primitives
+          map through the shared numeric/scalar token table, falling back to
+          the raw ``underlying_type`` (never "Any"/"int") for an unmapped token.
 
         ``expand_named`` (default ``True``, every existing caller's
         behavior is UNCHANGED): when ``False`` (lvnet §10/§11's terse type
@@ -655,7 +656,8 @@ class LVType:
             )
         if self.dotnet_type is not None:
             if self._refnum_leaf():
-                return f"DotNet refnum{{{self.dotnet_type.name}}}"
+                words = refnum_kind_words("DotNet", None)
+                return f"{words} refnum{{{self.dotnet_type.name}}}"
             return self.dotnet_type.name
         if self.is_named_scalar():
             return _strip_typedef_stem(self.typedef_name or "")
@@ -693,19 +695,18 @@ class LVType:
             if self.underlying_type == "Refnum":
                 if self.classname:
                     return self.classname
-                if self.ref_type:
-                    # A parametrized refnum shows its element in braces, like a
-                    # cluster/enum shows its members: ``Queue refnum{Error}``,
-                    # ``Notifier refnum{DBL}``.
-                    if self.element_type is not None:
-                        inner = self.element_type.type_descriptor(
-                            expand_named=expand_named
-                        )
-                        if self.user_event_name:
-                            inner = f"{self.user_event_name}: {inner}"
-                        return f"{self.ref_type} refnum{{{inner}}}"
-                    return f"{self.ref_type} refnum"
-                return "refnum"
+                head = refnum_head(self.ref_type, self.server_class)
+                # A refnum that carries a type shows it in braces, like a
+                # cluster/enum shows its members: ``Queue refnum{Error}``,
+                # ``Notifier refnum{DBL}``.
+                if self.element_type is not None and head != REFNUM_WORD:
+                    inner = self.element_type.type_descriptor(
+                        expand_named=expand_named
+                    )
+                    if self.user_event_name:
+                        inner = f"{self.user_event_name}: {inner}"
+                    return f"{head}{{{inner}}}"
+                return head
             if self.underlying_type == "Set":
                 return f"set{{{_member_descriptor(self.element_type, expand_named)}}}"
             if self.underlying_type == "Map":

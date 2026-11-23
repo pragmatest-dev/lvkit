@@ -256,17 +256,17 @@ def test_the_descriptor_shows_the_dotnet_type() -> None:
     inventory = DotNetType.from_qualified(INVENTORY_TYPE)
     interface = DotNetType.from_qualified(INTERFACE_TYPE)
     error_info = DotNetType.from_qualified(ERROR_INFO_TYPE)
-    assert _refnum().type_descriptor() == "DotNet refnum"
+    assert _refnum().type_descriptor() == ".NET refnum"
     refnum = _refnum()
     refnum.dotnet_type = error_info
-    assert refnum.type_descriptor() == "DotNet refnum{MccDaq.ErrorInfo}"
+    assert refnum.type_descriptor() == ".NET refnum{MccDaq.ErrorInfo}"
     array = LVType(
         kind=LVTypeKind.ARRAY,
         dimensions=1,
         element_type=_refnum(),
         dotnet_type=inventory,
     )
-    assert array.type_descriptor() == "DotNet refnum{MccDaq.DaqDeviceDescriptor[]}"
+    assert array.type_descriptor() == ".NET refnum{MccDaq.DaqDeviceDescriptor[]}"
     enum_parameter = LVType(
         kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32", dotnet_type=interface
     )
@@ -275,7 +275,7 @@ def test_the_descriptor_shows_the_dotnet_type() -> None:
 
 def test_a_dotnet_array_terminal_reads_like_a_dotnet_refnum(tmp_path: Path) -> None:
     """A .NET node's terminals in lvnet: the scalar refnum and the array of .NET
-    objects both name their .NET type in ``DotNet refnum{...}``; an ordinary
+    objects both name their .NET type in ``.NET refnum{...}``; an ordinary
     array keeps its ``[I32]`` label."""
     vi = str(tmp_path / "DotNet.vi")
     scalar = LVType(
@@ -327,8 +327,8 @@ def test_a_dotnet_array_terminal_reads_like_a_dotnet_refnum(tmp_path: Path) -> N
     text = render_lvnet(build_netlist_from_graph(graph, vi), display_name="DotNet.vi")
     assert (
         "    function Call_Library_10 : Call Library\n"
-        "      in   error info : DotNet refnum{MccDaq.ErrorInfo} default\n"
-        "      out  inventory  : DotNet refnum{MccDaq.DaqDeviceDescriptor[]}\n"
+        "      in   error info : .NET refnum{MccDaq.ErrorInfo} default\n"
+        "      out  inventory  : .NET refnum{MccDaq.DaqDeviceDescriptor[]}\n"
         "      out  counts     : [I32]"
     ) in text
 
