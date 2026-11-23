@@ -2,9 +2,9 @@
 and the ``render --format html`` CLI path (feat/vi-diff-action).
 
 Mirrors ``tests/test_diff_viewer.py``: a pure-unit test with a stub SVG (no
-sample VI needed) plus an end-to-end test over ``.tmp/wd_base.vi`` (skip if
-absent). Also guards the determinism contract: the default ``--format svg``
-output stays byte-identical to the legacy light render.
+sample VI needed) plus an end-to-end test over a sample-corpus VI (skip if
+the corpus is absent). Also guards the determinism contract: the default
+``--format svg`` output stays byte-identical to the legacy light render.
 """
 
 from __future__ import annotations
@@ -18,9 +18,9 @@ from lvkit.graph.loading import LoadMode
 from lvkit.render import render_vi
 from lvkit.render.render_viewer import build_render_viewer
 from lvkit.render.theme_control import THEME_CONTROL_BTN_ID
-from tests.helpers import vi_key
+from tests.helpers import RENDER_SAMPLE_VI, vi_key
 
-WD_BASE_VI = Path(__file__).resolve().parent.parent / ".tmp" / "wd_base.vi"
+WD_BASE_VI = RENDER_SAMPLE_VI
 
 
 def _load(vi_path: Path) -> tuple[InMemoryVIGraph, str]:

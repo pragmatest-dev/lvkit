@@ -18,9 +18,9 @@ from lvkit.docs.generate import _prepare_vi_documentation_data
 from lvkit.docs.html_generator import HTMLDocGenerator
 from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
-from tests.helpers import vi_key
+from tests.helpers import RENDER_SAMPLE_VI, vi_key
 
-SAMPLE_VI = Path(".tmp/array average 1.vi")
+SAMPLE_VI = RENDER_SAMPLE_VI
 
 
 def _load_sample() -> tuple[InMemoryVIGraph, str] | None:
@@ -44,7 +44,7 @@ def _require_sample() -> tuple[InMemoryVIGraph, str]:
 def _generate_page(tmp_path: Path, graph: InMemoryVIGraph, vi_name: str) -> str:
     generator = HTMLDocGenerator(tmp_path, "test-doc", "vi")
     generator.all_vis = {vi_name}
-    vi_data = _prepare_vi_documentation_data(vi_name, graph, {}, [], str)
+    vi_data = _prepare_vi_documentation_data(vi_name, graph, {})
     generator.generate_vi_page(vi_data)
     html_path = tmp_path / generator._vi_name_to_filename(vi_name)
     return html_path.read_text(encoding="utf-8")

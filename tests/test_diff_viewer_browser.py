@@ -1,7 +1,7 @@
 """The diff viewer and the rendered diagram's own frame selector, driven in a
 real headless Chrome: a frame is addressed by position, the other pane follows
 the frame matching, and a person reads labels. Skipped on a machine without
-Chrome (``google-chrome``, ``chromium`` or ``chromium-browser`` on PATH),
+Chrome (see ``tests/browser.py`` for where it is looked for),
 unless ``LVKIT_REQUIRE_CHROME`` is set, which makes a missing Chrome a
 failure."""
 
@@ -11,7 +11,6 @@ import html
 import json
 import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -20,6 +19,7 @@ import pytest
 from lvkit.graph import InMemoryVIGraph
 from lvkit.render import render_vi
 from lvkit.vi_diff import diff_vi_files
+from tests.browser import find_chrome
 from tests.diff_viewer_cases import (
     AFTER,
     BEFORE,
@@ -29,14 +29,7 @@ from tests.diff_viewer_cases import (
     write_versions,
 )
 
-_CHROME = next(
-    (
-        found
-        for name in ("google-chrome", "chromium", "chromium-browser")
-        if (found := shutil.which(name))
-    ),
-    None,
-)
+_CHROME = find_chrome()
 _REQUIRE_CHROME = bool(os.environ.get("LVKIT_REQUIRE_CHROME"))
 pytestmark = pytest.mark.skipif(
     _CHROME is None and not _REQUIRE_CHROME, reason="no headless Chrome"
@@ -119,7 +112,7 @@ _DOTS_JS = """
 
 def _run(page: Path, fragment: str = "") -> dict:
     if _CHROME is None:
-        pytest.fail("LVKIT_REQUIRE_CHROME is set but no Chrome is on PATH")
+        pytest.fail("LVKIT_REQUIRE_CHROME is set but no Chrome was found")
     done = subprocess.run(
         [
             _CHROME,
