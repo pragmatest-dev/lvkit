@@ -215,11 +215,108 @@ class NetlistOutput:
 
 class LoopCondition(StrEnum):
     """How a loop's conditional terminal reads its Boolean: a While Loop (and a
-    For Loop that shows a conditional terminal) either stops or continues on
-    True. The value is the text lvnet writes in the loop header."""
+    For Loop that shows a conditional terminal) stops when the Boolean is True
+    (NI: "Stop if True") or when it is False (NI: "Continue if True"). The value
+    is the item lvnet writes in the loop's ``stop`` setting."""
 
-    STOP_IF_TRUE = "stop if true"
-    CONTINUE_IF_TRUE = "continue if true"
+    STOP_IF_TRUE = "if-true"
+    CONTINUE_IF_TRUE = "if-false"
+
+
+class CompoundMode(StrEnum):
+    """What a Compound Arithmetic node does with its inputs. The value is the
+    item lvnet writes in the node's ``mode`` setting."""
+
+    ADD = "add"
+    MULTIPLY = "multiply"
+    AND = "and"
+    OR = "or"
+    XOR = "xor"
+
+
+# ============================================================
+# Node and structure settings (lvnet ``(<settings>)``, §3)
+#
+# One frozen dataclass per header kind; each field is one setting. The field name
+# with ``_`` written ``-`` is the setting's name in lvnet and JSON, the field's
+# type is the type of its value, and a field with a default is left out of the
+# header while it holds that default. A field without a default is always
+# written; ``None`` in one is written ``?`` (the file's value could not be read).
+# ============================================================
+
+
+@dataclass(frozen=True)
+class FunctionSettings:
+    """Compound Arithmetic: ``mode`` is the operation its inputs are combined
+    with (``None`` when the file's mode is not one lvkit reads)."""
+
+    mode: CompoundMode | None
+
+
+@dataclass(frozen=True)
+class WhileLoopSettings:
+    """While Loop: ``stop`` is how its conditional terminal reads its Boolean
+    (NI Structures reference, While Loop: "Stop if True" / "Continue if True")."""
+
+    stop: LoopCondition
+
+
+@dataclass(frozen=True)
+class ForLoopSettings:
+    """For Loop: ``stop`` is set only when the loop shows a conditional terminal
+    (same meaning as on a While Loop). ``parallel`` is NI's "parallel For Loop
+    iterations" option and ``parallel_instances`` NI's "Number of generated
+    parallel loop instances", unset when the file does not record one (NI
+    Structures reference, For Loop)."""
+
+    stop: LoopCondition | None = None
+    parallel: bool = False
+    parallel_instances: int | None = None
+
+
+@dataclass(frozen=True)
+class CaseSettings:
+    """Case Structure: ``case_insensitive`` is NI's "Case Insensitive Match"
+    option of a string selector (NI LabVIEW manual, "Creating a Case Structure
+    to Execute Conditional Code")."""
+
+    case_insensitive: bool = False
+
+
+@dataclass(frozen=True)
+class FeedbackSettings:
+    """Feedback Node: ``delay`` is the number of iterations it hands the value
+    back across (``None`` when the file's depth could not be read);
+    ``initialized`` is False when its initializer terminal is unwired."""
+
+    delay: int | None
+    initialized: bool = True
+
+
+@dataclass(frozen=True)
+class ShiftRegisterSettings:
+    """Shift register: ``initialized`` is False when its initializer is unwired."""
+
+    initialized: bool = True
+
+
+@dataclass(frozen=True)
+class SharedVariableSettings:
+    """Shared Variable node: ``path`` is NI's "Path" of a network-published
+    variable (Shared Variable Node Properties), unset for a single-process one."""
+
+    path: str | None = None
+
+
+NodeSettings = (
+    FunctionSettings
+    | WhileLoopSettings
+    | ForLoopSettings
+    | CaseSettings
+    | FeedbackSettings
+    | ShiftRegisterSettings
+    | SharedVariableSettings
+)
 
 
 class NetlistInstanceKind(StrEnum):
@@ -282,14 +379,13 @@ class NetlistInstance:
     # Which §7 keyword this instance renders as in ``render_lvnet`` -- see
     # ``NetlistInstanceKind``. Defaults to ``FUNCTION``.
     kind: NetlistInstanceKind = NetlistInstanceKind.FUNCTION
-    # cpdArith's mode (add/multiply/and/or/xor) -- ``None`` for every other
-    # instance. Annotation ONLY: rendered as a display suffix by
-    # ``instance_line`` and carried as its own JSON key by ``_item_to_dict``,
-    # but never folds into ``name``/``NetRef`` -- net names and occurrence
-    # tags must stay exactly what they are today (see module docstring on
-    # ``_component_identity_gn``: an And and an Or cpdArith are different
-    # COMPONENTS but must not become different NET-naming identities here).
-    operation: str | None = None
+    # The node's settings: ``FunctionSettings`` (Compound Arithmetic's mode) or
+    # ``SharedVariableSettings`` -- ``None`` for every instance without any.
+    # Annotation ONLY: rendered as the lvnet ``(<settings>)`` group and carried in
+    # JSON ``settings``, but never folds into ``name``/``NetRef`` -- net names and
+    # occurrence tags stay what they are (an And and an Or Compound Arithmetic are
+    # different COMPONENTS but must not become different NET-naming identities).
+    settings: FunctionSettings | SharedVariableSettings | None = None
     # A Property Node's target object CLASS (e.g. "Bool", "Numeric", "VI" --
     # LabVIEW's own label under the node's icon) -- ``None`` for every other
     # instance kind. An Invoke Node's target object CLASS (e.g. "Library",
@@ -328,9 +424,6 @@ class NetlistInstance:
     # records it (``name`` is the variable) -- ``None`` for every other instance
     # kind, and for a Shared Variable whose library the VI does not record.
     library: str | None = None
-    # A network-published Shared Variable's network path -- ``None`` for every
-    # other instance kind and for a single-process variable.
-    network_path: str | None = None
     # Why a Shared Variable's library link could not be read (the link-table
     # record for it did not decode) -- ``None`` for every other instance kind and
     # for a variable whose library is known.
@@ -472,6 +565,12 @@ class MuMerge:
     net: str
     init: NetRef | DefaultValue
     recur: NetRef | None
+
+    @property
+    def settings(self) -> ShiftRegisterSettings:
+        return ShiftRegisterSettings(
+            initialized=not isinstance(self.init, DefaultValue)
+        )
 
 
 @dataclass(frozen=True)
@@ -616,14 +715,9 @@ class NetlistScope:
     # other scope kind; the default (DIAGRAM) is also the lvnet renderer's
     # pre-existing hard-coded fallback.
     disable_kind: DisableStructureKind = DisableStructureKind.DIAGRAM
-    # Loop-only (kind in ("for", "while")) -- False/None/empty for every
-    # other scope kind. JSON-only surface (see ``_item_to_dict``);
-    # ``scope_header`` never reads these.
-    parallel: bool = False
-    parallel_static_workers: int | None = None
-    # Loop-only: how the conditional terminal reads its Boolean. ``None`` for a
-    # For Loop with no conditional terminal (and for every non-loop scope).
-    condition_mode: LoopCondition | None = None
+    # The structure's own settings (``CaseSettings`` / ``ForLoopSettings`` /
+    # ``WhileLoopSettings``) -- ``None`` for every other scope kind.
+    settings: CaseSettings | ForLoopSettings | WhileLoopSettings | None = None
     # For-Loop-only: the wire into the count terminal (N); ``None`` when
     # nothing is wired (an auto-indexing input tunnel then sets the count).
     count: NetRef | None = None
@@ -660,7 +754,7 @@ class NetlistFeedback:
     ``MuMerge.init``. ``recur`` is the source wired into the linked write side
     (``slaveFBInputNode``'s ``rightFeedback`` input), or ``None`` when the
     Feedback Node is genuinely never written to (a real, faithful state, not
-    an unresolved placeholder). ``delay`` is the z^-N depth
+    an unresolved placeholder). ``settings.delay`` is the z^-N depth
     (``feedbackNodeDelay``); ``None`` when absent. A downstream consumer
     reading the output resolves to ``fb{k}`` via ``_resolve_source_gn`` -- see
     ``_is_feedback_output_read_gn``. ``uid`` is the master node's trailing UID.
@@ -670,7 +764,13 @@ class NetlistFeedback:
     net: str
     init: NetRef | DefaultValue
     recur: NetRef | None
-    delay: int | None
+    settings: FeedbackSettings
+
+    def __post_init__(self) -> None:
+        if self.settings.initialized == isinstance(self.init, DefaultValue):
+            raise ValueError(
+                "a Feedback Node is initialized exactly when its initializer is wired"
+            )
 
 
 @dataclass(frozen=True)

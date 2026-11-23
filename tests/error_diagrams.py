@@ -1362,7 +1362,7 @@ def json_body(views: ErrorViews) -> str:
             return {
                 key: strip(value)
                 for key, value in node.items()
-                if key != "lv_type" and value not in (None, [], False)
+                if key != "lv_type" and value not in (None, [], {}, False)
             }
         if isinstance(node, list):
             return [strip(item) for item in node]

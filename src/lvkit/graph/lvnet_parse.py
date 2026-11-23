@@ -55,7 +55,6 @@ from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
     _FRONT_PANEL_HEADER_LINE,
     _LVNET_ANNOTATION_SEP,
-    _LVNET_ASSEMBLY_UNREADABLE,
     _LVNET_BLOCK_OPEN,
     _LVNET_CAPTION_HIDDEN_KEYWORD,
     _LVNET_CAPTION_KEYWORD,
@@ -70,11 +69,9 @@ from .lvnet_grammar import (
     _LVNET_INDENT_WIDTH,
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
-    _LVNET_LIBRARY_UNREADABLE,
     _LVNET_LOOP_CONDITION_TERMINAL,
     _LVNET_LOOP_COUNT_TERMINAL,
     _LVNET_MECH_ACTION_WORDS,
-    _LVNET_NETWORK_PUBLISHED,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
     _LVNET_READ_KEYWORD,
@@ -88,14 +85,22 @@ from .lvnet_grammar import (
     _LVNET_TERMINAL_SEP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
-    _LVNET_UNINITIALIZED,
+    _LVNET_UNREADABLE_MARK,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
+    LVNET_SETTINGS_BY_KEYWORD,
     _lvnet_tunnel_mode_word,
     lvnet_net_separator,
     split_id_suffix,
 )
+from .lvnet_quoted import (
+    LvnetParseError,
+    scan_quoted_literal,
+    split_top_level_commas,
+    unescape_lvnet_string,
+)
 from .lvnet_scalar import lvnet_literal_token, lvnet_value_token
+from .lvnet_settings import read_header_settings, settings_absent
 from .netlist import (
     ConnectorPaneTerminal,
     DefaultValue,
@@ -113,7 +118,18 @@ from .netlist import (
     NetlistModule,
     NetlistScope,
 )
-from .netlist_models import LoopCondition, ReferenceTarget, ReferenceTargetKind
+from .netlist_models import (
+    CaseSettings,
+    FeedbackSettings,
+    ForLoopSettings,
+    FunctionSettings,
+    NodeSettings,
+    ReferenceTarget,
+    ReferenceTargetKind,
+    SharedVariableSettings,
+    ShiftRegisterSettings,
+    WhileLoopSettings,
+)
 from .render_lvnet import (
     _assign_lvnet_handles,
     _lv_type_comparison_shape,
@@ -126,7 +142,6 @@ from .render_lvnet import (
     _lvnet_requirement_trailing,
     _LvnetHandles,
     _render_lvnet_source,
-    lvnet_feedback_attribute,
     lvnet_item_suffix,
     lvnet_reference_target_token,
     lvnet_source_text,
@@ -204,18 +219,6 @@ _INPLACE_SCOPE_HEADER = f"{_LVNET_INPLACE_SCOPE_KEYWORD}{_LVNET_BLOCK_OPEN}"
 # directly, never a second hand-spelled copy.
 
 
-class LvnetParseError(ValueError):
-    """A line did not fit the lvnet grammar this parser knows -- every §8
-    structure kind is now covered (case/for-loop/while-loop/flat-sequence/
-    stacked-sequence/diagram-disable/conditional-disable/type-specialization/
-    event-structure), so this now fires only on a genuine grammar violation
-    (a malformed line, a missing frame, a stray drive line where this scope
-    family has no output to drive). Always names the offending line/
-    construct -- this parser never silently skips or guesses a shape it
-    hasn't verified against real rendered text.
-    """
-
-
 class LvnetUnsupportedConstructError(NotImplementedError):
     """Raised by the MODULE-side ``netlist_signature`` builder if it ever
     meets a ``NetlistScope.kind`` outside the closed set §8 defines (case/
@@ -227,59 +230,6 @@ class LvnetUnsupportedConstructError(NotImplementedError):
     """
 
 
-# ============================================================
-# String-literal escaping (closes the control-char round-trip gap --
-# ``tests/test_lvnet_roundtrip.py``'s former ``Graphical Test Runner``
-# xfail)
-# ============================================================
-
-# The exact reverse of ``string_literal.STRING_ESCAPES`` (md §4/§10): every
-# two-char escape lvnet's string-literal renderer can emit, mapped back to
-# its real character. ``\xHH`` (any OTHER C0 control char) is handled
-# separately in ``_unescape_lvnet_string`` since it's three chars wide, not
-# two.
-_LVNET_STRING_UNESCAPES: dict[str, str] = {
-    "\\": "\\",
-    '"': '"',
-    "n": "\n",
-    "r": "\r",
-    "t": "\t",
-}
-
-
-def _scan_quoted_literal(text: str, start: int) -> int:
-    """Scan an lvnet double-quoted string literal beginning at
-    ``text[start] == '"'`` (render_lvnet's own §4/§10 escaping --
-    ``render_lvnet.lvnet_literal_token``), honoring backslash escapes, and
-    return the index ONE PAST its closing (real, unescaped) quote.
-
-    An escaped ``\\"`` is part of the literal's own text, never mistaken for
-    the real close -- so a value containing a literal ``=``/``:``/
-    ``default`` substring inside its quotes (a status string like
-    ``"5 = 5 is true"``) can never fool a caller's word-based clause
-    splitter, and this scan won't stop early on an escaped quote either.
-    Raises ``LvnetParseError`` if the quote is never closed on this line --
-    a genuine grammar violation, since ``lvnet_literal_token`` escapes
-    every control char to a same-line backslash sequence (lvnet never emits
-    a literal spanning physical lines).
-    """
-    i = start + 1
-    n = len(text)
-    while i < n:
-        ch = text[i]
-        if ch == "\\":
-            if i + 1 >= n:
-                raise LvnetParseError(
-                    f"unterminated escape at end of quoted literal: {text[start:]!r}"
-                )
-            i += 2
-            continue
-        if ch == '"':
-            return i + 1
-        i += 1
-    raise LvnetParseError(f"unterminated quoted literal: {text[start:]!r}")
-
-
 def _collapse_padding(text: str) -> str:
     """``text`` with each run of spaces outside a quoted name or literal made
     one space and the ends stripped: the column-alignment padding goes, and a
@@ -289,7 +239,7 @@ def _collapse_padding(text: str) -> str:
     while i < n:
         ch = text[i]
         if ch == '"':
-            end = _scan_quoted_literal(text, i)
+            end = scan_quoted_literal(text, i)
             out.append(text[i:end])
             i = end
         elif ch.isspace():
@@ -300,55 +250,6 @@ def _collapse_padding(text: str) -> str:
             out.append(ch)
             i += 1
     return "".join(out).strip()
-
-
-def _unescape_lvnet_string(token: str) -> str:
-    """Reverse ``render_lvnet.lvnet_literal_token``'s string escaping: a
-    double-quoted token (``'"foo\\\\nbar"'``) -> its real value (a genuine
-    embedded newline). ``token`` must be exactly the ``"..."`` substring,
-    quotes included -- callers isolate it first via ``_scan_quoted_literal``
-    (a bare closing-quote match), so this never needs its own boundary
-    search. Raises ``LvnetParseError`` on a malformed/unrecognized escape
-    (never silently drops or guesses at one)."""
-    if len(token) < 2 or not (token.startswith('"') and token.endswith('"')):
-        raise LvnetParseError(f"not a quoted lvnet string literal: {token!r}")
-    body = token[1:-1]
-    out: list[str] = []
-    i = 0
-    n = len(body)
-    while i < n:
-        ch = body[i]
-        if ch != "\\":
-            out.append(ch)
-            i += 1
-            continue
-        if i + 1 >= n:
-            raise LvnetParseError(
-                f"trailing backslash in lvnet string literal: {token!r}"
-            )
-        esc = body[i + 1]
-        if esc == "x":
-            hex_digits = body[i + 2 : i + 4]
-            if len(hex_digits) != 2:
-                raise LvnetParseError(
-                    f"malformed \\x escape in lvnet string literal: {token!r}"
-                )
-            try:
-                out.append(chr(int(hex_digits, 16)))
-            except ValueError:
-                raise LvnetParseError(
-                    f"malformed \\x escape in lvnet string literal: {token!r}"
-                ) from None
-            i += 4
-            continue
-        real = _LVNET_STRING_UNESCAPES.get(esc)
-        if real is None:
-            raise LvnetParseError(
-                f"unrecognized escape '\\{esc}' in lvnet string literal: {token!r}"
-            )
-        out.append(real)
-        i += 2
-    return "".join(out)
 
 
 def _validate_if_quoted(value: str, line_no: int) -> None:
@@ -362,13 +263,13 @@ def _validate_if_quoted(value: str, line_no: int) -> None:
     """
     if not value.startswith('"'):
         return
-    end = _scan_quoted_literal(value, 0)
+    end = scan_quoted_literal(value, 0)
     if end != len(value):
         raise LvnetParseError(
             f"line {line_no}: trailing text after closing quote in value "
             f"token: {value!r}"
         )
-    _unescape_lvnet_string(value)  # raises LvnetParseError if malformed
+    unescape_lvnet_string(value)  # raises LvnetParseError if malformed
 
 
 # ============================================================
@@ -526,7 +427,7 @@ def _split_trailing_caption(raw: str, line_no: int) -> tuple[str, str | None, bo
         return raw, None, False
     token = stripped[i:]
     _validate_if_quoted(token, line_no)
-    return rest, _unescape_lvnet_string(token), visible
+    return rest, unescape_lvnet_string(token), visible
 
 
 def _split_type_requirement_default(
@@ -718,6 +619,9 @@ class ParsedNode:
     kind: str  # the §7 header keyword, e.g. "subVI", "function"
     handle: str | None
     component: str | None
+    # A Compound Arithmetic function's or Shared Variable's ``(<settings>)``; the
+    # ``component`` is the header text before them.
+    settings: FunctionSettings | SharedVariableSettings | None = None
     terminals: tuple[ParsedTerminalLine, ...] = ()
 
 
@@ -839,13 +743,13 @@ class ParsedControlRead:
 
 @dataclass(frozen=True)
 class ParsedShiftRegister:
-    """``shift-register <net> :`` + its ``init``/``each`` lines (§8); an
-    ``(uninitialized)`` register has no ``init`` line (``init`` is ``None``)."""
+    """``shift-register <net> :`` + its ``init``/``each`` lines (§8); a register
+    with ``initialized=False`` has no ``init`` line (``init`` is ``None``)."""
 
     net: str
     init: str | None
     each: str | None
-    uninitialized: bool = False
+    settings: ShiftRegisterSettings = ShiftRegisterSettings()
 
 
 @dataclass(frozen=True)
@@ -862,14 +766,12 @@ class ParsedTunnel:
 
 @dataclass(frozen=True)
 class ParsedFeedback:
-    """``feedback-node <net> (<attribute>) :`` + its ``init``/``each`` lines
-    (§7)."""
+    """``feedback-node <net> (<settings>) :`` + its ``init``/``each`` lines
+    (§7); one with ``initialized=False`` has no ``init`` line (``init`` is
+    ``None``)."""
 
     net: str
-    # The parenthesised settings, e.g. "1 iteration", "3 iterations, uninitialized",
-    # "? iterations"; an ``uninitialized`` one has no ``init`` line (``init`` is
-    # ``None``).
-    attribute: str
+    settings: FeedbackSettings
     init: str | None
     each: str | None
 
@@ -930,9 +832,9 @@ class ParsedScope:
     # Case / Sequence / Disable / Event: the drive lines that open the block
     # before the first frame (wires into the structure that no frame reads).
     inputs: tuple[ParsedDrive, ...] = ()
-    # Loop only: how the conditional terminal reads its Boolean (a
-    # ``LoopCondition`` value); ``None`` for a For Loop with none.
-    condition_mode: str | None = None
+    # The structure's ``(<settings>)`` (a case, a loop); ``None`` for a structure
+    # with none.
+    settings: CaseSettings | ForLoopSettings | WhileLoopSettings | None = None
     # Phase 4: the header's own OPTIONAL trailing ``(id <uid>)`` annotation
     # (``_LVNET_SCOPE_ID_PREFIX``, verbose-only) -- the structure's real BD
     # uid, recovered by ``_split_scope_header_id`` BEFORE this scope's own
@@ -1165,11 +1067,22 @@ def _parse_node(
             f"line {line_no}: node handle must be a single space-free "
             f"token (§7/§9): {content!r}"
         )
+    settings: NodeSettings | None = None
+    if component is not None and kw in LVNET_SETTINGS_BY_KEYWORD:
+        component, settings = read_header_settings(
+            kw, component, f"line {line_no}: {content!r}"
+        )
+        if settings is None:
+            settings = settings_absent(LVNET_SETTINGS_BY_KEYWORD[kw])
+    assert settings is None or isinstance(
+        settings, FunctionSettings | SharedVariableSettings
+    )
     terminals = _parse_terminal_block(cursor, indent + _LVNET_INDENT_WIDTH)
     return ParsedNode(
         kind=kw,
         handle=handle,
         component=component,
+        settings=settings,
         terminals=tuple(terminals),
     )
 
@@ -1240,8 +1153,8 @@ def _split_global_target(text: str, line_no: int) -> tuple[str, str, str]:
     quoted token or, bare, runs to the first `` = `` (a bare name never holds one,
     §4) -- ``rest`` is what follows it."""
     if text.startswith('"'):
-        end = _scan_quoted_literal(text, 0)
-        global_vi = _unescape_lvnet_string(text[:end])
+        end = scan_quoted_literal(text, 0)
+        global_vi = unescape_lvnet_string(text[:end])
         after = text[end:]
     else:
         sep = text.find(_LVNET_TERMINAL_SEP)
@@ -1259,8 +1172,8 @@ def _split_global_target(text: str, line_no: int) -> tuple[str, str, str]:
         )
     after = after[len(_LVNET_TERMINAL_SEP) :]
     if after.startswith('"'):
-        end = _scan_quoted_literal(after, 0)
-        control = _unescape_lvnet_string(after[:end])
+        end = scan_quoted_literal(after, 0)
+        control = unescape_lvnet_string(after[:end])
         rest = after[end:]
     else:
         sep = after.find(_LVNET_DRIVER_OP)
@@ -1276,13 +1189,11 @@ def _split_global_target(text: str, line_no: int) -> tuple[str, str, str]:
 class SharedVariableComponent:
     """A ``shared-variable`` header's component, split: the library (``None``
     when the node's library is not recorded), the variable name, ``read`` or
-    ``write``, and the trailing attribute -- the network path of a
-    network-published variable, or why the library link was unreadable."""
+    ``write``, and why the library link was unreadable (``None`` when it was read)."""
 
     library: str | None
     variable: str
     access: str
-    network_path: str | None = None
     library_unreadable: str | None = None
 
 
@@ -1292,7 +1203,7 @@ def _first_unquoted_type_sep(text: str) -> int:
     i = 0
     while i < len(text):
         if text[i] == '"' and (i == 0 or text[:i].endswith(_LVNET_TERMINAL_SEP)):
-            i = _scan_quoted_literal(text, i)
+            i = scan_quoted_literal(text, i)
         elif text.startswith(_LVNET_TYPE_SEP, i):
             return i
         else:
@@ -1300,38 +1211,31 @@ def _first_unquoted_type_sep(text: str) -> int:
     return -1
 
 
-def _split_shared_variable_attribute(
+def _split_shared_variable_access(
     rest: str, component: str
-) -> tuple[str, str | None, str | None]:
-    """``read`` / ``write`` followed by an optional ``(network-published
-    "<path>")`` or ``(library unreadable "<reason>")`` -> ``(access, network path,
-    unreadable reason)``."""
+) -> tuple[str, str | None]:
+    """``read`` / ``write`` followed by an optional ``(unreadable "<reason>")`` mark
+    -> ``(access, unreadable reason)``."""
+    error = LvnetParseError(
+        f"shared-variable component must be '<library>::<variable name> : read'"
+        f" or '<library>::<variable name> : write', then an optional "
+        f"'(unreadable \"<reason>\")' (§7): {component!r}"
+    )
     for access in ("read", "write"):
         if rest == access:
-            return access, None, None
+            return access, None
         if rest.startswith(f"{access} ("):
-            attribute = rest[len(access) + 2 :]
+            mark = rest[len(access) + 1 :]
             break
     else:
-        raise LvnetParseError(
-            f"shared-variable component must be '<library>::<variable name> : read'"
-            f" or '<library>::<variable name> : write' (§7): {component!r}"
-        )
-    for word in (_LVNET_NETWORK_PUBLISHED, _LVNET_LIBRARY_UNREADABLE):
-        prefix = f"{word} "
-        if attribute.startswith(prefix + '"'):
-            start = len(prefix)
-            end = _scan_quoted_literal(attribute, start)
-            if attribute[end:] != ")":
-                break
-            value = _unescape_lvnet_string(attribute[start:end])
-            if word == _LVNET_NETWORK_PUBLISHED:
-                return access, value, None
-            return access, None, value
-    raise LvnetParseError(
-        f"shared-variable attribute must be '(network-published \"<path>\")' or "
-        f"'(library unreadable \"<reason>\")' (§7): {component!r}"
-    )
+        raise error
+    prefix = f"({_LVNET_UNREADABLE_MARK} "
+    if not mark.startswith(prefix + '"'):
+        raise error
+    end = scan_quoted_literal(mark, len(prefix))
+    if mark[end:] != ")":
+        raise error
+    return access, unescape_lvnet_string(mark[len(prefix) : end])
 
 
 def split_shared_variable_component(component: str) -> SharedVariableComponent:
@@ -1348,12 +1252,12 @@ def split_shared_variable_component(component: str) -> SharedVariableComponent:
             f" or '<library>::<variable name> : write' (§7): {component!r}"
         )
     target = component[:sep_at]
-    access, network_path, unreadable = _split_shared_variable_attribute(
+    access, unreadable = _split_shared_variable_access(
         component[sep_at + len(_LVNET_TYPE_SEP) :], component
     )
     if target.startswith('"'):
-        end = _scan_quoted_literal(target, 0)
-        first, after = _unescape_lvnet_string(target[:end]), target[end:]
+        end = scan_quoted_literal(target, 0)
+        first, after = unescape_lvnet_string(target[:end]), target[end:]
     else:
         sep_at = target.find(_LVNET_TERMINAL_SEP)
         if sep_at == -1:
@@ -1361,9 +1265,7 @@ def split_shared_variable_component(component: str) -> SharedVariableComponent:
         else:
             first, after = target[:sep_at], target[sep_at:]
     if not after:
-        return SharedVariableComponent(
-            None, first, access, network_path, unreadable
-        )
+        return SharedVariableComponent(None, first, access, unreadable)
     if not after.startswith(_LVNET_TERMINAL_SEP):
         raise LvnetParseError(
             f"shared-variable library must be followed by '{_LVNET_TERMINAL_SEP}' "
@@ -1374,7 +1276,7 @@ def split_shared_variable_component(component: str) -> SharedVariableComponent:
         raise LvnetParseError(
             f"shared-variable target has an empty name (§7): {component!r}"
         )
-    return SharedVariableComponent(first, variable, access, network_path, unreadable)
+    return SharedVariableComponent(first, variable, access, unreadable)
 
 
 def _parse_global_variable(content: str, line_no: int) -> ParsedGlobalVariable:
@@ -1456,60 +1358,60 @@ def _parse_constant_line(content: str, line_no: int) -> ParsedConstant:
     return ParsedConstant(handle=handle, type=tail[:eq_idx], value=value)
 
 
+class _RegisterBlock(NamedTuple):
+    """A register header's net, its settings and its ``init`` / ``each`` lines."""
+
+    net: str
+    settings: NodeSettings
+    init: str | None
+    each: str | None
+
+
+def _parse_register_block(
+    cursor: _Cursor, indent: int, keyword: str, content: str, line_no: int
+) -> _RegisterBlock:
+    """``<keyword> <net> (<settings>) :`` + its ``init`` / ``each`` lines, for a
+    ``feedback-node`` (§7) or a ``shift-register`` (§8). The settings'
+    ``initialized`` says whether an ``init`` line is there: a register with an
+    unwired initializer has none."""
+    where = f"line {line_no}: {content!r}"
+    rest = content[len(keyword) + 1 :]
+    if not rest.endswith(_LVNET_BLOCK_OPEN):
+        raise LvnetParseError(f"{where}: {keyword} header must end with ' :'")
+    net, settings = read_header_settings(
+        keyword, rest[: -len(_LVNET_BLOCK_OPEN)], where
+    )
+    if settings is None:
+        settings = settings_absent(LVNET_SETTINGS_BY_KEYWORD[keyword])
+    if settings is None:
+        raise LvnetParseError(f"{where}: {keyword} header needs its '(<settings>)'")
+    assert isinstance(settings, FeedbackSettings | ShiftRegisterSettings)
+    child_indent = indent + _LVNET_INDENT_WIDTH
+    init = _expect_kv_line(cursor, child_indent, "init", required=settings.initialized)
+    if not settings.initialized and init is not None:
+        raise LvnetParseError(f"{where}: an uninitialized {keyword} has no 'init' line")
+    each = _expect_kv_line(cursor, child_indent, "each", required=False)
+    return _RegisterBlock(net, settings, init, each)
+
+
 def _parse_feedback(
     cursor: _Cursor, indent: int, content: str, line_no: int
 ) -> ParsedFeedback:
-    rest = content[len("feedback-node ") :]
-    if not rest.endswith(_LVNET_BLOCK_OPEN):
-        raise LvnetParseError(
-            f"line {line_no}: feedback-node header must end with ' :' (§7): {content!r}"
-        )
-    rest = rest[: -len(_LVNET_BLOCK_OPEN)]
-    open_paren = rest.find(" (")
-    if open_paren == -1 or not rest.endswith(")"):
-        raise LvnetParseError(
-            f"line {line_no}: feedback-node header missing "
-            f"'(<N> iteration[s])' (§7): {content!r}"
-        )
-    net = rest[:open_paren]
-    attribute = rest[open_paren + 2 : -1]
-    uninitialized = attribute.endswith(f", {_LVNET_UNINITIALIZED}")
-    child_indent = indent + _LVNET_INDENT_WIDTH
-    init = _expect_kv_line(cursor, child_indent, "init", required=not uninitialized)
-    if uninitialized and init is not None:
-        raise LvnetParseError(
-            f"line {line_no}: an uninitialized feedback-node has no 'init' line "
-            f"(§7): {content!r}"
-        )
-    each = _expect_kv_line(cursor, child_indent, "each", required=False)
-    return ParsedFeedback(net=net, attribute=attribute, init=init, each=each)
+    net, settings, init, each = _parse_register_block(
+        cursor, indent, "feedback-node", content, line_no
+    )
+    assert isinstance(settings, FeedbackSettings)
+    return ParsedFeedback(net=net, settings=settings, init=init, each=each)
 
 
 def _parse_shift_register(
     cursor: _Cursor, body_indent: int, content: str, line_no: int
 ) -> ParsedShiftRegister:
-    rest = content[len("shift-register ") :]
-    if not rest.endswith(_LVNET_BLOCK_OPEN):
-        raise LvnetParseError(
-            f"line {line_no}: shift-register header must end with ' :' "
-            f"(§8): {content!r}"
-        )
-    net = rest[: -len(_LVNET_BLOCK_OPEN)]
-    uninit_suffix = f" ({_LVNET_UNINITIALIZED})"
-    uninitialized = net.endswith(uninit_suffix)
-    if uninitialized:
-        net = net[: -len(uninit_suffix)]
-    child_indent = body_indent + _LVNET_INDENT_WIDTH
-    init = _expect_kv_line(cursor, child_indent, "init", required=not uninitialized)
-    if uninitialized and init is not None:
-        raise LvnetParseError(
-            f"line {line_no}: an uninitialized shift-register has no 'init' line "
-            f"(§8): {content!r}"
-        )
-    each = _expect_kv_line(cursor, child_indent, "each", required=False)
-    return ParsedShiftRegister(
-        net=net, init=init, each=each, uninitialized=uninitialized
+    net, settings, init, each = _parse_register_block(
+        cursor, body_indent, "shift-register", content, line_no
     )
+    assert isinstance(settings, ShiftRegisterSettings)
+    return ParsedShiftRegister(net=net, init=init, each=each, settings=settings)
 
 
 def _parse_tunnel(
@@ -1577,37 +1479,39 @@ def _split_scope_header_id(content: str) -> tuple[str, str | None]:
     return body[:open_idx] + _LVNET_BLOCK_OPEN, uid
 
 
-_LOOP_HEADER_RE = re.compile(
-    rf"^(?P<kind>for-loop|while-loop)(?: \((?P<mode>[^()]*)\))?{_LVNET_BLOCK_OPEN}$"
-)
+_LOOP_KEYWORDS = ("for-loop", "while-loop")
 
 
-def _split_loop_header(content: str, line_no: int) -> tuple[str, str | None] | None:
-    """A loop header's ``(kind, condition mode)``, or ``None`` when ``content`` is
-    not a loop header. The mode is the parenthesised ``stop if true`` / ``continue
-    if true``; a While Loop must carry one."""
-    m = _LOOP_HEADER_RE.match(content)
-    if m is None:
+def _split_loop_header(
+    content: str, line_no: int
+) -> tuple[str, ForLoopSettings | WhileLoopSettings] | None:
+    """A loop header's ``(keyword, settings)``, or ``None`` when ``content`` is not
+    a loop header. A header with no ``(<settings>)`` group has every setting at its
+    default; a While Loop has a setting with none (``stop``), so it must have one."""
+    if not content.endswith(_LVNET_BLOCK_OPEN):
         return None
-    kind, mode = m.group("kind"), m.group("mode")
-    if mode is not None and mode not in {c.value for c in LoopCondition}:
+    body = content[: -len(_LVNET_BLOCK_OPEN)]
+    keyword = body.split(" ", 1)[0]
+    if keyword not in _LOOP_KEYWORDS:
+        return None
+    where = f"line {line_no}: {content!r}"
+    head, settings = read_header_settings(keyword, body, where)
+    if settings is None:
+        settings = settings_absent(LVNET_SETTINGS_BY_KEYWORD[keyword])
+    if head != keyword or settings is None:
         raise LvnetParseError(
-            f"line {line_no}: a loop header's setting must be '(stop if true)' or "
-            f"'(continue if true)' (§8): {content!r}"
+            f"{where}: a {keyword} header is '{keyword}' with its '(<settings>)', "
+            f"nothing else"
         )
-    if kind == "while-loop" and mode is None:
-        raise LvnetParseError(
-            f"line {line_no}: a while-loop header must say '(stop if true)' or "
-            f"'(continue if true)' (§8): {content!r}"
-        )
-    return kind, mode
+    assert isinstance(settings, ForLoopSettings | WhileLoopSettings)
+    return keyword, settings
 
 
 def _parse_loop_scope(
     cursor: _Cursor,
     indent: int,
     kind: str,
-    condition_mode: str | None,
+    settings: ForLoopSettings | WhileLoopSettings,
     uid: str | None,
 ) -> ParsedScope:
     body_indent = indent + _LVNET_INDENT_WIDTH
@@ -1640,7 +1544,7 @@ def _parse_loop_scope(
         shift_registers=tuple(shift_registers),
         tunnels=tuple(tunnels),
         drives=tuple(drives),
-        condition_mode=condition_mode,
+        settings=settings,
         uid=uid,
     )
 
@@ -1664,7 +1568,7 @@ def _parse_case_frame_header(
       default (the Error-cluster case).
 
     Values are scanned one quoted literal at a time (honoring ``\\``-escapes
-    via ``_scan_quoted_literal``), so a string value may itself contain
+    via ``scan_quoted_literal``), so a string value may itself contain
     ``", default"``.
     """
     error = LvnetParseError(
@@ -1680,8 +1584,8 @@ def _parse_case_frame_header(
             return label, tuple(values), True
         start: str | None = None
         if header.startswith('"', pos):
-            end = _scan_quoted_literal(header, pos)
-            start = _unescape_lvnet_string(header[pos:end])
+            end = scan_quoted_literal(header, pos)
+            start = unescape_lvnet_string(header[pos:end])
             pos = end
         elif not header.startswith(RANGE_SEPARATOR + '"', pos):
             raise error
@@ -1689,8 +1593,8 @@ def _parse_case_frame_header(
             pos += len(RANGE_SEPARATOR)
             finish: str | None = None
             if header.startswith('"', pos):
-                end = _scan_quoted_literal(header, pos)
-                finish = _unescape_lvnet_string(header[pos:end])
+                end = scan_quoted_literal(header, pos)
+                finish = unescape_lvnet_string(header[pos:end])
                 pos = end
             values.append(StringRangeText(start, finish))
         else:
@@ -1724,7 +1628,14 @@ def _split_trailing_default(header: str) -> tuple[str, bool]:
 def _parse_case_scope(
     cursor: _Cursor, indent: int, content: str, line_no: int, uid: str | None
 ) -> ParsedScope:
-    selector = content[len("case ") : -len(_LVNET_BLOCK_OPEN)]
+    selector, settings = read_header_settings(
+        "case",
+        content[len("case ") : -len(_LVNET_BLOCK_OPEN)],
+        f"line {line_no}: {content!r}",
+    )
+    if settings is None:
+        settings = settings_absent(CaseSettings)
+    assert isinstance(settings, CaseSettings)
     frame_indent = indent + _LVNET_INDENT_WIDTH
     body_indent = indent + _LVNET_INDENT_WIDTH * 2
     inputs = _parse_block_inputs(cursor, frame_indent)
@@ -1767,6 +1678,7 @@ def _parse_case_scope(
         selector=selector,
         frames=tuple(frames),
         inputs=tuple(inputs),
+        settings=settings,
         uid=uid,
     )
 
@@ -2119,12 +2031,12 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
                 f"line {line_no}: unrecognized 'uses :' kind {kind!r} "
                 f"(expected one of {sorted(_USES_KIND_WORDS)}): {line!r}"
             )
-        unreadable_prefix = f'({_LVNET_ASSEMBLY_UNREADABLE} "'
+        unreadable_prefix = f'({_LVNET_UNREADABLE_MARK} "'
         if kind == DependencyKind.ASSEMBLY.value and rest.startswith(
             unreadable_prefix
         ):
             start = len(unreadable_prefix) - 1
-            end = _scan_quoted_literal(rest, start)
+            end = scan_quoted_literal(rest, start)
             if rest[end:] != ")":
                 raise LvnetParseError(
                     f"line {line_no}: expected '(unreadable \"<reason>\")': {line!r}"
@@ -2133,7 +2045,7 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
                 ParsedDependency(
                     kind=kind,
                     qualified="",
-                    unreadable=_unescape_lvnet_string(rest[start:end]),
+                    unreadable=unescape_lvnet_string(rest[start:end]),
                 )
             )
             continue
@@ -2426,46 +2338,6 @@ def parse_lvnet(text: str) -> ParsedLvnet:
 TypeShape = tuple[Any, ...]
 
 
-def _split_top_level_commas(text: str) -> list[str]:
-    """Split ``text`` on ``, `` at brace/bracket DEPTH ZERO and OUTSIDE any
-    quoted token -- separates an ``enum{...}``'s members or a ``Cluster{...}``'s
-    fields (§10) without breaking on a comma inside a NESTED structural type
-    (a cluster field whose own type is another ``Cluster{...}``/array), on a
-    comma inside a QUOTED member/field NAME (a real LabVIEW name like
-    ``"big-endian, network order"`` -- ``lvnet_name_token`` quotes+escapes
-    such names, honoring ``\\``-escapes), NOR on a comma with no space after it,
-    which a bare name may hold (a decimal comma: ``ring{0,625, 1,25}``)."""
-    parts: list[str] = []
-    depth = 0
-    in_quote = False
-    escaped = False
-    current: list[str] = []
-    for i, ch in enumerate(text):
-        current.append(ch)
-        if in_quote:
-            if escaped:
-                escaped = False
-            elif ch == "\\":
-                escaped = True
-            elif ch == '"':
-                in_quote = False
-            continue
-        if ch == '"':
-            in_quote = True
-        elif ch in "{[":
-            depth += 1
-        elif ch in "}]":
-            depth -= 1
-        elif ch == "," and depth == 0 and text[i + 1 : i + 2] == " ":
-            current.pop()  # drop the comma we just appended
-            parts.append("".join(current).strip())
-            current = []
-    tail = "".join(current).strip()
-    if tail:
-        parts.append(tail)
-    return parts
-
-
 def _find_first_top_level(text: str, sep: str) -> int:
     """Index of the FIRST ``sep`` at brace/bracket depth 0 and OUTSIDE any
     quoted token, or ``-1`` -- the name/ordinal (`` = ``) and name/type
@@ -2517,7 +2389,7 @@ def _unquote_name_token(raw: str) -> str:
     passes through. Mirrors the module side, which compares by the raw name."""
     raw = raw.strip()
     if raw.startswith('"'):
-        return _unescape_lvnet_string(raw)
+        return unescape_lvnet_string(raw)
     return raw
 
 
@@ -2529,7 +2401,7 @@ def parse_item_labels(body: str) -> tuple[tuple[str, int], ...]:
     if not body or body == "?":
         return ()
     items: list[tuple[str, int]] = []
-    for position, part in enumerate(_split_top_level_commas(body)):
+    for position, part in enumerate(split_top_level_commas(body)):
         name, _, value_text = part.rpartition(_LVNET_DRIVER_OP)
         if name and value_text.strip().lstrip("-").isdigit():
             items.append((_unquote_name_token(name), int(value_text)))
@@ -2554,7 +2426,7 @@ def _parse_lossless_cluster_fields(
     if not body:
         return ()
     fields: list[tuple[str, TypeShape]] = []
-    for part in _split_top_level_commas(body):
+    for part in split_top_level_commas(body):
         sep_pos = _find_first_top_level(part, _LVNET_TYPE_SEP)
         name = part[:sep_pos] if sep_pos != -1 else part
         type_text = part[sep_pos + len(_LVNET_TYPE_SEP) :] if sep_pos != -1 else ""
@@ -2925,7 +2797,7 @@ def _module_instance_signature(
     handle = handles.by_uid[instance.uid]
     component = _lvnet_component(instance)
     terminals = _module_terminal_tuple(instance, handles, ambiguous)
-    return ("node", header_kw, handle, component, terminals)
+    return ("node", header_kw, handle, component, instance.settings, terminals)
 
 
 def _module_constant_signature(const: NetlistConstant, handles: _LvnetHandles) -> tuple:
@@ -2943,7 +2815,7 @@ def _module_feedback_signature(fb: NetlistFeedback, handles: _LvnetHandles) -> t
         else _render_lvnet_source(fb.init, handles)
     )
     each_str = _render_lvnet_source(fb.recur, handles) if fb.recur is not None else None
-    return ("feedback", fb.net, lvnet_feedback_attribute(fb), init_str, each_str)
+    return ("feedback", fb.net, fb.settings, init_str, each_str)
 
 
 def _module_case_scope_signature(
@@ -2968,6 +2840,7 @@ def _module_case_scope_signature(
         sel,
         frames,
         tuple(structure_input_drives(scope, lvnet_source_text(handles))),
+        scope.settings,
     )
 
 
@@ -3004,9 +2877,6 @@ def _module_loop_scope_signature(
             )
             net = lvnet_net_separator(merge.net)
             tunnels.append((net, mode_word, value_str, condition_str))
-    condition_mode = (
-        scope.condition_mode.value if scope.condition_mode is not None else None
-    )
     drives = (
         *structure_input_drives(scope, lvnet_source_text(handles)),
         *loop_count_drives(scope, lvnet_source_text(handles)),
@@ -3015,7 +2885,7 @@ def _module_loop_scope_signature(
     return (
         "scope",
         kind_word,
-        condition_mode,
+        scope.settings,
         body_sig,
         tuple(shift_regs),
         tuple(tunnels),
@@ -3219,7 +3089,7 @@ def _parsed_item_signature(
             )
         return ("global-variable", item.handle, "read", item.global_vi, item.control)
     if isinstance(item, ParsedFeedback):
-        return ("feedback", item.net, item.attribute, item.init, item.each)
+        return ("feedback", item.net, item.settings, item.init, item.each)
     if isinstance(item, ParsedIndicatorDrive):
         return ("indicator-drive", item.name, item.source)
     if isinstance(item, ParsedControlRead):
@@ -3248,13 +3118,14 @@ def _parsed_item_signature(
                 )
                 for f in item.frames
             )
-            return (
+            signature = (
                 "scope",
                 item.kind,
                 item.selector,
                 frames,
                 tuple((d.net, d.source) for d in item.inputs),
             )
+            return (*signature, item.settings) if item.kind == "case" else signature
         body_sig = tuple(
             _parsed_item_signature(i, types_dict, ambiguous) for i in item.body
         )
@@ -3272,7 +3143,7 @@ def _parsed_item_signature(
         return (
             "scope",
             item.kind,
-            item.condition_mode,
+            item.settings,
             body_sig,
             shift_regs,
             tunnels,
@@ -3295,6 +3166,7 @@ def _parsed_item_signature(
             item.kind,
             item.handle,
             item.component,
+            item.settings,
             terminals,
         )
     raise TypeError(f"unknown parsed body item: {item!r}")  # pragma: no cover
