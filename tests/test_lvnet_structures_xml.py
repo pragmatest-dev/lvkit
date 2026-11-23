@@ -120,15 +120,15 @@ def test_a_while_loop_says_how_its_condition_reads(tmp_path: Path) -> None:
     (tmp_path / "stop").mkdir()
     stop = load(tmp_path / "stop", cases.loop_xml("whileLoop"))
     assert stop.diagram == (
-        "    while-loop (stop if true) (id 400) :\n"
+        "    while-loop (stop=if-true) (id 400) :\n"
         "      loop_400::in0 = 7\n"
         "      loop_400::condition = False"
     )
     _round_trips(stop)
     (tmp_path / "go").mkdir()
     go = load(tmp_path / "go", cases.loop_xml("whileLoop", stop_if_true=False))
-    assert go.diagram.splitlines()[0] == "    while-loop (continue if true) (id 400) :"
-    assert go.json["body"][0]["condition"] == "continue_if_true"
+    assert go.diagram.splitlines()[0] == "    while-loop (stop=if-false) (id 400) :"
+    assert go.json["body"][0]["settings"] == {"stop": "if-false"}
     _round_trips(go)
 
 
@@ -137,7 +137,7 @@ def test_a_while_loop_conditional_terminal_is_found_by_its_class(
 ) -> None:
     stop = load(tmp_path, cases.loop_xml("whileLoop", stop_tag="loopEndDCO"))
     assert stop.diagram == (
-        "    while-loop (stop if true) (id 400) :\n"
+        "    while-loop (stop=if-true) (id 400) :\n"
         "      loop_400::in0 = 7\n"
         "      loop_400::condition = False"
     )

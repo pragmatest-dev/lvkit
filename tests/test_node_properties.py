@@ -510,8 +510,11 @@ class TestForLoopParallelism:
         d = netlist_to_dict(build_netlist_from_graph(g, vi_name))
         scope = _find_scope(d["body"], "2090")
         assert scope is not None
-        assert scope["parallel"] is True
-        assert scope["parallel_static_workers"] == 8
+        assert scope["settings"] == {
+            "stop": None,
+            "parallel": True,
+            "parallel-instances": 8,
+        }
 
 
 # ---------------------------------------------------------------------------

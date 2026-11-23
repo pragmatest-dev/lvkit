@@ -128,12 +128,11 @@ from .lvnet_parse import (
     ParsedVIServerReference,
     _find_first_top_level,
     _split_event_name,
-    _split_top_level_commas,
-    _unescape_lvnet_string,
     _unquote_name_token,
     parse_item_labels,
     split_shared_variable_component,
 )
+from .lvnet_quoted import split_top_level_commas, unescape_lvnet_string
 from .lvnet_reconstruct_common import (
     HandleTarget,
     LvnetReconstructError,
@@ -183,9 +182,10 @@ from .netlist import (
     NetRef,
 )
 from .netlist_models import (
-    LoopCondition,
+    ForLoopSettings,
     NetlistControlRead,
     NetlistIndicatorDrive,
+    WhileLoopSettings,
 )
 from .render_lvnet import _lvnet_type_inline, lvnet_control_name_token
 
@@ -239,6 +239,9 @@ def _derive_instance_name(kind: str, handle: str, component: str | None) -> str:
     """
     if kind == "function":
         assert component is not None
+        # A name quoted by ``lvnet_header_name_token`` reads back as its own text.
+        if component.startswith('"'):
+            return unescape_lvnet_string(component)
         return component
     if kind == NetlistInstanceKind.SHARED_VARIABLE.value:
         assert component is not None
@@ -318,7 +321,7 @@ def _fill_cluster_fields(
         lv.fields = []
         return
     fields: list[ClusterField] = []
-    for part in _split_top_level_commas(body):
+    for part in split_top_level_commas(body):
         sep_pos = _find_first_top_level(part, _LVNET_TYPE_SEP)
         name = part[:sep_pos] if sep_pos != -1 else part
         type_text = part[sep_pos + len(_LVNET_TYPE_SEP) :] if sep_pos != -1 else ""
@@ -669,12 +672,11 @@ def _reconstruct_instance(
     method_name: str | None = None
     access: str | None = None
     library: str | None = None
-    network_path: str | None = None
     library_unreadable: str | None = None
     script: str | None = None
     component = item.component
     if kind_enum in _LVNET_SCRIPT_KINDS:
-        script = None if component is None else _unescape_lvnet_string(component)
+        script = None if component is None else unescape_lvnet_string(component)
     elif component is None:
         raise LvnetReconstructError(
             f"node {item.handle!r} has no ' : <component>' (§7)"
@@ -682,7 +684,6 @@ def _reconstruct_instance(
     elif kind_enum is NetlistInstanceKind.SHARED_VARIABLE:
         shared = split_shared_variable_component(component)
         library, access = shared.library, shared.access
-        network_path = shared.network_path
         library_unreadable = shared.library_unreadable
     elif kind_enum is NetlistInstanceKind.SUBVI:
         qualified_name = component
@@ -757,8 +758,8 @@ def _reconstruct_instance(
         method_name=method_name,
         access=access,
         library=library,
-        network_path=network_path,
         library_unreadable=library_unreadable,
+        settings=item.settings,
         script=script,
     )
 
@@ -786,11 +787,6 @@ def _uninitialized_register() -> DefaultValue:
 def _reconstruct_feedback(
     item: ParsedFeedback, registry: dict[str, HandleTarget], fresh_uid: _UidSource
 ) -> NetlistFeedback:
-    depth = item.attribute.split(", ")[0]
-    if depth == "? iterations":
-        delay = None
-    else:
-        delay = int(depth.split()[0])
     init = (
         _uninitialized_register()
         if item.init is None
@@ -806,7 +802,7 @@ def _reconstruct_feedback(
         net=item.net,
         init=init,
         recur=recur,
-        delay=delay,
+        settings=item.settings,
     )
 
 
@@ -922,6 +918,7 @@ def _reconstruct_scope(
             frames=frames,
             outputs=outputs,
             inputs=inputs,
+            settings=item.settings,
         )
 
     if item.kind in ("for-loop", "while-loop"):
@@ -934,8 +931,8 @@ def _reconstruct_scope(
         ]
         eta_list = [_reconstruct_tunnel(t, registry) for t in item.tunnels]
         condition_mode = (
-            LoopCondition(item.condition_mode)
-            if item.condition_mode is not None
+            item.settings.stop
+            if isinstance(item.settings, ForLoopSettings | WhileLoopSettings)
             else None
         )
         wires = LoopWires(item, registry)
@@ -956,7 +953,7 @@ def _reconstruct_scope(
             frames=[frame],
             outputs=[*mu_list, *eta_list],
             inputs=wires.inputs,
-            condition_mode=condition_mode,
+            settings=item.settings,
             count=wires.count,
         )
 
@@ -1009,7 +1006,7 @@ def _reconstruct_scope(
         )
 
     if item.kind == "event-structure":
-        labels = [_unescape_lvnet_string(f.label) for f in item.frames]
+        labels = [unescape_lvnet_string(f.label) for f in item.frames]
         frames = [
             NetlistFrame(
                 label=label, value=label, is_default=False, body=body_of(f.body)

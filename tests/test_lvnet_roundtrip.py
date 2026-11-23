@@ -54,11 +54,10 @@ from lvkit.graph.core import InMemoryVIGraph
 from lvkit.graph.lvnet_parse import (
     LvnetParseError,
     ParsedLvnet,
-    _scan_quoted_literal,
-    _unescape_lvnet_string,
     netlist_signature,
     parse_lvnet,
 )
+from lvkit.graph.lvnet_quoted import scan_quoted_literal, unescape_lvnet_string
 from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.models import Constant
 from lvkit.graph.netlist import (
@@ -372,7 +371,7 @@ def test_an_error_constant_message_is_quoted_as_a_string_literal() -> None:
     ],
 )
 def test_lvnet_string_literal_escape_unescape_round_trip(value: str) -> None:
-    """``_unescape_lvnet_string`` is the exact reverse of
+    """``unescape_lvnet_string`` is the exact reverse of
     ``lvnet_literal_token`` (md §4/§10) -- the "reverse the escapes
     symmetrically" requirement -- for every control-char shape it's meant
     to cover, not just the corpus VI's own two literals."""
@@ -380,7 +379,7 @@ def test_lvnet_string_literal_escape_unescape_round_trip(value: str) -> None:
     assert "\n" not in token and "\r" not in token, (
         f"escaped token must stay on one physical line: {token!r}"
     )
-    assert _unescape_lvnet_string(token) == value
+    assert unescape_lvnet_string(token) == value
 
 
 def test_scan_quoted_literal_skips_escaped_quote() -> None:
@@ -388,18 +387,18 @@ def test_scan_quoted_literal_skips_escaped_quote() -> None:
     early at the ``\\"`` -- only a REAL (unescaped) closing quote does."""
     token = lvnet_literal_token('say "hi" please')
     assert token == '"say \\"hi\\" please"'
-    end = _scan_quoted_literal(token, 0)
+    end = scan_quoted_literal(token, 0)
     assert end == len(token)
 
 
 def test_scan_quoted_literal_raises_on_unterminated_quote() -> None:
     with pytest.raises(LvnetParseError):
-        _scan_quoted_literal('"unterminated', 0)
+        scan_quoted_literal('"unterminated', 0)
 
 
 def test_unescape_lvnet_string_rejects_malformed_escape() -> None:
     with pytest.raises(LvnetParseError):
-        _unescape_lvnet_string('"bad \\q escape"')
+        unescape_lvnet_string('"bad \\q escape"')
 
 
 _AMBIGUOUS_TYPE_CASES = [

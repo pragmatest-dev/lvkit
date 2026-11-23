@@ -31,10 +31,14 @@ from lvkit.graph.netlist import (
     render_lvnet,
 )
 from lvkit.graph.netlist_models import (
+    CaseSettings,
+    FeedbackSettings,
+    ForLoopSettings,
     FrameOutputDrive,
     LoopCondition,
     ScopeOutput,
     StructureInput,
+    WhileLoopSettings,
 )
 from lvkit.graph.render_lvnet import _lvnet_const_value_str, lvnet_literal_token
 from lvkit.models import LVType, LVTypeKind
@@ -182,7 +186,11 @@ def _loop(
         selector=selector,
         frames=[NetlistFrame(label="", value="", is_default=False, body=[])],
         outputs=outputs or [],
-        condition_mode=mode,
+        settings=(
+            WhileLoopSettings(stop=mode)
+            if kind == "while" and mode is not None
+            else ForLoopSettings(stop=mode)
+        ),
         count=count,
     )
 
@@ -199,11 +207,11 @@ def _identity_round_trip(module: NetlistModule) -> tuple[str, NetlistModule]:
 def test_a_while_loop_header_says_how_its_condition_reads(mode: LoopCondition) -> None:
     loop = _loop("43", "while", mode=mode, selector=_control_ref("stop"))
     text, rebuilt = _identity_round_trip(_module(["stop"], [loop]))
-    assert f"while-loop ({mode.value}) (id 43) :" in text
+    assert f"while-loop (stop={mode.value}) (id 43) :" in text
     assert "loop_43::condition = stop" in text
     scope = rebuilt.body[0]
     assert isinstance(scope, NetlistScope)
-    assert scope.condition_mode is mode
+    assert scope.settings == WhileLoopSettings(stop=mode)
     assert scope.selector is not None and scope.selector.bare == "stop"
 
 
@@ -215,7 +223,7 @@ def test_a_for_loop_without_a_conditional_terminal_has_no_setting() -> None:
     assert "condition" not in text
     scope = rebuilt.body[0]
     assert isinstance(scope, NetlistScope)
-    assert scope.condition_mode is None and scope.selector is None
+    assert scope.settings == ForLoopSettings() and scope.selector is None
     assert scope.count is not None and scope.count.bare == "n"
 
 
@@ -228,10 +236,10 @@ def test_a_for_loop_with_a_conditional_terminal_carries_the_setting() -> None:
         count=_control_ref("n"),
     )
     text, rebuilt = _identity_round_trip(_module(["n", "done"], [loop]))
-    assert "for-loop (stop if true) (id 8) :" in text
+    assert "for-loop (stop=if-true) (id 8) :" in text
     scope = rebuilt.body[0]
     assert isinstance(scope, NetlistScope)
-    assert scope.condition_mode is LoopCondition.STOP_IF_TRUE
+    assert scope.settings == ForLoopSettings(stop=LoopCondition.STOP_IF_TRUE)
     assert scope.count is not None and scope.selector is not None
 
 
@@ -241,7 +249,8 @@ def test_an_unwired_conditional_terminal_is_a_visible_gap() -> None:
     assert "loop_9::condition = ?" in text
     scope = rebuilt.body[0]
     assert isinstance(scope, NetlistScope)
-    assert scope.selector is None and scope.condition_mode is not None
+    assert scope.selector is None
+    assert scope.settings == WhileLoopSettings(stop=LoopCondition.STOP_IF_TRUE)
 
 
 def test_a_terse_loop_still_recovers_its_uid_from_its_lines() -> None:
@@ -273,7 +282,7 @@ def test_an_uninitialized_shift_register_has_no_init_line() -> None:
         outputs=[_shift(DefaultValue("[]", "[String]"), _control_ref("x"))],
     )
     text, rebuilt = _identity_round_trip(_module(["x"], [loop]))
-    assert "shift-register loop_5::shift0 (uninitialized) :" in text
+    assert "shift-register loop_5::shift0 (initialized=False) :" in text
     assert "init =" not in text
     assert "each = x" in text
     scope = rebuilt.body[0]
@@ -301,9 +310,9 @@ def test_an_initialized_shift_register_keeps_its_init_line() -> None:
 def test_an_uninitialized_register_with_an_init_line_is_a_parse_error() -> None:
     text = (
         "vi V.vi :\n  block-diagram :\n"
-        "    while-loop (stop if true) :\n"
+        "    while-loop (stop=if-true) :\n"
         "      loop_1::condition = ?\n"
-        "      shift-register loop_1::shift0 (uninitialized) :\n"
+        "      shift-register loop_1::shift0 (initialized=False) :\n"
         "        init = 0\n"
     )
     with pytest.raises(LvnetParseError):
@@ -313,7 +322,7 @@ def test_an_uninitialized_register_with_an_init_line_is_a_parse_error() -> None:
 def test_an_initialized_register_without_an_init_line_is_a_parse_error() -> None:
     text = (
         "vi V.vi :\n  block-diagram :\n"
-        "    while-loop (stop if true) :\n"
+        "    while-loop (stop=if-true) :\n"
         "      loop_1::condition = ?\n"
         "      shift-register loop_1::shift0 :\n"
         "        each = 1\n"
@@ -331,14 +340,14 @@ def test_a_feedback_node_marks_an_unwired_initializer(uninitialized: bool) -> No
             DefaultValue("0.0", "DBL") if uninitialized else _control_ref("seed")
         ),
         recur=_control_ref("x"),
-        delay=1,
+        settings=FeedbackSettings(delay=1, initialized=not uninitialized),
     )
     text, rebuilt = _identity_round_trip(_module(["seed", "x"], [feedback]))
-    header = "feedback-node fb0 (1 iteration, uninitialized) :"
+    header = "feedback-node fb0 (delay=1, initialized=False) :"
     if uninitialized:
         assert header in text and "init =" not in text
     else:
-        assert "feedback-node fb0 (1 iteration) :" in text and "init = seed" in text
+        assert "feedback-node fb0 (delay=1) :" in text and "init = seed" in text
     rebuilt_fb = rebuilt.body[0]
     assert isinstance(rebuilt_fb, NetlistFeedback)
     assert isinstance(rebuilt_fb.init, DefaultValue) is uninitialized
@@ -379,6 +388,7 @@ def test_every_unwired_drive_position_says_default_and_its_type() -> None:
     scope = NetlistScope(
         uid="5",
         kind="case",
+        settings=CaseSettings(),
         selector=_control_ref("sel"),
         frames=frames,
         outputs=[merge],

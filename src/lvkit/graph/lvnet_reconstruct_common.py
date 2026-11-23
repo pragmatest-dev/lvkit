@@ -26,10 +26,9 @@ from .lvnet_parse import (
     ParsedLvnet,
     ParsedNode,
     ParsedScope,
-    _scan_quoted_literal,
-    _unescape_lvnet_string,
     _unquote_name_token,
 )
+from .lvnet_quoted import scan_quoted_literal, unescape_lvnet_string
 from .netlist_models import DefaultValue, NetRef
 
 
@@ -76,12 +75,12 @@ def parse_lvnet_literal(token: str) -> ScalarValue:
     if number_item:
         token = number_item.group(1)
     if token.startswith('"'):
-        end = _scan_quoted_literal(token, 0)
+        end = scan_quoted_literal(token, 0)
         if end != len(token):
             raise LvnetReconstructError(
                 f"trailing text after quoted literal: {token!r}"
             )
-        return _unescape_lvnet_string(token)
+        return unescape_lvnet_string(token)
     if token == "True":
         return True
     if token == "False":
@@ -152,7 +151,7 @@ def parse_source_token(
             raise LvnetReconstructError(f"{named!r} names no control (id {uid})")
         return _control_ref(control, uid)
     if text.startswith('"'):
-        end = _scan_quoted_literal(text, 0)
+        end = scan_quoted_literal(text, 0)
         if end != len(text):
             raise LvnetReconstructError(
                 f"trailing text after quoted literal in source: {text!r}"

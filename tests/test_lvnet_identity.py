@@ -374,6 +374,8 @@ def _compare_instance(
         )
     if a.kind != b.kind:
         errors.append(f"{path}: instance kind mismatch: {a.kind!r} vs {b.kind!r}")
+    if a.settings != b.settings:
+        errors.append(f"{path}: settings mismatch: {a.settings!r} vs {b.settings!r}")
     if a.reference is not None or b.reference is not None:
         # What a reference constant references: the target, and for a control the
         # terminal that tells it from another with its label.
@@ -396,7 +398,6 @@ def _compare_instance(
             "global_vi",
             "library",
             "access",
-            "network_path",
             "library_unreadable",
         ):
             if getattr(a, attr) != getattr(b, attr):
@@ -463,14 +464,13 @@ def _compare_scope(
         errors.append(f"{path}: scope kind mismatch: {a.kind!r} vs {b.kind!r}")
         return
 
+    if a.settings != b.settings:
+        errors.append(
+            f"{path}: settings mismatch: {a.settings!r} vs {b.settings!r}"
+        )
     if a.kind == "case":
         _compare_net(a.selector, b.selector, f"{path}.selector", errors, ctx)
     if a.kind in ("for", "while"):
-        if a.condition_mode != b.condition_mode:
-            errors.append(
-                f"{path}: loop condition mode mismatch: "
-                f"{a.condition_mode!r} vs {b.condition_mode!r}"
-            )
         _compare_net(a.selector, b.selector, f"{path}.condition", errors, ctx)
         _compare_net(a.count, b.count, f"{path}.count", errors, ctx)
 
@@ -588,6 +588,8 @@ def _compare_feedback(
     # string, e.g. `fb0`, not by a separate handle+uid).
     if a.net != b.net:
         errors.append(f"{path}: feedback net mismatch: {a.net!r} vs {b.net!r}")
+    if a.settings != b.settings:
+        errors.append(f"{path}: settings mismatch: {a.settings!r} vs {b.settings!r}")
     _compare_net(a.init, b.init, f"{path}.init", errors, ctx)
     _compare_net(a.recur, b.recur, f"{path}.recur", errors, ctx)
 

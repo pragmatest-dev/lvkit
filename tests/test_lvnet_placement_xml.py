@@ -78,7 +78,7 @@ def test_a_terminal_in_a_frame_is_a_line_of_that_frame(
     [
         (
             "whileLoop",
-            "while-loop (stop if true) (id 400) :",
+            "while-loop (stop=if-true) (id 400) :",
             "      loop_400::condition = ?\n",
         ),
         ("forLoop", "for-loop (id 400) :", ""),
@@ -104,7 +104,7 @@ def test_a_terminal_in_a_loop_in_a_frame_is_a_line_of_the_loop(
         '      frame "False" :\n'
         "        read Gain\n"
         '      frame "True" :\n'
-        "        while-loop (stop if true) (id 400) :\n"
+        "        while-loop (stop=if-true) (id 400) :\n"
         "          Rate = 3\n"
         "          loop_400::condition = ?\n"
         "    Total = 9"

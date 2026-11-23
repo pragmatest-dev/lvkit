@@ -41,7 +41,6 @@ from .lvnet_grammar import (
     _BLOCK_DIAGRAM_HEADER_LINE,
     _FRONT_PANEL_HEADER_LINE,
     _LVNET_ANNOTATION_SEP,
-    _LVNET_ASSEMBLY_UNREADABLE,
     _LVNET_BLOCK_OPEN,
     _LVNET_CAPTION_HIDDEN_KEYWORD,
     _LVNET_CAPTION_KEYWORD,
@@ -61,10 +60,8 @@ from .lvnet_grammar import (
     _LVNET_INDENT,
     _LVNET_INPLACE_SCOPE_KEYWORD,
     _LVNET_INSTANCE_KEYWORDS,
-    _LVNET_LIBRARY_UNREADABLE,
     _LVNET_MECH_ACTION_WORDS,
     _LVNET_NAME_CAP,
-    _LVNET_NETWORK_PUBLISHED,
     _LVNET_NUMBER_ITEM_RE,
     _LVNET_PANE_INDEX_PREFIX,
     _LVNET_PATTERN_KEYWORD,
@@ -83,7 +80,7 @@ from .lvnet_grammar import (
     _LVNET_TYPE_CAP,
     _LVNET_TYPE_SEP,
     _LVNET_TYPEDEF_NAV_PREFIX,
-    _LVNET_UNINITIALIZED,
+    _LVNET_UNREADABLE_MARK,
     _TYPES_HEADER_LINE,
     _USES_HEADER_LINE,
     _lvnet_tunnel_mode_word,
@@ -91,6 +88,7 @@ from .lvnet_grammar import (
     lvnet_net_separator,
 )
 from .lvnet_scalar import lvnet_literal_token, lvnet_value_token
+from .lvnet_settings import ends_in_settings_group, lvnet_settings_group
 from .models import Constant
 from .netlist_models import (
     BoundaryOutput,
@@ -1034,12 +1032,17 @@ def _lvnet_component(instance: NetlistInstance) -> str | None:
     if instance.kind == NetlistInstanceKind.INVOKE_NODE:
         return f"{instance.object_name or '?'}.{instance.method_name or '?'}"
     if instance.kind == NetlistInstanceKind.SHARED_VARIABLE:
+        mark = (
+            ""
+            if instance.library_unreadable is None
+            else f" ({_LVNET_UNREADABLE_MARK} "
+            f"{lvnet_literal_token(instance.library_unreadable)})"
+        )
         return (
             f"{lvnet_shared_variable_target(instance.library, instance.name)}"
-            f"{_LVNET_TYPE_SEP}{instance.access or '?'}"
-            f"{lvnet_shared_variable_attribute(instance)}"
+            f"{_LVNET_TYPE_SEP}{instance.access or '?'}{mark}"
         )
-    return instance.name
+    return lvnet_header_name_token(instance.name)
 
 
 def _render_lvnet_instance(
@@ -1093,7 +1096,7 @@ def _render_lvnet_instance(
     header = f"{indent}{header_kw} {handle}"
     if component is not None:
         header += f"{_LVNET_TYPE_SEP}{component}"
-    lines.append(header)
+    lines.append(header + lvnet_settings_group(instance.settings))
 
     entries: list[_TermLine] = []
     for b in sorted(instance.inputs, key=lambda b: b.pane_rank):
@@ -1155,24 +1158,6 @@ def lvnet_shared_variable_target(library: str | None, variable: str) -> str:
         f"{_lvnet_global_part_token(library, may_hold_separator=True)}"
         f"{_LVNET_TERMINAL_SEP}{variable_token}"
     )
-
-
-def lvnet_shared_variable_attribute(instance: NetlistInstance) -> str:
-    """The trailing attribute of a ``shared-variable`` header: `` (network-published
-    "<path>")`` for a variable published to the network, `` (library unreadable
-    "<reason>")`` for a node whose library link could not be read, and the empty
-    string otherwise (a single-process variable carries none)."""
-    if instance.network_path is not None:
-        return (
-            f" ({_LVNET_NETWORK_PUBLISHED} "
-            f"{lvnet_literal_token(instance.network_path)})"
-        )
-    if instance.library_unreadable is not None:
-        return (
-            f" ({_LVNET_LIBRARY_UNREADABLE} "
-            f"{lvnet_literal_token(instance.library_unreadable)})"
-        )
-    return ""
 
 
 def _render_lvnet_global_variable(
@@ -1330,28 +1315,6 @@ def _lvnet_loop_keyword(scope: NetlistScope) -> str:
     return "while-loop" if scope.kind == "while" else "for-loop"
 
 
-def _lvnet_loop_header_words(scope: NetlistScope) -> str:
-    """The loop keyword and, when the loop has a conditional terminal, how it
-    reads its Boolean: ``while-loop (stop if true)``."""
-    keyword = _lvnet_loop_keyword(scope)
-    if scope.condition_mode is None:
-        return keyword
-    return f"{keyword} ({scope.condition_mode.value})"
-
-
-def lvnet_feedback_attribute(feedback: NetlistFeedback) -> str:
-    """The parenthesised settings of a ``feedback-node`` header, comma-joined: the
-    iteration depth (``1 iteration``, ``3 iterations``, ``? iterations`` when the
-    depth did not parse) and ``uninitialized`` when the initializer is unwired."""
-    if feedback.delay is None:
-        depth = "? iterations"
-    else:
-        depth = f"{feedback.delay} iteration" + ("" if feedback.delay == 1 else "s")
-    if isinstance(feedback.init, DefaultValue):
-        return f"{depth}, {_LVNET_UNINITIALIZED}"
-    return depth
-
-
 def _render_lvnet_loop_scope(
     scope: NetlistScope,
     indent: str,
@@ -1360,7 +1323,7 @@ def _render_lvnet_loop_scope(
     *,
     verbose: bool,
 ) -> None:
-    """``for-loop :`` / ``while-loop (stop if true) :`` (§8) -- a single implicit
+    """``for-loop :`` / ``while-loop (stop=if-true) :`` (§8) -- a single implicit
     body, followed by its border constructs (``shift-register``/``tunnel``, §8) at
     the SAME indent as the body's own items (the golden shows
     ``shift-register loop_42::shift0 :`` as a sibling of ``subVI
@@ -1369,9 +1332,9 @@ def _render_lvnet_loop_scope(
     A loop's own wires are drive lines in its block: the For Loop's count wire
     first (``loop_<uid>::N = <source>``, an input of the loop), the wire on the
     conditional terminal after the body (``loop_<uid>::condition = <source>``).
-    The header says how the conditional terminal reads its Boolean (``(stop if
-    true)`` / ``(continue if true)``) and is absent on a For Loop with no
-    conditional terminal.
+    The header's settings say how the conditional terminal reads its Boolean
+    (``stop=if-true`` / ``stop=if-false``, absent on a For Loop with no conditional
+    terminal) and, on a For Loop, its parallel options.
 
     ``merge.net`` (``MuMerge``/``EtaMerge``) is the model's OWN stored
     string (shared verbatim with other consumers, e.g. ``netlist_to_dict``,
@@ -1379,7 +1342,7 @@ def _render_lvnet_loop_scope(
     it to ``::`` for THIS render only, never mutating the stored field (§9).
     """
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
-    header = _lvnet_loop_header_words(scope)
+    header = _lvnet_loop_keyword(scope) + lvnet_settings_group(scope.settings)
     lines.append(f"{indent}{header}{id_suffix}{_LVNET_BLOCK_OPEN}")
     body_indent = indent + _LVNET_INDENT
     _render_structure_input_lines(scope, body_indent, lines, handles)
@@ -1393,8 +1356,7 @@ def _render_lvnet_loop_scope(
     for merge in scope.outputs:
         if isinstance(merge, MuMerge):
             net = lvnet_net_separator(merge.net)
-            uninitialized = isinstance(merge.init, DefaultValue)
-            attribute = f" ({_LVNET_UNINITIALIZED})" if uninitialized else ""
+            attribute = lvnet_settings_group(merge.settings)
             lines.append(
                 f"{body_indent}shift-register {net}{attribute}{_LVNET_BLOCK_OPEN}"
             )
@@ -1468,7 +1430,8 @@ def _render_lvnet_case_scope(
         else "?"
     )
     id_suffix = _lvnet_scope_id_suffix(scope.uid, verbose=verbose)
-    lines.append(f"{indent}case {sel_str}{id_suffix}{_LVNET_BLOCK_OPEN}")
+    settings = lvnet_settings_group(scope.settings)
+    lines.append(f"{indent}case {sel_str}{settings}{id_suffix}{_LVNET_BLOCK_OPEN}")
     _render_structure_input_lines(scope, indent + _LVNET_INDENT, lines, handles)
     body_indent = indent + _LVNET_INDENT * 2
     for pos, frame in enumerate(scope.frames):
@@ -1651,7 +1614,7 @@ def _render_lvnet_scope(
 def _render_lvnet_feedback(
     feedback: NetlistFeedback, indent: str, lines: list[str], handles: _LvnetHandles
 ) -> None:
-    """``feedback-node <handle> (<N> iteration[s]) :`` (§7, now designed) --
+    """``feedback-node <handle> (delay=<N>) :`` (§7, now designed) --
     the SAME ``init``/``each`` shape as a loop's own ``shift-register`` border
     construct (§8), since a Feedback Node is Gated-SSA's classic mu exactly
     like a shift register (see ``NetlistFeedback``'s own docstring).
@@ -1667,20 +1630,18 @@ def _render_lvnet_feedback(
 
     A Feedback Node is a state REGISTER, not a computation, so (like a
     ``shift-register``) it has NO more-specific-type after the keyword -- the
-    ``:`` just opens its ``init``/``each`` block. Its one setting, the number of
-    ITERATIONS it hands the value back across (``feedbackNodeDelay``; "delay"
-    would read as a time, so we name the unit -- ``(1 iteration)`` /
-    ``(3 iterations)``), rides as a parenthetical ATTRIBUTE. LabVIEW enforces a
-    delay >= 1, so a ``None`` here means the depth was not parsed, not zero --
-    rendered ``(? iterations)`` (the file's established "genuinely unknown"
-    ``?``), never a fabricated count. ``each`` is omitted when ``recur`` is
-    ``None`` (never written to -- a real, faithful state per the model's own
-    docstring), mirroring ``shift-register``'s optional ``each`` line. A Feedback
-    Node whose initializer is unwired is ``(1 iteration, uninitialized)`` and has
-    no ``init`` line: it starts from the value it held when the VI last ran.
+    ``:`` just opens its ``init``/``each`` block. Its settings -- the number of
+    ITERATIONS it hands the value back across (``delay``, ``feedbackNodeDelay``) and
+    ``initialized`` -- ride in the header's ``(<settings>)`` group, ``delay`` always
+    (``?`` when the depth was not parsed; LabVIEW enforces a delay >= 1, so it is
+    never a fabricated count). ``each`` is omitted when ``recur`` is ``None``
+    (never written to -- a real, faithful state per the model's own docstring),
+    mirroring ``shift-register``'s optional ``each`` line. A Feedback Node whose
+    initializer is unwired is ``(delay=1, initialized=False)`` and has no ``init``
+    line: it starts from the value it held when the VI last ran.
     """
-    attr = lvnet_feedback_attribute(feedback)
-    lines.append(f"{indent}feedback-node {feedback.net} ({attr}){_LVNET_BLOCK_OPEN}")
+    attr = lvnet_settings_group(feedback.settings)
+    lines.append(f"{indent}feedback-node {feedback.net}{attr}{_LVNET_BLOCK_OPEN}")
     if not isinstance(feedback.init, DefaultValue):
         init_str = _render_lvnet_source(feedback.init, handles)
         lines.append(f"{indent + _LVNET_INDENT}init{_LVNET_DRIVER_OP}{init_str}")
@@ -1784,20 +1745,23 @@ def _lvnet_name_is_safe_bare(name: str) -> bool:
     column-delimiter SEQUENCE (`` : `` / ``, `` / `` = `` / `` ; ``) at all -- a bare
     ``:``/``,``/``=`` with no surrounding spaces is fine, e.g. ``(None: Create
     New)`` -- or (c) carries an UNBALANCED quote or brace/bracket, which would
-    desync ``_find_first_top_level`` / ``_split_top_level_commas``'s quote/depth
+    desync ``_find_first_top_level`` / ``split_top_level_commas``'s quote/depth
     tracking. A name with BALANCED embedded quotes/parens (``methodName
     ("runTest")``) stays bare, since the tracking still lands on the real
     separator. A name that OPENS with a quote would read as a quoted token, and
     one that ENDS with `` (id <digits>)`` as a terminal's identity suffix, so both
-    are quoted. A delimiter is looked for with the spaces the columns around the
-    name add (``Sort devices by :`` ends in one), a backslash would read as an
-    escape, and a run of spaces would read back as one."""
+    are quoted; so is one that ENDS in a parenthesised group of ``name=value`` items
+    (`` (a=b)``), which a reader would take for a header's settings (a group such as
+    ``(ms)`` has no ``=`` and stays bare). A delimiter is looked for with the spaces
+    the columns around the name add (``Sort devices by :`` ends in one), a backslash
+    would read as an escape, and a run of spaces would read back as one."""
     padded = f" {name} "
     return bool(
         name
         and name == name.strip()
         and not name.startswith('"')
         and not _LVNET_ID_SUFFIX_RE.search(name)
+        and not ends_in_settings_group(name)
         and not any(ord(ch) < 0x20 for ch in name)
         and not any(seq in padded for seq in _LVNET_NAME_UNSAFE_SEQS)
         and "\\" not in name
@@ -1816,6 +1780,15 @@ def lvnet_name_token(name: str) -> str:
     if _lvnet_name_is_safe_bare(name):
         return name
     return lvnet_literal_token(name)
+
+
+def lvnet_header_name_token(name: str) -> str:
+    """A node's name as the component of its header: bare, unless it opens with a
+    quote or ends in a settings-shaped group (see ``_lvnet_name_is_safe_bare``), in
+    which case it is quoted like a string literal."""
+    if name.startswith('"') or ends_in_settings_group(name):
+        return lvnet_literal_token(name)
+    return name
 
 
 def _lvnet_name_reads_as_literal(name: str) -> bool:
@@ -2167,7 +2140,7 @@ def render_lvnet_uses(
         kind_part = _lvnet_capped_pad(dep.kind.value, kind_width, _LVNET_DEP_KIND_CAP)
         if dep.unreadable is not None:
             lines.append(
-                f"    {kind_part}({_LVNET_ASSEMBLY_UNREADABLE} "
+                f"    {kind_part}({_LVNET_UNREADABLE_MARK} "
                 f"{lvnet_literal_token(dep.unreadable)})"
             )
             continue

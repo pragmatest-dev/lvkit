@@ -33,6 +33,11 @@ from lvkit.graph.netlist import (
     NetRef,
     netlist_to_dict,
 )
+from lvkit.graph.netlist_models import (
+    CompoundMode,
+    FeedbackSettings,
+    FunctionSettings,
+)
 from lvkit.graph.op_walk import ComponentPort
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind, TunnelMode
 
@@ -136,9 +141,9 @@ def test_instance_and_scope_are_kind_tagged_and_nested():
     assert inst["inputs"][0]["terminal"] == "x"
     assert inst["inputs"][0]["net"]["bare"] == "n"
     assert inst["outputs"][0]["bare"] == "n2"
-    # A non-cpdArith instance carries no operation -- the key is present
-    # (stable shape) but null.
-    assert inst["operation"] is None
+    # An instance with no settings carries an empty `settings` -- the key is present
+    # (stable shape).
+    assert inst["settings"] == {}
 
     sc = d["body"][1]
     assert sc["scope_kind"] == "case"
@@ -161,7 +166,7 @@ def test_feedback_item_is_kind_tagged_with_shift_register_shape():
         net="fb0",
         init=DefaultValue(literal="0.0", type_descriptor="DBL"),
         recur=_ref("now", "0", "now.0"),
-        delay=1,
+        settings=FeedbackSettings(delay=1, initialized=False),
     )
     module = NetlistModule(vi_name="m.vi", inputs=[], outputs=[], body=[fb])
 
@@ -170,7 +175,7 @@ def test_feedback_item_is_kind_tagged_with_shift_register_shape():
     item = d["body"][0]
     assert item["uid"] == "3719"
     assert item["net"] == "fb0"
-    assert item["delay"] == 1
+    assert item["settings"] == {"delay": 1, "initialized": False}
     # The initial value is a type-default merge source (never a fabricated wire).
     assert item["initial_value"] == {
         "kind": "default",
@@ -185,13 +190,13 @@ def test_feedback_item_is_kind_tagged_with_shift_register_shape():
         net="fb1",
         init=_ref(None, "seed", "seed"),
         recur=None,
-        delay=None,
+        settings=FeedbackSettings(delay=None),
     )
     d2 = netlist_to_dict(
         NetlistModule(vi_name="m.vi", inputs=[], outputs=[], body=[fb2])
     )
     assert d2["body"][0]["next_value"] is None
-    assert d2["body"][0]["delay"] is None
+    assert d2["body"][0]["settings"] == {"delay": None, "initialized": True}
 
 
 def test_case_scope_outputs_carries_output_tunnel_shape():
@@ -355,7 +360,7 @@ def test_instance_carries_cpdarith_operation():
             ),
         ],
         outputs=[_out("Compound Arithmetic", "0", "Compound Arithmetic#1.0")],
-        operation="and",
+        settings=FunctionSettings(mode=CompoundMode.AND),
     )
     module = NetlistModule(vi_name="c.vi", inputs=[], outputs=[], body=[inst])
 
@@ -363,7 +368,7 @@ def test_instance_carries_cpdarith_operation():
     body_inst = d["body"][0]
     assert body_inst["kind"] == "instance"
     assert body_inst["name"] == "Compound Arithmetic"
-    assert body_inst["operation"] == "and"
+    assert body_inst["settings"] == {"mode": "and"}
     # The operator annotation must not perturb the net identity fields.
     assert body_inst["occurrence"] == 1
     assert body_inst["outputs"][0]["bare"] == "Compound Arithmetic#1.0"
@@ -394,7 +399,7 @@ def test_input_binding_carries_inverted_flag():
             ),
         ],
         outputs=[_out("Compound Arithmetic", "0", "Compound Arithmetic#2.0")],
-        operation="and",
+        settings=FunctionSettings(mode=CompoundMode.AND),
     )
     module = NetlistModule(vi_name="c.vi", inputs=[], outputs=[], body=[inst])
 

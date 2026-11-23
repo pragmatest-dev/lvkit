@@ -14,6 +14,7 @@ existing ``from ...graph.netlist import ambiguous_bares`` (etc.) call site --
 
 from __future__ import annotations
 
+from .lvnet_settings import settings_items
 from .netlist_models import (
     NetlistConstant,
     NetlistControlRead,
@@ -98,7 +99,7 @@ def _instance_name_display(instance: NetlistInstance) -> str:
     library and access (``[Lib.lvlib write]``) do too.
 
     A Property Node's ``object_name`` (its target CLASS, e.g. "Bool") gets
-    the same bracket-suffix treatment as ``operation`` -- the two never
+    the same bracket-suffix treatment as the settings (``[mode: or]``) -- the two never
     co-occur (a property node is never a primitive node), so one visual slot
     serves both without collision: ``Property Node#1 [Bool]``.
 
@@ -110,7 +111,10 @@ def _instance_name_display(instance: NetlistInstance) -> str:
     just the method.
     """
     tag = f"#{instance.occurrence}" if instance.occurrence else ""
-    op_suffix = f" [{instance.operation}]" if instance.operation else ""
+    shown = ", ".join(
+        f"{name}: {token}" for name, token in settings_items(instance.settings)
+    )
+    op_suffix = f" [{shown}]" if shown else ""
     if instance.method_name:
         obj = (
             f"{instance.object_name}:{instance.method_name}"

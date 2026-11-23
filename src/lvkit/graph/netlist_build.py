@@ -89,11 +89,16 @@ from .netlist_fp_placement import (
 )
 from .netlist_models import (
     BoundaryOutput,
+    CaseSettings,
+    CompoundMode,
     ConnectorPane,
     ConnectorPaneTerminal,
     DefaultValue,
     DependencyKind,
     EtaMerge,
+    FeedbackSettings,
+    ForLoopSettings,
+    FunctionSettings,
     GammaCase,
     GammaMerge,
     InPlaceBorderDrive,
@@ -120,6 +125,8 @@ from .netlist_models import (
     ScopeOutput,
     SequenceLocalDrive,
     SequenceLocalUnreadable,
+    SharedVariableSettings,
+    WhileLoopSettings,
 )
 from .netlist_structure_io import (
     FRAME_ONLY_NET_PREFIX,
@@ -1256,6 +1263,24 @@ _NETLIST_INSTANCE_KIND_BY_NODE_TYPE: dict[type, NetlistInstanceKind] = {
 }
 
 
+def _instance_settings_gn(
+    node: AnyGraphNode, *, is_property: bool, is_invoke: bool
+) -> FunctionSettings | SharedVariableSettings | None:
+    """The settings of a Compound Arithmetic node (its mode, ``None`` when the
+    file's mode is not one lvkit reads) or a Shared Variable node (its network
+    path); ``None`` for every other node."""
+    if isinstance(node, SharedVariableNode):
+        return SharedVariableSettings(
+            path=node.library.network_path if node.library is not None else None
+        )
+    if isinstance(node, GraphPrimitiveNode) and not is_property and not is_invoke:
+        if node.operation is None:
+            return None
+        modes = {mode.value: mode for mode in CompoundMode}
+        return FunctionSettings(mode=modes.get(node.operation))
+    return None
+
+
 def _instance_kind_gn(
     node: AnyGraphNode, *, is_property: bool, is_invoke: bool
 ) -> NetlistInstanceKind:
@@ -1340,11 +1365,7 @@ def _build_instance_gn(
         and not is_property
         and bool(node.method_name)
     )
-    operation = (
-        node.operation
-        if isinstance(node, GraphPrimitiveNode) and not is_property and not is_invoke
-        else None
-    )
+    settings = _instance_settings_gn(node, is_property=is_property, is_invoke=is_invoke)
     object_name: str | None = None
     method_name: str | None = None
     properties: list[NetlistPropertyAccess] = []
@@ -1371,7 +1392,7 @@ def _build_instance_gn(
         inputs=inputs,
         outputs=outputs,
         kind=kind,
-        operation=operation,
+        settings=settings,
         object_name=object_name,
         method_name=method_name,
         qualified_name=qualified_name,
@@ -1388,11 +1409,6 @@ def _build_instance_gn(
         ),
         library=(
             node.library.qualified_name
-            if isinstance(node, SharedVariableNode) and node.library is not None
-            else None
-        ),
-        network_path=(
-            node.library.network_path
             if isinstance(node, SharedVariableNode) and node.library is not None
             else None
         ),
@@ -1445,7 +1461,9 @@ def _build_feedback_gn(
         net=f"fb{k}",
         init=init,
         recur=recur,
-        delay=delay,
+        settings=FeedbackSettings(
+            delay=delay, initialized=not isinstance(init, DefaultValue)
+        ),
     )
 
 
@@ -1813,6 +1831,7 @@ def _build_case_scope_gn(
         selector=selector,
         frames=frames,
         outputs=outputs,
+        settings=CaseSettings(case_insensitive=node.case_insensitive),
         inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
     )
 
@@ -2060,6 +2079,20 @@ def _loop_condition_mode_gn(node: LoopNode) -> LoopCondition | None:
     return LoopCondition.STOP_IF_TRUE
 
 
+def _loop_settings_gn(node: LoopNode) -> ForLoopSettings | WhileLoopSettings:
+    """The ``stop`` setting of a loop with a conditional terminal, and a For
+    Loop's parallel-iteration options."""
+    stop = _loop_condition_mode_gn(node)
+    if node.loop_type == "whileLoop":
+        assert stop is not None
+        return WhileLoopSettings(stop=stop)
+    return ForLoopSettings(
+        stop=stop,
+        parallel=node.parallel,
+        parallel_instances=node.parallel_static_workers,
+    )
+
+
 def _loop_count_ref_gn(
     graph: InMemoryVIGraph,
     ctx: VIContext,
@@ -2145,10 +2178,8 @@ def _build_loop_scope_gn(
         kind=kind,
         selector=selector,
         frames=[frame],
-        parallel=node.parallel,
-        parallel_static_workers=node.parallel_static_workers,
         inputs=build_structure_inputs(_wires_gn(graph, ctx, vi_name, build_ctx), node),
-        condition_mode=_loop_condition_mode_gn(node),
+        settings=_loop_settings_gn(node),
         count=_loop_count_ref_gn(graph, ctx, vi_name, node, build_ctx),
         tunnels=tunnel_info,
         outputs=outputs,

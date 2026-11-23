@@ -591,7 +591,7 @@ vi Stopper.vi :
       in   error in       : Error                = Reg_Events_128::3
       out  user event out : UserEvent refnum{TF}
       out  error out      : Error
-    while-loop (stop if true) :
+    while-loop (stop=if-true) :
       loop_147::in1 = Generate_User_Event_141::error out
       event-structure :
         event_158::dynamic = Reg_Events_128::1

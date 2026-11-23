@@ -31,6 +31,7 @@ from .diff_frames import (
     match_frames,
     uid_sort,
 )
+from .lvnet_settings import settings_changes
 from .models import (
     CURATED_KIND_FLAGS,
     CURATED_PROPERTY_FLAGS,
@@ -2705,7 +2706,13 @@ def _netlist_diff(
             inst, amb = inst_b.get(c.uid), amb_b
         if inst is None:
             return c.label
-        return instance_line(inst, amb)
+        line = instance_line(inst, amb)
+        before = inst_a.get(c.uid)
+        if c.change == "modified" and before is not None:
+            changed = settings_changes(before.settings, inst.settings)
+            if changed:
+                line += f" ({'; '.join(changed)})"
+        return line
 
     def struct_content(uid: str) -> str:
         """A structure's ``scope_header`` line content, from whichever side

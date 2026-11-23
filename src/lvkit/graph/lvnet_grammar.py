@@ -15,7 +15,18 @@ import re
 
 from ..models import DisableStructureKind, TunnelMode
 from ..parser.flags import MECHANICAL_ACTION_NAMES
-from .netlist_models import NetlistInstanceKind, ReferenceTargetKind
+from .netlist_models import (
+    CaseSettings,
+    FeedbackSettings,
+    ForLoopSettings,
+    FunctionSettings,
+    NetlistInstanceKind,
+    NodeSettings,
+    ReferenceTargetKind,
+    SharedVariableSettings,
+    ShiftRegisterSettings,
+    WhileLoopSettings,
+)
 
 # ------------------------------------------------------------------
 # Grammar delimiters -- the exact punctuation/keyword literals §2-§10 is
@@ -69,17 +80,22 @@ _LVNET_DEP_FOUND_OPEN = " (found "
 _LVNET_ENUM_OPEN = "enum{"  # §10 lossless enum/ring/cluster open tokens
 _LVNET_RING_OPEN = "ring{"
 _LVNET_CLUSTER_OPEN = "Cluster{"
-# A ``shared-variable`` header's trailing attribute (§7): ``(network-published
-# "<path>")`` for a variable published to the network, ``(library unreadable
-# "<reason>")`` for a node whose library link could not be read.
-_LVNET_NETWORK_PUBLISHED = "network-published"
-_LVNET_LIBRARY_UNREADABLE = "library unreadable"
-
-# The attribute word of a shift register or Feedback Node whose initializer is
-# unwired: ``shift-register loop_146::shift0 (uninitialized) :`` /
-# ``feedback-node fb0 (1 iteration, uninitialized) :``. Such a register has no
-# ``init`` line (it keeps the value it held when the VI last ran).
-_LVNET_UNINITIALIZED = "uninitialized"
+# The ``(<settings>)`` group of a node or structure header (§3): ``name=value``
+# items joined by ``, ``, no spaces around the ``=`` (the spaced `` = `` stays the
+# binding operator, §4).
+_LVNET_SETTING_ASSIGN = "="
+_LVNET_SETTING_ITEM_SEP = ", "
+# Each header keyword that carries settings -> the dataclass of its settings (one
+# per kind, ``netlist_models``). The reader looks the kind up here.
+LVNET_SETTINGS_BY_KEYWORD: dict[str, type[NodeSettings]] = {
+    "function": FunctionSettings,
+    "while-loop": WhileLoopSettings,
+    "for-loop": ForLoopSettings,
+    "case": CaseSettings,
+    "feedback-node": FeedbackSettings,
+    "shift-register": ShiftRegisterSettings,
+    "shared-variable": SharedVariableSettings,
+}
 # The terminal names of a loop's drive lines: ``loop_<uid>::N`` (a For Loop's
 # count wire) and ``loop_<uid>::condition`` (the wire on its conditional
 # terminal).
@@ -91,9 +107,10 @@ _LVNET_UNWIRED = "?"
 # A sequence local's drive position holds ``(sequence local unreadable
 # "<reason>")`` instead of a source when its wiring is not one LabVIEW allows.
 _LVNET_SEQUENCE_LOCAL_UNREADABLE = "sequence local unreadable"
-# A ``uses :`` ``assembly`` entry for a .NET assembly link record that could not
-# be read: ``assembly (unreadable "<reason>")``.
-_LVNET_ASSEMBLY_UNREADABLE = "unreadable"
+# The problem mark of a unit lvnet could not read, written ``(unreadable "<reason>")``:
+# a ``uses :`` ``assembly`` entry for a .NET assembly link record that could not be
+# read, a ``shared-variable`` header whose library link could not be read.
+_LVNET_UNREADABLE_MARK = "unreadable"
 _LVNET_DEFAULT_KEYWORD = "default"  # the §4 unwired-default keyword
 # The words a front-panel control name must not spell BARE (§4): each reads as
 # a literal or reserved form wherever a net name is read -- a Boolean literal,

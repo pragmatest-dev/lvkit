@@ -210,7 +210,7 @@ def test_the_views_show_an_initializer_on_the_loop_border(
     terminal, as they read one wired to the node."""
     _running_sum(project, on_border=True, start=3)
     views = project.views(NAME)
-    assert "feedback-node fb0 (1 iteration) :\n" in views.lvnet
+    assert "feedback-node fb0 (delay=1) :\n" in views.lvnet
     assert "        init = 3\n" in views.lvnet
     assert "uninitialized" not in views.lvnet
     assert json_body(views)
@@ -223,7 +223,7 @@ def test_the_views_show_the_initializer_on_the_loop_border(
     as they do one wired to the node."""
     _running_sum(project, on_border=True, start=5)
     views = project.views(NAME)
-    assert "feedback-node fb0 (1 iteration) :\n" in views.diagram
+    assert "feedback-node fb0 (delay=1) :\n" in views.diagram
     assert "        init = 5\n" in views.diagram
     assert "uninitialized" not in views.diagram
 
@@ -233,4 +233,4 @@ def test_the_views_show_an_unwired_loop_border_initializer_as_uninitialized(
 ) -> None:
     _running_sum(project, on_border=True, initializer=False)
     views = project.views(NAME)
-    assert "feedback-node fb0 (1 iteration, uninitialized) :" in views.diagram
+    assert "feedback-node fb0 (delay=1, initialized=False) :" in views.diagram
