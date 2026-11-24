@@ -161,6 +161,7 @@ AS_PANEL_NAME = "as_panel"
 AS_CONTROL_NAME = "as_control"
 AS_OBJECT_NAME = "as_object"
 AS_PANE_NAME = "as_pane"
+AS_OWNED_NAME = "as_owned"
 CALL_CHAIN_NAME = "call_chain"
 TAGS_NAME = "Tags"
 TAGS_OF_NAME = "tags_of"
@@ -1558,6 +1559,17 @@ def as_object(reference: Any) -> GObject:
     if not isinstance(reference, GObject):
         raise PanelError(
             code=1026, source="as_object", message="Object Reference is invalid."
+        )
+    return reference
+
+
+def as_owned(reference: Any) -> GObject | PanelValues:
+    """``reference`` as the reference to an object that has an owner: a front-panel
+    object or the panel itself (the top-level object); error 1026 for a reference
+    that holds none."""
+    if not isinstance(reference, (GObject, PanelValues)):
+        raise PanelError(
+            code=1026, source="as_owned", message="Object Reference is invalid."
         )
     return reference
 

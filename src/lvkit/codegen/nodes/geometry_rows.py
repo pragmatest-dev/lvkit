@@ -9,13 +9,21 @@ window in terms of left and top coordinates" (``gobject/position.html``, with
 "Maximum bounding area of the object specified in terms of width and height in
 pixels", read only (``gobject/bounds.html``, ``areawidth.html``, ``areaheight.html``);
 Owning VI, "Returns a reference to the VI that owns this object", read only
-(``owningvi.html``); Origin of a Pane, "A cluster that contains the vertical and
+(``owningvi.html``); Owner, "Reference to the owning object ... An object of class
+Panel does not have an owner (it is the top-level object) and always returns Not A
+Refnum. All objects in LabVIEW have an owning object. For example, the front panel
+and block diagram are the owning objects of all the objects contained within each,
+including controls and indicators. However, if a control is a cluster, the cluster
+would the owning object of all the objects inside it", read only
+(``owner2.html``); Origin of a Pane, "A cluster that contains the vertical and
 horizontal coordinates of the upper left corner of the pane", read and write
 (``gobject/pane/origin.html``).
 
 Each is a member of the object the reference holds (``GObject`` of
 ``panel_objects_module.py``): ``position`` (left, top), ``left``, ``top``, ``bounds``
-(width, height), ``area_width``, ``area_height``, ``owning_vi`` and, of a pane,
+(width, height), ``area_width``, ``area_height``, ``owning_vi``, ``owner`` (the pane
+or cluster that holds the object,
+the panel for a pane, None for the panel) and, of a pane,
 ``origin`` (horizontal, vertical). A cluster the diagram names (a type definition)
 is a ``SimpleNamespace`` of its labelled elements, an anonymous one a tuple
 (``front_panel_bounds.cluster_read``). A write of a row NI says cannot be set while
@@ -38,7 +46,12 @@ from lvkit.models import LVType, PropertyDef
 
 from ..ast_utils import parse_expr, parse_stmt
 from ..context import CodeGenContext
-from ..panels_module import AS_OBJECT_NAME, AS_PANE_NAME, PANEL_ERROR_NAME
+from ..panels_module import (
+    AS_OBJECT_NAME,
+    AS_OWNED_NAME,
+    AS_PANE_NAME,
+    PANEL_ERROR_NAME,
+)
 from . import front_panel_bounds
 
 _PAGES = (
@@ -75,6 +88,7 @@ _ROWS = (
         103983109, "Bounds:Area Height", "area_height", 0, False, "gobject/areaheight"
     ),
     GeometryRow(103970818, "Owning VI", "owning_vi", 0, False, "owningvi"),
+    GeometryRow(103970822, "Owner", "owner", 0, False, "owner2", AS_OWNED_NAME),
     GeometryRow(
         404121605, "Origin", "origin", 2, True, "gobject/pane/origin", AS_PANE_NAME
     ),

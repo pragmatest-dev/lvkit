@@ -35,6 +35,7 @@ TOP = (103983106,)
 BOUNDS = (103983107,)
 AREA_WIDTH = (103983108,)
 OWNING_VI = (103970818,)
+OWNER = (103970822,)
 PANE_ORIGIN = (404121605,)
 DECORATION_VISIBLE = (103992326,)
 
@@ -171,6 +172,9 @@ def target(vi: str) -> tuple[VIContext, list[GraphNode]]:
     decos = property_node(
         vi, "d", "Clust", [("decos", CLUSTER_DECOS, "output", REFNUMS)]
     ).model_copy(update={"bound_control_uid": "c-uid", "bound_control_dco_uid": "20"})
+    owner = property_node(
+        vi, "w", "Num", [("owner", OWNER, "output", REFNUM)]
+    ).model_copy(update={"bound_control_uid": "x-uid", "bound_control_dco_uid": "10"})
     return (
         VIContext(
             name=vi,
@@ -182,14 +186,16 @@ def target(vi: str) -> tuple[VIContext, list[GraphNode]]:
                 out.model_copy(update={"fp_dco_uid": "40"}),
                 pane(vi, "output", "bound_left", INT, "bound left", 3),
                 pane(vi, "output", "bound_decos", REFNUMS, "bound decos", 4),
+                pane(vi, "output", "bound_owner", REFNUM, "bound owner", 5),
             ],
             data_flow=[
                 wire(vi, "x", "out"),
                 wire(vi, "l.left", "bound_left"),
                 wire(vi, "d.decos", "bound_decos"),
+                wire(vi, "w.owner", "bound_owner"),
             ],
         ),
-        [left, decos],
+        [left, decos, owner],
     )
 
 
@@ -224,6 +230,28 @@ def reader(vi: str) -> tuple[VIContext, list[GraphNode]]:
             data_flow=[
                 wire(vi, "ctl", "o.ref"),
                 *(wire(vi, f"o.{name}", name) for name in names),
+                wire(vi, "o.err_out", "err"),
+            ],
+        ),
+        [node],
+    )
+
+
+def owner_of(vi: str) -> tuple[VIContext, list[GraphNode]]:
+    """Reads Owner of the reference ``ctl`` (a control, a field, a decoration, a pane
+    or the panel)."""
+    node = property_node(vi, "o", "GObj", [("owner", OWNER, "output", REFNUM)])
+    return (
+        VIContext(
+            name=vi,
+            inputs=[pane(vi, "input", "ctl", REFNUM, "ctl", 0)],
+            outputs=[
+                pane(vi, "output", "owner", REFNUM, "owner", 1),
+                pane(vi, "output", "err", ERROR, "error out", 2),
+            ],
+            data_flow=[
+                wire(vi, "ctl", "o.ref"),
+                wire(vi, "o.owner", "owner"),
                 wire(vi, "o.err_out", "err"),
             ],
         ),
@@ -369,6 +397,7 @@ def generated(tmp_path: Path, gaps: list[Gap]) -> Any:
     project.graph._graph.nodes[key]["node"].front_panel = front_panel()  # noqa: SLF001
     project.add_vi("Reader", reader)
     project.add_vi("Mover", mover)
+    project.add_vi("OwnerOf", owner_of)
     project.add_vi("Hider", hider)
     project.add_vi("Lister", lister)
     project.add_vi("ClusterLister", cluster_lister)
@@ -474,6 +503,35 @@ def test_a_cluster_has_its_own_decorations_and_objects(tmp_path: Path) -> None:
         assert failed.error_out.code == 1026
 
 
+def test_an_object_is_owned_by_its_pane_or_cluster_and_a_pane_by_the_panel(
+    tmp_path: Path,
+) -> None:
+    """NI's Owner: the pane holds a control and a decoration, a cluster holds its
+    fields and decorations, the panel holds the panes and has no owner itself."""
+    gaps: list[Gap] = []
+    package = generated(tmp_path, gaps)
+    assert [str(g) for g in gaps if "Owner" in str(g)] == []
+    with package.use() as module:
+        panel = module("target").target.panel
+        owner_of = module("ownerof").ownerof
+        first, second = panel.panes
+        x, cluster = (c for c in panel.controls if c.label in ("x", "c"))
+        (out,) = second.controls
+        (free,) = panel.decorations
+        assert owner_of(ctl=x).owner is first
+        assert owner_of(ctl=cluster).owner is first
+        assert owner_of(ctl=free).owner is first
+        assert owner_of(ctl=out).owner is second
+        field, inner = cluster.all_objects
+        assert owner_of(ctl=field).owner is cluster
+        assert owner_of(ctl=inner).owner is cluster
+        assert owner_of(ctl=first).owner is panel
+        assert owner_of(ctl=second).owner is panel
+        assert owner_of(ctl=panel).owner is None
+        assert owner_of(ctl=panel).error_out is None
+        assert owner_of(ctl=None).error_out.code == 1026
+
+
 def test_a_property_node_bound_to_a_control_reads_its_rows(tmp_path: Path) -> None:
     gaps: list[Gap] = []
     package = generated(tmp_path, gaps)
@@ -484,6 +542,7 @@ def test_a_property_node_bound_to_a_control_reads_its_rows(tmp_path: Path) -> No
         panel = module("target").target.panel
         cluster = next(c for c in panel.controls if c.label == "c")
         assert result.bound_decos == cluster.decorations
+        assert result.bound_owner is panel.panes[0]
 
 
 def test_bounds_and_the_panels_lists_cannot_be_written(tmp_path: Path) -> None:

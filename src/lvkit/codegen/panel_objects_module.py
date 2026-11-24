@@ -43,9 +43,21 @@ class GObject:
     _rect: tuple[int, int, int, int] | None = None
     _decorations: list[Decoration] | None = None
     _members: list[GObject] | None = None
+    _owner: GObject | None = None
 
     def _named(self) -> str:
         return self.name
+
+    @property
+    def owner(self) -> Any:
+        """The Owner property: the cluster that holds the object when it is an
+        element of a cluster, else the pane it is on."""
+        if self._owner is None:
+            raise NotImplementedError(
+                f"Owner of {self._named()!r}: the file records no pane hierarchy "
+                "that holds it"
+            )
+        return self._owner
 
     def _rectangle(self, what: str) -> tuple[int, int, int, int]:
         if self._rect is None:
@@ -153,6 +165,7 @@ class GObject:
             if item[0] == "f":
                 if item[1] < len(fields):
                     fields[item[1]]._rect = tuple(item[2:6])
+                    fields[item[1]]._owner = self
                     self._members.append(fields[item[1]])
             else:
                 decoration = Decoration(
@@ -161,6 +174,7 @@ class GObject:
                     tuple(item[1:5]),
                     item[5],
                 )
+                decoration._owner = self
                 self._decorations.append(decoration)
                 self._members.append(decoration)
         for field, sub in zip(fields, specs):
@@ -208,6 +222,14 @@ class Pane(GObject):
         self.name = name
         self._objects = objects
         self._origin = (0, 0)
+        for obj in objects:
+            obj._owner = self
+
+    @property
+    def owner(self) -> Any:
+        """The Owner of a pane: the front panel, which owns every object it
+        contains."""
+        return self.panel
 
     @property
     def controls(self) -> list[Control]:
@@ -233,6 +255,11 @@ class PanelLayout:
 
     _panes: list[Pane] | None = None
     _all_decorations: list[Decoration]
+
+    @property
+    def owner(self) -> None:
+        """The Owner of the panel: it is the top-level object, so Not a Refnum."""
+        return None
 
     def _build_layout(self, layout: Mapping[str, Any] | None) -> None:
         self._all_decorations = []
