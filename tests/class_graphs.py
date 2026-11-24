@@ -18,6 +18,11 @@ from pathlib import Path
 from types import ModuleType
 
 from lvkit.codegen import build_module
+from lvkit.codegen.classes_module import (
+    CLASSES_MODULE_NAME,
+    build_classes_module,
+    package_class_entries,
+)
 from lvkit.codegen.errors_module import ERRORS_MODULE_NAME, ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.live_io_module import LIVE_IO_MODULE_NAME, LIVE_IO_MODULE_SOURCE
@@ -378,6 +383,13 @@ class Project:
             )
         for module, source in sources.items():
             (out / f"{module}.py").write_text(source, encoding="utf-8")
+        entries = package_class_entries(
+            graph,
+            lambda key: paths[key].stem if key in self.classes.values() else None,
+        )
+        (out / f"{CLASSES_MODULE_NAME}.py").write_text(
+            build_classes_module(entries), encoding="utf-8"
+        )
         if any(f".{PANELS_MODULE_NAME} import" in s for s in sources.values()):
             (out / f"{PANELS_MODULE_NAME}.py").write_text(
                 PANELS_MODULE_SOURCE, encoding="utf-8"

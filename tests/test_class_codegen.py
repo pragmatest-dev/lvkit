@@ -419,6 +419,7 @@ def test_a_child_class_inherits_and_overrides_with_call_parent(
         "child",
         "errors",
         "live_io",
+        "lv_classes",
         "panels",
         "variants",
     ]

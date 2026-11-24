@@ -3,7 +3,7 @@
 Each case is a handmade project of classes (``tests/class_graphs.py``) with one VI
 that flattens the object on its input and unflattens the string back; the package
 is generated, imported and run. The bytes are NI's "Flattened Data" layout for a
-class (``codegen/flat_class_source.py``), which the parser also reads
+class (``codegen/classes_module.py``), which the parser also reads
 (``parser.vi.read_class_object``): the worked two-level ``Alpha.lvclass`` string of
 labviewwiki.org, "LabVIEW Object", is checked byte for byte."""
 

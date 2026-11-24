@@ -21,6 +21,7 @@ import inspect
 import pytest
 
 from lvkit.codegen import labview_format, labview_scan, labview_scan_time
+from lvkit.codegen.classes_module import build_classes_module
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.grpc_server_module import GRPC_SERVER_MODULE_SOURCE
 from lvkit.codegen.ini_module import INI_MODULE_SOURCE
@@ -32,6 +33,7 @@ from lvkit.codegen.scan_module import SCAN_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 
 SOURCES = {
+    "lv_classes": build_classes_module({}),
     "errors": ERRORS_MODULE_SOURCE,
     "grpc_server": GRPC_SERVER_MODULE_SOURCE,
     "ini": INI_MODULE_SOURCE,

@@ -14,7 +14,7 @@ its kind. It reads no flattened data.
 
 from __future__ import annotations
 
-from lvkit.lv_type_codes import MEASURE_DATA_FLAVOR, TD_FULL_TYPE
+from lvkit.lv_type_codes import MEASURE_DATA_FLAVOR, REFNUM_TYPE, TD_FULL_TYPE
 from lvkit.type_string import ENUM_CODES, NUMBER_CODES, VARIABLE_SIZE
 
 _READER_TEMPLATE = '''
@@ -28,6 +28,7 @@ _STRING_CODE = $STRING
 _ARRAY_CODE = $ARRAY
 _CLUSTER_CODE = $CLUSTER
 _REFNUM_CODE = $REFNUM
+_CLASS_REFNUM_KIND = $CLASS_REFNUM
 _MEASURE_CODE = $MEASURE
 _TIMESTAMP_FLAVOR = $TIMESTAMP_FLAVOR
 _VARIABLE_SIZE = $VARIABLE_SIZE
@@ -263,6 +264,7 @@ def type_reader_source(scalar_constants: dict[int, str]) -> str:
         "ARRAY": repr(TD_FULL_TYPE.Array.value),
         "CLUSTER": repr(TD_FULL_TYPE.Cluster.value),
         "REFNUM": repr(TD_FULL_TYPE.Refnum.value),
+        "CLASS_REFNUM": repr(REFNUM_TYPE.UDClassInst.value),
         "MEASURE": repr(TD_FULL_TYPE.MeasureData.value),
         "TIMESTAMP_FLAVOR": repr(MEASURE_DATA_FLAVOR.TimeStamp.value),
         "VARIABLE_SIZE": repr(VARIABLE_SIZE),

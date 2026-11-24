@@ -12,8 +12,10 @@ extended-precision number) are written into the module from ``flat_tables``, the
 module ``flat.py`` reads them from, so the two cannot differ; the type is read
 with ``read_type`` (``type_reader.py``). A time stamp is read by the function
 ``flat_timestamp_source`` holds, the one ``flat.py`` writes for a type known when
-generating. A type this does not read (a refnum, a waveform, a path, a class: no
-type string lvkit writes records them) raises ``NotImplementedError`` naming it.
+generating. An object of a class is read by ``unflatten_class`` of the package's
+``lv_classes`` module (``classes_module.py``). A type this does not read (another
+refnum, a waveform, a path: no type string lvkit writes records them) raises
+``NotImplementedError`` naming it.
 A cluster is read as a tuple.
 """
 
@@ -154,6 +156,17 @@ def _unflatten_value(
             value, pos = _unflatten_value(data, pos, member, order, True)
             values.append(value)
         return tuple(values), pos
+    if info.kind == "refnum" and info.refnum == _CLASS_REFNUM_KIND:
+        # An object of a class is read into the class its data names (the
+        # package's ``lv_classes`` module), written big-endian.
+        if order != ">":
+            raise NotImplementedError(
+                "flattened data of a class object is read big-endian only, not "
+                f"{order!r}"
+            )
+        return importlib.import_module(".lv_classes", __package__).unflatten_class(
+            data, pos
+        )
     raise _unreadable(lv_type)
 
 
