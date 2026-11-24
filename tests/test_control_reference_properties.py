@@ -1,5 +1,5 @@
 """Properties of a control read and written on a control REFERENCE through the panel
-(``reference_properties`` of ``control_properties.json``): a read gives the last
+(``on_reference`` of its entry in ``control_properties.json``): a read gives the last
 write, else the state the file saves, else the default the row lists; a property
 whose saved value the conversion does not decode raises on a read before a write;
 a write is held by the panel and told to its views. Each case is a handmade diagram
@@ -199,4 +199,79 @@ def test_the_value_of_a_picture_reference_is_the_controls_own_value(
 def test_a_property_with_no_nis_page_stays_a_gap(tmp_path: Path) -> None:
     gaps: list[Gap] = []
     generate(tmp_path, "Clust", CLUSTER_COLOR, INT, gaps)
+    assert gaps
+
+
+TREE_HSCROLL_VISIBLE = (1969896449,)
+LISTBOX_VSCROLL_VISIBLE = (416911367,)
+RING_STRINGS = (104056839,)
+
+
+@pytest.mark.parametrize("class_name", ["Ring (strict)", "Scroll", "Digital", "Clust"])
+def test_a_property_of_control_is_found_on_every_class_below_it(
+    tmp_path: Path, class_name: str
+) -> None:
+    gaps: list[Gap] = []
+    package = generate(tmp_path, class_name, DISABLED, INT, gaps)
+    assert gaps == []
+    with package.use() as module:
+        refs = controls(module)
+        assert module("reader").reader(ctl=refs["greyed"]).value == 2
+        assert module("writer").writer(ctl=refs["greyed"], new=1).error_out is None
+        assert module("reader").reader(ctl=refs["greyed"]).value == 1
+
+
+def test_visible_is_found_on_a_scroll_bar_reference(tmp_path: Path) -> None:
+    gaps: list[Gap] = []
+    package = generate(tmp_path, "Scroll", VISIBLE, BOOL, gaps)
+    assert gaps == []
+    with package.use() as module:
+        refs = controls(module)
+        assert module("reader").reader(ctl=refs["hidden"]).value is False
+
+
+def test_a_property_of_a_class_above_is_found_on_the_class_below(
+    tmp_path: Path,
+) -> None:
+    """A Combo Box is a String: Text.Selection (Start) is listed on String."""
+    gaps: list[Gap] = []
+    package = generate(tmp_path, "CmbBox", SELECTION_START, INT, gaps)
+    assert gaps == []
+    with package.use() as module:
+        refs = controls(module)
+        assert module("reader").reader(ctl=refs["plain"]).value == 0
+        module("writer").writer(ctl=refs["plain"], new=3)
+        assert module("reader").reader(ctl=refs["plain"]).value == 3
+
+
+def test_a_multicolumn_listbox_reads_its_own_vertical_scrollbar_flag(
+    tmp_path: Path,
+) -> None:
+    gaps: list[Gap] = []
+    package = generate(
+        tmp_path, "MCListbox (strict)", LISTBOX_VSCROLL_VISIBLE, BOOL, gaps
+    )
+    assert gaps == []
+    with package.use() as module:
+        refs = controls(module)
+        with pytest.raises(NotImplementedError, match="vscroll_visible.*'plain'"):
+            module("reader").reader(ctl=refs["plain"])
+        assert module("writer").writer(ctl=refs["plain"], new=False).error_out is None
+        assert module("reader").reader(ctl=refs["plain"]).value is False
+
+
+@pytest.mark.parametrize(
+    ("class_name", "codes", "kind"),
+    [
+        ("Bool", TREE_HSCROLL_VISIBLE, BOOL),
+        ("Str", LISTBOX_VSCROLL_VISIBLE, BOOL),
+        ("Ring (strict)", RING_STRINGS, STRING),
+        ("Decor", VISIBLE, BOOL),
+    ],
+)
+def test_a_property_that_does_not_belong_to_the_class_stays_a_gap(
+    tmp_path: Path, class_name: str, codes: tuple[int, ...], kind: LVType
+) -> None:
+    gaps: list[Gap] = []
+    generate(tmp_path, class_name, codes, kind, gaps)
     assert gaps

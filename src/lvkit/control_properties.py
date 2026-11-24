@@ -6,8 +6,11 @@ the stored name, which is the author's choice of short or long. A built-in
 control class shares one code per property across the classes that inherit it; a
 class can define its own code under a common name (a Combo Box's ``Value``), so
 ``control_properties.json`` lists inherited codes and per-class codes, and a class
-entry wins over an inherited one. A property is listed only when NI's public
-documentation says what it does.
+entry wins over an inherited one. A property is listed once, on the class NI
+documents it on, and a class finds it there through its ancestors in NI's class
+hierarchy (``class_parents``), a strict and a non-strict reference of a class being
+one class. A property is listed only when NI's public documentation says what it
+does.
 
 A Property Node on a wired control reference (no binding) reads a few properties
 that are the reference's own: its ``Value``, its ``Indicator`` flag, its
@@ -30,6 +33,8 @@ from typing import Any
 from ._data import data_dir
 
 _PATH = data_dir() / "control_properties.json"
+_CONTROL = "Control"
+_STRICT_SUFFIX = " (strict)"
 
 
 @dataclass(frozen=True)
@@ -45,7 +50,8 @@ class ControlProperty:
     staying a cluster); ``cluster`` (the cluster the wire carries).
     ``settable_while_running`` is NI's "Settable when the VI is running": False
     for a property the file saves and a running VI only reads (an Enum's
-    ``Strings[]``)."""
+    ``Strings[]``). ``on_reference`` is whether a Property Node on a wired control
+    reference reads and writes it through the panel."""
 
     name: str
     member: str
@@ -55,6 +61,7 @@ class ControlProperty:
     has_default: bool = False
     default: Any = None
     saved_not_decoded: bool = False
+    on_reference: bool = False
 
 
 class ReferenceRow(Enum):
@@ -81,7 +88,7 @@ class _Table:
     inherited_signaling: frozenset[int]
     class_signaling: dict[str, frozenset[int]]
     reference_rows: dict[tuple[int, ...], ReferenceRow]
-    reference_properties: dict[str, frozenset[str]]
+    class_parents: dict[str, str | None]
     saved_defaults: dict[str, dict[str, Any]]
     reinit_to_default: frozenset[int]
 
@@ -97,6 +104,7 @@ def _entries(raw: dict[str, dict[str, Any]]) -> dict[str, ControlProperty]:
             "default" in entry,
             entry.get("default"),
             entry.get("saved_not_decoded", False),
+            entry.get("on_reference", False),
         )
         for code, entry in raw.items()
     }
@@ -124,9 +132,9 @@ def _table() -> _Table:
             for name, entry in raw["reference_rows"].items()
             for path in entry["codes"]
         },
-        reference_properties={
-            name: frozenset(members)
-            for name, members in raw["reference_properties"].items()
+        class_parents={
+            name: parent
+            for name, parent in raw["class_parents"].items()
             if not name.startswith("_")
         },
         saved_defaults={
@@ -183,29 +191,44 @@ def is_reinit_to_default(method_code: int | None) -> bool:
     return method_code in _table().reinit_to_default
 
 
+def _ancestry(class_name: str) -> list[str]:
+    """``class_name`` and the classes above it, nearest first, up to ``Control``
+    (``class_parents``): a class with no parent listed is a class of Control, a
+    strict reference of a class is that class."""
+    parents = _table().class_parents
+    name: str | None = class_name.removesuffix(_STRICT_SUFFIX)
+    chain: list[str] = []
+    while name is not None and name not in chain:
+        chain.append(name)
+        name = parents.get(name, _CONTROL)
+    return chain
+
+
 def control_property(class_name: str, codes: Sequence[int]) -> ControlProperty | None:
     """The listed property that the row with property ``codes`` (one per path
     segment) of a Property Node bound to a control of class ``class_name`` is; None
     for one that is not listed. A listed property is found by its codes joined with
-    ``.`` (a one-segment row by its code), the class's own entry before an
-    inherited one."""
+    ``.`` (a one-segment row by its code), on the class's own entry, else on the
+    entry of each class above it (``class_parents``), else among the ``inherited``
+    properties of Control."""
     table = _table()
     key = ".".join(str(code) for code in codes)
-    return table.classes.get(class_name, {}).get(key) or table.inherited.get(key)
+    for name in _ancestry(class_name):
+        entries = table.inherited if name == _CONTROL else table.classes.get(name, {})
+        if key in entries:
+            return entries[key]
+    return None
 
 
 def reference_property(
     class_name: str, codes: Sequence[int]
 ) -> ControlProperty | None:
     """The listed property that the row with property ``codes`` on a wired control
-    reference of class ``class_name`` is, when the panel reads and writes it for
-    that class (``reference_properties`` of ``control_properties.json``); None for
-    any other row."""
+    reference of class ``class_name`` is, when the panel reads and writes it
+    (``on_reference`` of its entry in ``control_properties.json``); None for any
+    other row."""
     listed = control_property(class_name, codes)
-    if listed is None:
-        return None
-    allowed = _table().reference_properties.get(class_name, frozenset())
-    return listed if listed.member in allowed else None
+    return listed if listed is not None and listed.on_reference else None
 
 
 def is_value_row(class_name: str, codes: Sequence[int]) -> bool:

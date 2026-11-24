@@ -44,11 +44,11 @@ that module, and these rows read them:
   control", read and write, settable while the VI runs) is
   ``as_control(reference).get_property("strings")`` / ``.set_property("strings",
   value)``: the panel holds the property like any other control property
-  (``reference_properties`` of ``control_properties.json``), a read gives the last
+  (``on_reference`` of its entry in ``control_properties.json``), a read gives the last
   write, else the strings the control is saved with, and its views show a write.
 
 - ``Strings[]`` of an Enum reference and ``MechAction`` of a Boolean reference
-  (``reference_properties``, ``settable_while_running`` false: NI "you cannot write
+  (``on_reference``, ``settable_while_running`` false: NI "you cannot write
   this property when the VI is running" for an enumerated type control, "Settable
   when the VI is running: No" for MechAction) are read the same way, from what the
   file saves (``saved`` of the panel); a write is a gap.
@@ -147,7 +147,7 @@ def panel_row(node: PrimitiveNode, prop: PropertyDef) -> PanelRow | None:
 
 def property_row(node: PrimitiveNode, prop: PropertyDef) -> ControlProperty | None:
     """The listed property of the control the Property Node row ``prop`` of ``node``
-    reads or writes through the panel (``reference_properties`` of
+    reads or writes through the panel (``on_reference`` of
     ``control_properties.json``: a Combo Box's Strings[]); None for any other
     row."""
     if is_on_vi_reference(node):

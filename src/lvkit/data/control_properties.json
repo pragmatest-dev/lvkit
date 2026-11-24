@@ -1,24 +1,18 @@
 {
-  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name; a row of several path segments (Scale.Maximum, Caption.Text) by the codes of its segments joined with '.' (a one-segment row's key is its code alone). 'inherited' holds the codes every control class shares; 'classes' holds a class's own codes (a class entry wins over an inherited one with the same code). Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written, as the Python value the generated code passes (bool: bool; enum: the property's integer enum value; number: int or float; string: str; path: pathlib.Path; color: int, LabVIEW's 0x00RRGGBB color; string_array: list of str, a list of lists of str for a two-dimensional array; number_array: list of int or float; array: list of the elements the wire carries, a cluster staying a cluster; cluster: the cluster the wire carries), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. 'value_signaling_codes' lists, by the same rule, the codes of Value (Signaling), which writes the value and generates a Value Change event (NI: write only). A property is listed only when NI's page says what it does. 'reference_rows' lists the rows a Property Node on a wired control reference (a Ctl, Clust, Bool ... reference) reads or writes as the reference's own value, indicator flag or label text, or a cluster's Controls[], or an array's Array Element (NI: 'Reference to the array element', read only): each row's 'codes' are the property paths (one code per segment) the corpus records for it; 'value' adds the generic Value code to 'value_codes' (a strict class's own code, 104013842, is already there). Code 104013825 is the Disabled property as a Property Node saved in LabVIEW 8.2 stores it (an integer, the enum written as its number); the file's own enum constants wired to it list enabled 0, disabled 1, greyed out 2, the values of DisabledEnum (NI forum, \"Possible Issue with help for disable property node\": the 8.2 property is the U8 form of the 9.0 enum, same values), so it shares that entry's page and member.",
-  "reference_properties": {
-    "_comment": "The listed properties (by class entry in 'classes', by member) that a Property Node on a wired reference of that class reads and writes through the panel: a write is held by the panel and shown by its views, a read gives the last write, else the strings the control is saved with. NI's page for Combo Box Strings[] (Read/Write, settable while the VI runs): 'Array of the strings from which you can select in the combo box control.' An entry with \"settable_while_running\": false is a property the file saves and a running VI cannot change (NI's page: Enum Strings[] 'If the string is an enumerated type control, you cannot write this property when the VI is running.'): a read gives the saved value (``Control.get_property``, the panel's ``saved``), a write is a gap.",
-    "CmbBox": ["strings"],
-    "Enum": ["strings"],
-    "Bool": ["mech_action", "disabled"],
-    "Bool (strict)": ["disabled"],
-    "Pict": ["visible", "cursor"],
-    "Str": ["visible", "key_focus", "tip_strip", "justify", "selection_start", "selection"],
-    "Clust": ["visible"],
-    "Ring (strict)": ["visible"],
-    "Path": ["start_path"],
-    "Scroll": ["doc_max"],
-    "Slide": ["fill_color"],
-    "Slide (strict)": ["fill_color"],
-    "Tree": ["hscroll_visible", "vscroll_visible", "cell_width"],
-    "Tree (strict)": ["hscroll_visible", "vscroll_visible", "cell_width"],
-    "MCListbox (strict)": ["item_names", "item_symbols", "active_cell", "edit_position"],
-    "Arr (strict)": ["index_values"],
-    "XYGraph (strict)": ["x_min"]
+  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name; a row of several path segments (Scale.Maximum, Caption.Text) by the codes of its segments joined with '.' (a one-segment row's key is its code alone). 'inherited' holds the codes every Control class shares; 'classes' holds the codes a class declares, once, on the class NI documents the property on (its 'doc_url' shows the class path), and every class below it in 'class_parents' finds it there (a class entry wins over an inherited one with the same code; a strict and a non-strict reference of a class are one class). A Property Node on a wired control reference reads and writes a listed property through the panel only when its entry says \"on_reference\": true. Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written, as the Python value the generated code passes (bool: bool; enum: the property's integer enum value; number: int or float; string: str; path: pathlib.Path; color: int, LabVIEW's 0x00RRGGBB color; string_array: list of str, a list of lists of str for a two-dimensional array; number_array: list of int or float; array: list of the elements the wire carries, a cluster staying a cluster; cluster: the cluster the wire carries), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. 'value_signaling_codes' lists, by the same rule, the codes of Value (Signaling), which writes the value and generates a Value Change event (NI: write only). A property is listed only when NI's page says what it does. 'reference_rows' lists the rows a Property Node on a wired control reference (a Ctl, Clust, Bool ... reference) reads or writes as the reference's own value, indicator flag or label text, or a cluster's Controls[], or an array's Array Element (NI: 'Reference to the array element', read only): each row's 'codes' are the property paths (one code per segment) the corpus records for it; 'value' adds the generic Value code to 'value_codes' (a strict class's own code, 104013842, is already there). Code 104013825 is the Disabled property as a Property Node saved in LabVIEW 8.2 stores it (an integer, the enum written as its number); the file's own enum constants wired to it list enabled 0, disabled 1, greyed out 2, the values of DisabledEnum (NI forum, \"Possible Issue with help for disable property node\": the 8.2 property is the U8 form of the 9.0 enum, same values), so it shares that entry's page and member.",
+  "class_parents": {
+    "_comment": "The VI Server class each class of 'classes' belongs to, from NI's class hierarchy (https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/class-hierarchy.html): a class finds a property on its own entry, then on its parent's, up to Control, whose properties are 'inherited'. A class with no entry here is a class of Control. GObject and Decoration sit above Control, so a Decoration (Decor) has none of Control's properties (Visible is NI's page under gobject/control). NamedNumeric holds Ring's and Enum's shared Strings[]; GraphChart the properties of a Waveform Chart, a Waveform Graph (and its XY Graph) and an Intensity Graph; a Combo Box is a String.",
+    "Control": null,
+    "GObject": null,
+    "Decoration": "GObject",
+    "Decor": "Decoration",
+    "Ring": "NamedNumeric",
+    "Enum": "NamedNumeric",
+    "WFChart": "GraphChart",
+    "WFGraph": "GraphChart",
+    "IntGraph": "GraphChart",
+    "XYGraph": "WFGraph",
+    "CmbBox": "Str"
   },
   "saved_defaults": {
     "_comment": "The value a saved property has on a control of this VI Server class (control_classes.json) when the panel's saved keyword lists none: the generated panel leaves it out. A Boolean's Mechanical Action 0 is Switch When Pressed, what the saved flags of a Boolean in its default state decode to (labview-binary-format.md, 'A Boolean's mechanical action is in its ddo objFlags').",
@@ -77,6 +71,7 @@
     "104013824": {
       "name": "Visible",
       "member": "visible",
+      "on_reference": true,
       "value": "bool",
       "default": true,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/visible.html"
@@ -84,6 +79,7 @@
     "104013826": {
       "name": "Key Focus",
       "member": "key_focus",
+      "on_reference": true,
       "value": "bool",
       "default": false,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/keyfocus.html"
@@ -91,6 +87,7 @@
     "104013885": {
       "name": "Disabled",
       "member": "disabled",
+      "on_reference": true,
       "value": "enum",
       "default": 0,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/disabledenum.html"
@@ -98,6 +95,7 @@
     "104013825": {
       "name": "Disabled",
       "member": "disabled",
+      "on_reference": true,
       "value": "enum",
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/disabledenum.html"
     },
@@ -116,6 +114,7 @@
     "104013844": {
       "name": "Tip Strip",
       "member": "tip_strip",
+      "on_reference": true,
       "value": "string",
       "saved_not_decoded": true,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/tipstrip.html"
@@ -128,7 +127,7 @@
     }
   },
   "classes": {
-    "Arr (strict)": {
+    "Arr": {
       "104041473": {
         "name": "Number of Columns",
         "member": "number_of_columns",
@@ -144,12 +143,13 @@
       "104041476": {
         "name": "Index Values",
         "member": "index_values",
+        "on_reference": true,
         "value": "number_array",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/array/indexvalues.html"
       }
     },
-    "IntGraph (strict)": {
+    "GraphChart": {
       "104078363": {
         "name": "Frame Color",
         "member": "frame_color",
@@ -157,18 +157,11 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/graphchart/framecolor.html"
       }
     },
-    "Pict": {
-      "104044553": {
-        "name": "Zoom Factor",
-        "member": "zoom_factor",
-        "value": "number",
-        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/picture/zoomfactor.html"
-      }
-    },
     "Path": {
       "104032266": {
         "name": "Browse Options:Start Path",
         "member": "start_path",
+        "on_reference": true,
         "value": "path",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/path/browsedlgstartpath.html"
       },
@@ -191,10 +184,11 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/path/browsedlgprompt.html"
       }
     },
-    "Tree (strict)": {
+    "Tree": {
       "1969896449": {
         "name": "Visible Items:Horizontal Scrollbar Visible",
         "member": "hscroll_visible",
+        "on_reference": true,
         "value": "bool",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/horizscrollvis.html"
@@ -202,6 +196,7 @@
       "1969896450": {
         "name": "Visible Items:Vertical Scrollbar Visible",
         "member": "vscroll_visible",
+        "on_reference": true,
         "value": "bool",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/vertscrollvis.html"
@@ -209,6 +204,7 @@
       "1969896472": {
         "name": "Active Cell:Cell Size:Width",
         "member": "cell_width",
+        "on_reference": true,
         "value": "number",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/width.html"
@@ -238,7 +234,7 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/editposition.html"
       }
     },
-    "LstBox (strict)": {
+    "LstBox": {
       "104035337": {
         "name": "Item Names",
         "member": "item_names",
@@ -246,7 +242,7 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/listbox/itemnames.html"
       }
     },
-    "MCListbox (strict)": {
+    "MCListbox": {
       "416911380": {
         "name": "Selection Color",
         "member": "selection_color",
@@ -256,13 +252,23 @@
       "416911360": {
         "name": "Item Names",
         "member": "item_names",
+        "on_reference": true,
         "value": "string_array",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/itmnames.html"
       },
+      "416911367": {
+        "name": "Visible Items:Vertical Scrollbar Visible",
+        "member": "vscroll_visible",
+        "on_reference": true,
+        "value": "bool",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/vertscrollvis.html"
+      },
       "416911361": {
         "name": "Item Symbols",
         "member": "item_symbols",
+        "on_reference": true,
         "value": "number_array",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/itemsymbols.html"
@@ -270,6 +276,7 @@
       "416911374": {
         "name": "Active Cell:Active Cell",
         "member": "active_cell",
+        "on_reference": true,
         "value": "cluster",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/activecell.html"
@@ -277,38 +284,17 @@
       "416911420": {
         "name": "Edit Position",
         "member": "edit_position",
+        "on_reference": true,
         "value": "cluster",
         "default": [-2, -2],
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/editposition.html"
-      }
-    },
-    "Tree": {
-      "1969896449": {
-        "name": "Visible Items:Horizontal Scrollbar Visible",
-        "member": "hscroll_visible",
-        "value": "bool",
-        "saved_not_decoded": true,
-        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/horizscrollvis.html"
-      },
-      "1969896450": {
-        "name": "Visible Items:Vertical Scrollbar Visible",
-        "member": "vscroll_visible",
-        "value": "bool",
-        "saved_not_decoded": true,
-        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/vertscrollvis.html"
-      },
-      "1969896472": {
-        "name": "Active Cell:Cell Size:Width",
-        "member": "cell_width",
-        "value": "number",
-        "saved_not_decoded": true,
-        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/width.html"
       }
     },
     "Str": {
       "104093700.103995413": {
         "name": "Text:Justification",
         "member": "justify",
+        "on_reference": true,
         "value": "enum",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/justification.html"
@@ -316,6 +302,7 @@
       "104093700.103995395": {
         "name": "Text:Selection:Start",
         "member": "selection_start",
+        "on_reference": true,
         "value": "number",
         "default": 0,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/selstart.html"
@@ -323,15 +310,23 @@
       "104093700.103995394": {
         "name": "Text:Selection",
         "member": "selection",
+        "on_reference": true,
         "value": "cluster",
         "default": [0, 0],
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/selection.html"
       }
     },
     "Pict": {
+      "104044553": {
+        "name": "Zoom Factor",
+        "member": "zoom_factor",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/picture/zoomfactor.html"
+      },
       "104044549": {
         "name": "Cursor",
         "member": "cursor",
+        "on_reference": true,
         "value": "number",
         "default": 0,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/picture/cursor.html"
@@ -341,30 +336,23 @@
       "1727315969": {
         "name": "Doc Max",
         "member": "doc_max",
+        "on_reference": true,
         "value": "number",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/scrollbar/docmax.html"
       }
     },
-    "Slide": {
-      "104072194": {
-        "name": "Fill Color",
-        "member": "fill_color",
-        "value": "color",
-        "saved_not_decoded": true,
-        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/numericwithscale/slide/fillcolor.html"
-      }
-    },
-    "XYGraph (strict)": {
+    "XYGraph": {
       "104078347.104001541": {
         "name": "XScale:Range:Minimum",
         "member": "x_min",
+        "on_reference": true,
         "value": "number",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmin.html"
       }
     },
-    "Knob (strict)": {
+    "Knob": {
       "104075264.104001542": {
         "name": "Scale:Range:Maximum",
         "member": "scale_maximum",
@@ -378,10 +366,11 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmin.html"
       }
     },
-    "Slide (strict)": {
+    "Slide": {
       "104072194": {
         "name": "Fill Color",
         "member": "fill_color",
+        "on_reference": true,
         "value": "color",
         "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/numericwithscale/slide/fillcolor.html"
@@ -403,6 +392,7 @@
       "104099843": {
         "name": "Strings []",
         "member": "strings",
+        "on_reference": true,
         "value": "string_array",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/string/combobox/strings.html"
       }
@@ -411,6 +401,7 @@
       "104019976": {
         "name": "Mechanical Action",
         "member": "mech_action",
+        "on_reference": true,
         "value": "enum",
         "settable_while_running": false,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/boolean/mechanicalaction.html"
@@ -420,18 +411,21 @@
       "104056839": {
         "name": "Strings []",
         "member": "strings",
+        "on_reference": true,
         "value": "string_array",
         "settable_while_running": false,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/namednumeric/strings.html"
       }
     },
-    "Ring (strict)": {
+    "NamedNumeric": {
       "104056839": {
         "name": "Strings []",
         "member": "strings",
         "value": "string_array",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/namednumeric/strings.html"
-      },
+      }
+    },
+    "Ring": {
       "104062981": {
         "name": "Strings And Values []",
         "member": "strings_and_values",
@@ -439,7 +433,7 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/namednumeric/ring/strsandvals.html"
       }
     },
-    "WFGraph (strict)": {
+    "WFGraph": {
       "104084510": {
         "name": "Legend:Number of Rows",
         "member": "legend_number_of_rows",
@@ -459,7 +453,7 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/plot/name.html"
       }
     },
-    "WFChart (strict)": {
+    "WFChart": {
       "104081416": {
         "name": "History Data",
         "member": "history_data",

@@ -1,5 +1,5 @@
 """``Strings[]`` of a Combo Box reference (``codegen/nodes/panel_reference.py``,
-``reference_properties`` of ``control_properties.json``): a read gives the last
+``on_reference`` of its entry in ``control_properties.json``): a read gives the last
 write, else the strings the control is saved with; a write is held by the panel and
 told to its views. Each case is a handmade diagram whose generated package is
 imported and run."""
