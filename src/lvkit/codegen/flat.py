@@ -283,8 +283,10 @@ class RefnumInteger(Layout):
     writes for a refnum. A reference whose Python value is an integer (a handle
     the program got as an integer, e.g. from a DLL) converts as that integer both
     ways; Not a Refnum (``None``) is 0 and the integer 0 is Not a Refnum. Any
-    other object (a function, a queue, a file object) has no integer value and
-    raises where it runs, its message composed at run time."""
+    other object (a function, a queue, a file object) is written as its identity
+    number, ``id(reference)`` kept to 32 bits (1 when that is 0, which would mean
+    Not a Refnum), as LabVIEW writes a reference's 32-bit number. Reading an
+    integer back gives the integer, not the object."""
 
     kind: str = "refnum"
     code: str = "I"
@@ -302,15 +304,11 @@ class RefnumInteger(Layout):
         def source(name: str) -> str:
             return (
                 f"def {name}(reference):\n"
-                f"    kind = {self.kind!r}\n"
                 "    if reference is None:\n"
                 "        return 0\n"
                 "    if isinstance(reference, int):\n"
                 "        return reference\n"
-                "    raise NotImplementedError(\n"
-                '        f"Flatten of a {kind}: only Not a Refnum or an integer "\n'
-                '        f"handle has an integer value; a live reference has none"\n'
-                "    )\n"
+                "    return (id(reference) & 0xFFFFFFFF) or 1\n"
             )
 
         return fns.named("refnum_to_integer", self.kind, (self.kind,), source)
