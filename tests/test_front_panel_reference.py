@@ -51,6 +51,24 @@ ENTRY = LVType(
     ],
 )
 ENTRIES = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=ENTRY)
+TYPE_DESC = LVType(
+    kind=LVTypeKind.ARRAY,
+    underlying_type="Array",
+    element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16"),
+    dimensions=1,
+)
+FLAT_ENTRY = LVType(
+    kind=LVTypeKind.CLUSTER,
+    underlying_type="Cluster",
+    fields=[
+        ClusterField(name="name", type=STRING),
+        ClusterField(name="type desc", type=TYPE_DESC),
+        ClusterField(name="flat data", type=STRING),
+    ],
+)
+FLAT_ENTRIES = LVType(
+    kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=FLAT_ENTRY
+)
 ERROR = LVType(
     kind=LVTypeKind.CLUSTER,
     typedef_name="error",
@@ -62,6 +80,7 @@ ERROR = LVType(
 )
 
 SET, GET, GET_ALL, RUN = 1051, 1052, 1053, 1003
+SET_DEPRECATED, GET_ALL_DEPRECATED = 1009, 1020
 
 
 def callee(vi: str) -> tuple[VIContext, list[GraphNode]]:
@@ -91,16 +110,25 @@ def callee(vi: str) -> tuple[VIContext, list[GraphNode]]:
 
 def invoke(vi: str, tag: str, method: str, code: int) -> PrimitiveNode:
     """An Invoke Node on the VI class: reference in 0 and out 1, error in 2 and
-    out 3, a result at 5, parameters at 6 and 8."""
+    out 3, a result at 5, parameters at 6 and 8 (the deprecated Set: the type
+    descriptor at 8 and the flattened data at 10)."""
+    result = {GET_ALL: ENTRIES, GET_ALL_DEPRECATED: FLAT_ENTRIES}.get(code, VARIANT)
     terminals = [
         ("ref", 0, "input", VI_REF),
         ("ref_out", 1, "output", VI_REF),
         ("err_in", 2, "input", ERROR),
         ("err_out", 3, "output", ERROR),
-        ("result", 5, "output", ENTRIES if code == GET_ALL else VARIANT),
-        ("param", 6, "input", BOOL if code in (GET_ALL, RUN) else STRING),
-        ("value", 8, "input", VARIANT),
+        ("result", 5, "output", result),
+        (
+            "param",
+            6,
+            "input",
+            BOOL if code in (GET_ALL, GET_ALL_DEPRECATED, RUN) else STRING,
+        ),
+        ("value", 8, "input", TYPE_DESC if code == SET_DEPRECATED else VARIANT),
     ]
+    if code == SET_DEPRECATED:
+        terminals.append(("flat", 10, "input", STRING))
     return PrimitiveNode(
         id=f"{vi}:{tag}",
         vi_path=vi,
@@ -155,6 +183,7 @@ class Diagram:
         value: tuple[str, LVType] | None = None,
         wait: str | None = None,
         empty: bool = False,
+        flat: tuple[str, str] | None = None,
     ) -> None:
         """An Invoke Node of ``method``; ``name`` wires a String constant to its
         first parameter, ``value`` a constant (``empty``: the empty Variant
@@ -175,6 +204,13 @@ class Diagram:
         if wait is not None:
             self.nodes.append(constant(self.vi, f"{tag}_wait", wait, BOOL))
             self.wire(f"{tag}_wait", f"{tag}.param")
+        if flat is not None:
+            # The deprecated Set's type descriptor (text of the numbers) and data.
+            descriptor, data = flat
+            self.nodes.append(constant(self.vi, f"{tag}_desc", descriptor, TYPE_DESC))
+            self.wire(f"{tag}_desc", f"{tag}.value")
+            self.nodes.append(constant(self.vi, f"{tag}_data", data, STRING))
+            self.wire(f"{tag}_data", f"{tag}.flat")
 
 
 def chained(target_key: str, steps: list[tuple], reads: str | None) -> Recipe:
@@ -202,7 +238,7 @@ def chained(target_key: str, steps: list[tuple], reads: str | None) -> Recipe:
                     vi,
                     "output",
                     "out",
-                    ENTRIES if reads == "entries" else VARIANT,
+                    {"entries": ENTRIES, "flat": FLAT_ENTRIES}.get(reads, VARIANT),
                     "out",
                     0,
                 )
@@ -669,18 +705,6 @@ def test_a_subvi_call_stays_a_direct_call_and_leaves_the_panel_alone(
     with package.use() as module:
         assert module("runner").runner().out == 1
         assert module("target").target.panel.get("y") is None
-
-
-def test_a_deprecated_ctrl_val_method_is_a_gap_naming_why(tmp_path: Path) -> None:
-    """The deprecated forms move the value as flattened bytes and a type string."""
-    steps = [step("Ctrl Val.Set (Deprecated)", 1009, name="x")]
-    gaps: list[Gap] = []
-    project_with(tmp_path, steps, None).generate(gaps)
-    assert [g.reason for g in gaps] == [
-        "Invoke Node method 'Ctrl Val.Set (Deprecated)' on a VI reference moves the "
-        "value as flattened bytes and a type string, which the generated code has "
-        "no LabVIEW type to read or write"
-    ]
 
 
 def required_and_optional(vi: str) -> tuple[VIContext, list[GraphNode]]:

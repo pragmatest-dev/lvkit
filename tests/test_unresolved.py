@@ -186,10 +186,9 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
     future change resolves one of these primitives/vi.lib VIs (or a regression
     stops detecting one), this count shifts and the test fails -- the signal to
     update both the pin and the eval bank. Ground truth as of this branch:
-    11 distinct gaps = 3 unsupported nodes (the type string of a Flatten To String
-    of a refnum, which has no type descriptor; and two Invoke Node methods that
-    move a value as flattened bytes and a type string: Ctrl Val.Set (Deprecated)
-    and Ctrl Val.Get All (Deprecated)) + 8 VIs that were not found. The Flattened
+    8 distinct gaps = 8 VIs that were not found. The type string of a Flatten To
+    String of a class and the deprecated Ctrl Val.Set and Get All (flattened data and
+    a type string, ``codegen/nodes/ctrl_val.py``) generate code. The Flattened
     String To Variant whose type string is known only when the code runs is no
     gap: the package's ``variants`` module reads the type string and the bytes
     (``codegen/flat_reader.py``). OpenG Get TDEnum from Data of a variant is no gap: a
@@ -211,14 +210,11 @@ def test_q33_unresolved_gap_counts_on_testcase_class() -> None:
         _TESTCASE_CLASS,
     )
     counts = Counter(it.kind for it in items)
-    assert len(items) == 11, f"expected 11 distinct gaps, got {len(items)}: {counts}"
+    assert len(items) == 8, f"expected 8 distinct gaps, got {len(items)}: {counts}"
     assert counts["placeholder_primitive"] == 0
     assert counts["terminal_mapping"] == 0
     assert counts["unknown_primitive"] == 0
-    # The type string of a Flatten To String of a refnum
-    # (ops/flatten_to_string.py); two deprecated Ctrl Val methods
-    # (codegen/nodes/invoke_node.py).
-    assert counts["unsupported_node"] == 3
+    assert counts["unsupported_node"] == 0
     assert counts["unsupported_vi"] == 0
     assert counts["missing_vi"] == 8
 

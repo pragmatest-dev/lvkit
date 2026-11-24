@@ -179,7 +179,12 @@ from typing import Any, NoReturn
 
 from .errors import LabVIEWError
 from .live_io import LiveIO
-from .variants import LVType, Variant
+from .variants import (
+    LVType,
+    Variant,
+    variant_from_flattened,
+    variant_to_flattened,
+)
 
 ABORT_POLL = 0.1
 
@@ -702,6 +707,33 @@ class PanelValues:
                 for name in self._order
                 if names.get(name)
             ]
+
+    def set_flattened(self, label: str, type_string: Any, data: str) -> None:
+        """Set the control or indicator labelled ``label`` to the value ``data``
+        holds flattened as the type ``type_string`` describes, as Ctrl Val.Set
+        (Deprecated) does: ``set_variant`` of the variant they make."""
+        self.set_variant(label, variant_from_flattened(data, type_string))
+
+    def get_all_flattened(
+        self, controls: bool = False
+    ) -> list[tuple[str, list[int], str]]:
+        """``get_all_variants`` as Ctrl Val.Get All (Deprecated) gives it: each
+        value as ``(label, type descriptor, flattened data)``, the descriptor the
+        type string of the type the panel records for the control (a control that
+        records none, or a type with no flattened form, raises
+        ``NotImplementedError`` naming the control)."""
+        flattened = []
+        for label, variant in self.get_all_variants(controls):
+            try:
+                descriptor, data = variant_to_flattened(
+                    Variant(variant.value, variant.type)
+                )
+            except NotImplementedError as error:
+                raise NotImplementedError(
+                    f"Ctrl Val.Get All (Deprecated): the control {label!r}: {error}"
+                ) from error
+            flattened.append((label, descriptor, data))
+        return flattened
 
     @property
     def controls(self) -> list[Control]:
