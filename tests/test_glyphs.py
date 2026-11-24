@@ -10,7 +10,6 @@ pattern as ``test_render.py`` — the repo's sample VIs are local-only.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 
@@ -39,9 +38,9 @@ from lvkit.render.nodes import (
 from lvkit.render.scene import build_scene
 from lvkit.render.style import DEFAULT_THEME
 from lvkit.vilib_resolver import VIEntry
-from tests.helpers import vi_key
+from tests.helpers import RENDER_SAMPLE_VI, vi_key
 
-GROUND_TRUTH_VI = Path(".tmp/array average 1.vi")
+GROUND_TRUTH_VI = RENDER_SAMPLE_VI
 
 
 def _ctx() -> GlyphContext:

@@ -102,6 +102,14 @@ def progressive_closure(entry: Path, root: Path, proj: Path) -> set[Path]:
     return {(root / rel).resolve() for rel in staged if rel != rel_entry}
 
 
+# A small sample-corpus VI (a For Loop with shift registers and tunnels, Add and
+# Divide primitives, a constant 0.0, a case structure) that the render tests use as
+# their real-VI subject. The tests skip when the corpus is absent.
+RENDER_SAMPLE_VI = Path(
+    ".lvkit/cache/samples/ni-labview-icon-editor/vi.lib/LabVIEW Icon API/"
+    "lv_icon/Support/Average Grayscale of Line.vi"
+)
+
 _RENDER_ID_RE = re.compile(r"lv-[a-z0-9-]*-vi", re.IGNORECASE)
 
 
