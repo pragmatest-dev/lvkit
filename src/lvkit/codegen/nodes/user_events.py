@@ -4,10 +4,12 @@ Covers Create User Event (2073), Generate User Event (2074), Destroy User Event
 (2075) and Unregister For Events (2076). Register For Events is the node of
 ``event_register.py``.
 
-A user event is a ``list`` of the queues of the registrations that hold it, and a
-registration is the list ``[queue, rows, registered]`` (``event_register.py``)::
+A user event is a ``UserEvent`` (``user_events_module``: a ``list`` whose deep copy
+is itself, as LabVIEW copies a refnum) of the queues of the registrations that hold
+it, and a registration is the list ``[queue, rows, registered]``
+(``event_register.py``)::
 
-    stop = []                                    # Create User Event
+    stop = UserEvent()                           # Create User Event
     for queue in stop:                           # Generate User Event
         queue.put((stop, True, 'User Event', None))
     if registration is not None:                 # Unregister For Events
@@ -43,6 +45,7 @@ from ..context import CodeGenContext
 from ..event_kinds import QUEUE_IMPORT, USER_EVENT_NAME
 from ..fragment import CodeFragment
 from ..type_default import type_default
+from ..user_events_module import USER_EVENT_CLASS
 from ..value_copy import is_by_value_object
 
 NORMAL_PRIORITY = 1
@@ -110,8 +113,12 @@ def _create(
     if out is None:
         return CodeFragment.empty()
     variable = ctx.make_output_var("user_event", node.id, terminal_id=out.id)
+    ctx.import_user_event()
+    made = ast.Call(
+        func=ast.Name(id=USER_EVENT_CLASS, ctx=ast.Load()), args=[], keywords=[]
+    )
     return CodeFragment(
-        statements=[build_assign(variable, ast.List(elts=[], ctx=ast.Load()))],
+        statements=[build_assign(variable, made)],
         bindings={out.id: variable},
     )
 

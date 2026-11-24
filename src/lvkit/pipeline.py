@@ -79,6 +79,11 @@ from lvkit.codegen.scan_module import (
 )
 from lvkit.codegen.type_constants import share_type_constants
 from lvkit.codegen.type_module import build_type_module
+from lvkit.codegen.user_events_module import (
+    USER_EVENT_CLASS,
+    USER_EVENTS_MODULE_NAME,
+    USER_EVENTS_MODULE_SOURCE,
+)
 from lvkit.codegen.variants_module import (
     VARIANTS_MODULE_NAME,
     VARIANTS_MODULE_SOURCE,
@@ -499,6 +504,17 @@ def _write_notifiers_module(package_root: Path) -> None:
         f"{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}",
         NOTIFIERS_MODULE_NAME,
         NOTIFIERS_MODULE_SOURCE,
+    )
+
+
+def _write_user_events_module(package_root: Path) -> None:
+    """Write ``user_events.py`` at the package root when a generated module imports
+    ``UserEvent`` from it."""
+    _write_support_module(
+        package_root,
+        f"{USER_EVENTS_MODULE_NAME} import {USER_EVENT_CLASS}",
+        USER_EVENTS_MODULE_NAME,
+        USER_EVENTS_MODULE_SOURCE,
     )
 
 
@@ -1050,6 +1066,7 @@ def generate_python(
             VARIANTS_MODULE_NAME,
             CLASSES_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
+            USER_EVENTS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
             GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
@@ -1067,6 +1084,7 @@ def generate_python(
             VARIANTS_MODULE_NAME,
             CLASSES_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
+            USER_EVENTS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
             GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
@@ -1351,6 +1369,7 @@ def generate_python(
     # What every written module needs, whether the run ended or stopped: the
     # errors module, the shared modules and the files copied beside its VIs.
     _write_notifiers_module(output_dir_resolved)
+    _write_user_events_module(output_dir_resolved)
     _write_grpc_server_module(output_dir_resolved)
     _write_panels_module(output_dir_resolved)
     _write_errors_module(output_dir_resolved)

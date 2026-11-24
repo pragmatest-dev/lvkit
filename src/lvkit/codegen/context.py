@@ -79,6 +79,7 @@ from .panel_hooks import PanelHooks
 from .panels_module import PANELS_MODULE_NAME
 from .references import REFERENCE_KINDS, generated_nodes
 from .scan_module import scan_import
+from .user_events_module import USER_EVENT_CLASS, USER_EVENTS_MODULE_NAME
 from .variant_values import wrap_if_coerced
 from .variants_module import VARIANT_NAME, variants_import
 
@@ -733,6 +734,15 @@ class CodeGenContext:
             statement = self.import_resolver.notifier_import()
         self.add_import(
             statement or f"from .{NOTIFIERS_MODULE_NAME} import {NOTIFIER_NAME}"
+        )
+
+    def import_user_event(self) -> None:
+        """Import ``UserEvent`` from the package's ``user_events`` module."""
+        statement = None
+        if isinstance(self.import_resolver, ImportResolver):
+            statement = self.import_resolver.user_event_import()
+        self.add_import(
+            statement or f"from .{USER_EVENTS_MODULE_NAME} import {USER_EVENT_CLASS}"
         )
 
     def import_scan(self) -> None:

@@ -47,6 +47,10 @@ from lvkit.codegen.notifiers_module import (
 from lvkit.codegen.panels_module import PANELS_MODULE_NAME, PANELS_MODULE_SOURCE
 from lvkit.codegen.queue_module import QUEUES_MODULE, PackageQueues
 from lvkit.codegen.scan_module import SCAN_MODULE_NAME, SCAN_MODULE_SOURCE
+from lvkit.codegen.user_events_module import (
+    USER_EVENTS_MODULE_NAME,
+    USER_EVENTS_MODULE_SOURCE,
+)
 from lvkit.codegen.variants_module import VARIANTS_MODULE_NAME, VARIANTS_MODULE_SOURCE
 from lvkit.graph.package_queries import ObtainQueueUse
 
@@ -114,6 +118,7 @@ MODULES = {
     LIVE_IO_MODULE_NAME: LIVE_IO_MODULE_SOURCE,
     PANELS_MODULE_NAME: PANELS_MODULE_SOURCE,
     SCAN_MODULE_NAME: SCAN_MODULE_SOURCE,
+    USER_EVENTS_MODULE_NAME: USER_EVENTS_MODULE_SOURCE,
     INI_MODULE_NAME: INI_MODULE_SOURCE,
     LOCAL_TIME_MODULE_NAME: LOCAL_TIME_MODULE_SOURCE,
     NOTIFIERS_MODULE_NAME: NOTIFIERS_MODULE_SOURCE,

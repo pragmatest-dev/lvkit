@@ -30,6 +30,7 @@ from lvkit.codegen.local_time_module import LOCAL_TIME_MODULE_SOURCE
 from lvkit.codegen.notifiers_module import NOTIFIERS_MODULE_SOURCE
 from lvkit.codegen.panels_module import PANELS_MODULE_SOURCE
 from lvkit.codegen.scan_module import SCAN_MODULE_SOURCE
+from lvkit.codegen.user_events_module import USER_EVENTS_MODULE_SOURCE
 from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 
 SOURCES = {
@@ -42,6 +43,7 @@ SOURCES = {
     "notifiers": NOTIFIERS_MODULE_SOURCE,
     "panels": PANELS_MODULE_SOURCE,
     "scan": SCAN_MODULE_SOURCE,
+    "user_events": USER_EVENTS_MODULE_SOURCE,
     "variants": VARIANTS_MODULE_SOURCE,
     "labview_format (copied helpers)": inspect.getsource(labview_format),
     "labview_scan (copied helpers)": inspect.getsource(labview_scan),
