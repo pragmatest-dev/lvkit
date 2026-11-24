@@ -154,16 +154,17 @@ def report_panel_error(
     statements: list[ast.stmt],
     bindings: dict[str, str],
     after: list[ast.stmt] | None = None,
+    catches: str = PANEL_ERROR_NAME,
 ) -> CodeFragment:
-    """``statements``, which may fail with the front panel's own error, run in a
-    ``try``: that error is the node's own error (``CodeFragment.own_error``) and
-    the outputs the statements assign take their defaults. ``after`` runs only
-    when they did not fail."""
+    """``statements``, which may fail with the front panel's own error (or the
+    class ``catches`` names), run in a ``try``: that error is the node's own error
+    (``CodeFragment.own_error``) and the outputs the statements assign take their
+    defaults. ``after`` runs only when they did not fail."""
     own_error = ctx.make_output_var("own_error", node.id)
     exception = ctx.make_output_var("exception", node.id)
     defaults = output_defaults(node, ctx, bindings, assigned_names(statements), None)
     handler = ast.ExceptHandler(
-        type=ast.Name(id=PANEL_ERROR_NAME, ctx=ast.Load()),
+        type=ast.Name(id=catches, ctx=ast.Load()),
         name=exception,
         body=[*defaults, build_assign(own_error, parse_expr(exception))],
     )

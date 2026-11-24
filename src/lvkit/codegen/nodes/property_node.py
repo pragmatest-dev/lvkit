@@ -12,7 +12,7 @@ from lvkit.control_properties import (
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
-from lvkit.graph.vi_reference import is_on_vi_reference
+from lvkit.graph.vi_reference import VI_CLASS, is_on_vi_reference
 from lvkit.models import FPTerminal, PropertyDef, Terminal
 
 from ..ast_utils import build_assign, parse_expr, to_var_name
@@ -26,8 +26,10 @@ from ..control_property_state import (
 )
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
+from ..errors_module import LABVIEW_ERROR_NAME
 from ..fragment import CodeFragment
 from ..panel_hooks import get_property_stmt, property_stmt
+from ..panels_module import PANEL_ERROR_NAME
 from ..variant_values import is_variant_type
 from . import (
     class_property_node,
@@ -359,6 +361,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     bindings: dict[str, str] = {}
     attr_names: dict[str, str] = {}
     panel_read = False
+    file_error = False
     for prop, term in correlate_property_terminals(
         properties, node.terminals, value_ids
     ):
@@ -391,6 +394,17 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             )
             imports.update(value_expr.imports)
             bindings[term.id] = var_name
+            own_row = (
+                vi_file_properties.file_property(prop)
+                if default_class == VI_CLASS
+                else None
+            )
+            if own_row is not None:
+                guard = vi_file_properties.read_guard(
+                    own_row, var_name, ctx.this_vi_expression(), ctx
+                )
+                statements.extend(guard)
+                file_error = file_error or vi_file_properties.reports_error(own_row)
         elif term.direction == "output":
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
@@ -418,6 +432,15 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     value=reflected,
                 )
             )
+            read_row = (
+                vi_file_properties.file_property(prop)
+                if is_on_vi_reference(node)
+                else None
+            )
+            if read_row is not None:
+                guard = vi_file_properties.read_guard(read_row, var_name, ref_var, ctx)
+                statements.extend(guard)
+                file_error = file_error or vi_file_properties.reports_error(read_row)
             bindings[term.id] = var_name
         elif term.direction == "input":
             if not ctx.is_wired(term.id):
@@ -508,10 +531,17 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         statements.append(
             ast.Expr(value=ast.Constant(value="# Property Node: no properties"))
         )
-    if panel_read:
+    if panel_read or file_error:
         # A row on the front panel or one of its controls fails with the panel's own
-        # error (1026, 1035): the node's error out, as for Ctrl Val.
-        fragment = report_panel_error(node, ctx, statements, bindings)
+        # error (1026, 1035), and Clone Name of a VI that is no clone with a
+        # LabVIEWError: the node's error out, as for Ctrl Val.
+        fragment = report_panel_error(
+            node,
+            ctx,
+            statements,
+            bindings,
+            catches=LABVIEW_ERROR_NAME if file_error else PANEL_ERROR_NAME,
+        )
         fragment.imports = imports
         return fragment
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)

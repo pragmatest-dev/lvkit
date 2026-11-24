@@ -13,8 +13,13 @@ from typing import Any
 import pytest
 
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.nodes.vi_file_properties import (
+    _VI_TYPE_NUMBER,
+    CLONE_NAME_ERROR_CODE,
+)
 from lvkit.graph.models import (
     ExecutionProps,
+    GraphNode,
     PrimitiveNode,
     Priority,
     Reentrancy,
@@ -29,10 +34,19 @@ from lvkit.models import (
     PropertyDef,
     PropertySegment,
     Terminal,
+    VIKind,
 )
 from lvkit.parser.metadata import parse_vi_metadata
 from tests import vi_reference_diagrams as d
-from tests.helpers import build_graph, exec_generated, without_panel_attributes
+from tests.class_graphs import Project, Recipe
+from tests.helpers import (
+    build_graph,
+    error_cluster_type,
+    exec_generated,
+    without_panel_attributes,
+)
+from tests.test_front_panel_title import other_title
+from tests.test_run_vi import target
 from tests.test_vi_reference import _CALL, _CALLEE, _STATIC, _package
 
 _TEXT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
@@ -62,9 +76,15 @@ def _properties(
     )
 
 
-def _own(name: str, properties: VIProperties) -> str:
+def _own(
+    name: str,
+    properties: VIProperties,
+    gaps: list | None = None,
+    with_error: bool = False,
+) -> str:
     """The source of a VI ``User.vi`` whose only output is the property ``name`` of
-    the VI class read from its unwired default object."""
+    the VI class read from its unwired default object; ``with_error`` also wires the
+    Property Node's error out to the VI's ``error out``."""
     code, type_name = _ROWS[name]
     value_type = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=type_name)
     out = FPTerminal(
@@ -76,30 +96,46 @@ def _own(name: str, properties: VIProperties) -> str:
         is_indicator=True,
         lv_type=value_type,
     )
+    terminals = [
+        Terminal(id="prop:ref", index=0, direction="input", lv_type=_REF),
+        Terminal(id="prop:value", index=4, direction="output", lv_type=value_type),
+    ]
+    outputs = [out]
+    flow = [Wire.from_terminals(from_terminal_id="prop:value", to_terminal_id=out.id)]
+    if with_error:
+        error_type = error_cluster_type()
+        terminals += [
+            Terminal(id="prop:ein", index=2, direction="input", lv_type=error_type),
+            Terminal(id="prop:eout", index=3, direction="output", lv_type=error_type),
+        ]
+        outputs.append(
+            FPTerminal(
+                id="fp:eout",
+                index=1,
+                direction="output",
+                name="error out",
+                is_public=True,
+                is_indicator=True,
+                lv_type=error_type,
+            )
+        )
+        flow.append(
+            Wire.from_terminals(from_terminal_id="prop:eout", to_terminal_id="fp:eout")
+        )
     prop = PrimitiveNode(
         id="prop",
         vi_path="User.vi",
         name="Property Node",
         node_type="propNode",
         object_name="VI",
-        terminals=[
-            Terminal(id="prop:ref", index=0, direction="input", lv_type=_REF),
-            Terminal(id="prop:value", index=4, direction="output", lv_type=value_type),
-        ],
+        terminals=terminals,
         properties=[PropertyDef(segments=[PropertySegment(name=name, code=code)])],
         property_value_terminal_ids=["prop:value"],
     )
-    context = VIContext(
-        name="User.vi",
-        inputs=[],
-        outputs=[out],
-        data_flow=[
-            Wire.from_terminals(from_terminal_id="prop:value", to_terminal_id=out.id)
-        ],
-    )
+    context = VIContext(name="User.vi", inputs=[], outputs=outputs, data_flow=flow)
     graph = build_graph(context, context.name, [prop])
     graph._vi_properties["User.vi"] = properties  # noqa: SLF001
-    return build_module(context, context.name, graph=graph)
+    return build_module(context, context.name, graph=graph, gaps=gaps)
 
 
 def _run(source: str, tmp_path: Path) -> Any:
@@ -133,7 +169,7 @@ def test_a_vi_that_is_not_reentrant_has_no_clone_name(tmp_path: Path) -> None:
     assert function.priority == 2
     assert function.vi_type == 1
     assert function.help_url == ""
-    assert not hasattr(function, "clone_name")
+    assert function.clone_name is None
 
 
 @pytest.mark.parametrize(
@@ -145,9 +181,25 @@ def test_vi_type_is_nis_number(tmp_path: Path, kind: str, number: int) -> None:
     assert function.vi_type == number
 
 
-def test_a_file_kind_nis_list_lacks_sets_no_vi_type(tmp_path: Path) -> None:
-    source = _own("VIType", _properties(vi_type="unknown (code 99)"))
-    assert ".vi_type = " not in source
+def test_every_vi_kind_has_nis_number() -> None:
+    """Every kind ``VIKind`` has maps to a number of NI's VI Type list."""
+    assert {kind.label: _VI_TYPE_NUMBER[kind] for kind in VIKind} == {
+        "VI": 1,
+        "Control": 2,
+        "Global VI": 3,
+        "Polymorphic VI": 4,
+    }
+
+
+def test_a_file_kind_nis_list_lacks_is_a_gap(tmp_path: Path) -> None:
+    gaps: list = []
+    source = _own("VIType", _properties(vi_type="unknown (code 99)"), gaps)
+    assert [(gap.vi, gap.node_name) for gap in gaps] == [("User.vi", "VI Type")]
+    assert "unknown (code 99)" in gaps[0].reason
+    function = _run(source, tmp_path)
+    assert function.vi_type is None
+    with pytest.raises(NotImplementedError, match="User.vi"):
+        function()
 
 
 @pytest.mark.parametrize(
@@ -184,14 +236,83 @@ def test_the_default_vi_object_reads_its_own_function(
 ) -> None:
     source = _own(name, _REENTRANT)
     assert "lvkit" not in source
-    assert "NotImplementedError" not in source
+    assert source.count("NotImplementedError") == (name == "VIType")
     assert _run(source, tmp_path)().out == expected
 
 
-def test_a_non_reentrant_vi_is_no_clone_and_has_no_clone_name(tmp_path: Path) -> None:
+def test_a_non_reentrant_vi_is_no_clone(tmp_path: Path) -> None:
     assert _run(_own("IsCloneVI", _properties()), tmp_path)().out is False
-    with pytest.raises(AttributeError):
-        _run(_own("Clone Name", _properties()), tmp_path)()
+
+
+def test_clone_name_of_a_non_reentrant_vi_is_an_error_on_the_error_out(
+    tmp_path: Path,
+) -> None:
+    source = _own("Clone Name", _properties(), with_error=True)
+    assert "lvkit" not in source
+    result = _run(source, tmp_path)()
+    assert result.out == ""
+    assert result.error_out.code == CLONE_NAME_ERROR_CODE == 42
+    assert result.error_out.status is True
+    assert result.error_out.source == "VI Clone Name"
+    assert "User.vi" in result.error_out.message
+
+
+def test_clone_name_of_a_reentrant_vi_is_its_name_and_no_error(tmp_path: Path) -> None:
+    result = _run(_own("Clone Name", _REENTRANT, with_error=True), tmp_path)()
+    assert result.out == "User.vi"
+    assert result.error_out is None
+
+
+@pytest.mark.parametrize(
+    ("kind", "number"),
+    [("VI", 1), ("Control", 2), ("Global VI", 3), ("Polymorphic VI", 4)],
+)
+def test_vi_type_read_gives_nis_number(
+    tmp_path: Path, kind: str, number: int
+) -> None:
+    source = _own("VIType", _properties(vi_type=kind), with_error=True)
+    result = _run(source, tmp_path)()
+    assert (result.out, result.error_out) == (number, None)
+
+
+def _help_url_writer(target_key: str) -> Recipe:
+    """A VI whose Property Node on the reference of ``target_key`` writes its
+    input ``t`` to Help:Document Web URL, then reads it into ``out``."""
+    build = other_title(target_key, "wr")
+
+    def recipe(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        context, nodes = build(vi)
+        for node in nodes:
+            if isinstance(node, PrimitiveNode) and node.properties:
+                node.properties = [
+                    PropertyDef(segments=[PropertySegment(name="Help.URL", code=698)])
+                    for _ in node.properties
+                ]
+        return context, nodes
+
+    return recipe
+
+
+def test_a_help_url_write_sets_the_help_url_and_nothing_else(tmp_path: Path) -> None:
+    project = Project(tmp_path)
+    target_key = project.add_vi("Target", target(False))
+    project.graph._vi_properties[target_key] = _properties(  # noqa: SLF001
+        Reentrancy.SHARED_CLONE, Priority.HIGH, "VI", "http://old"
+    )
+    project.add_vi("Runner", _help_url_writer(target_key))
+    project.graph._dep_graph.add_edge(  # noqa: SLF001
+        project.vis["Runner"], target_key
+    )
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        function = module("target").target
+        names = ("is_reentrant", "priority", "vi_type", "clone_name", "window_title")
+        before = {name: getattr(function, name) for name in names}
+        assert function.help_url == "http://old"
+        assert module("runner").runner(t="http://new").out == "http://new"
+        assert function.help_url == "http://new"
+        assert {name: getattr(function, name) for name in names} == before
 
 
 def _callee_with_attributes() -> str:
@@ -232,7 +353,7 @@ def test_a_vi_reference_reads_the_referenced_functions_attribute(
         698: "help_url",
     }[code]
     assert f"= callee.{attribute}\n" in source
-    assert "NotImplementedError" not in source
+    assert source.count("NotImplementedError") == (name == "VIType")
     for refs in _package(tmp_path, source, _callee_with_attributes()):
         refs.refs()  # type: ignore[attr-defined]
         assert "generated_refs.callee" in sys.modules
