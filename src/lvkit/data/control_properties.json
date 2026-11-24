@@ -4,7 +4,21 @@
     "_comment": "The listed properties (by class entry in 'classes', by member) that a Property Node on a wired reference of that class reads and writes through the panel: a write is held by the panel and shown by its views, a read gives the last write, else the strings the control is saved with. NI's page for Combo Box Strings[] (Read/Write, settable while the VI runs): 'Array of the strings from which you can select in the combo box control.' An entry with \"settable_while_running\": false is a property the file saves and a running VI cannot change (NI's page: Enum Strings[] 'If the string is an enumerated type control, you cannot write this property when the VI is running.'): a read gives the saved value (``Control.get_property``, the panel's ``saved``), a write is a gap.",
     "CmbBox": ["strings"],
     "Enum": ["strings"],
-    "Bool": ["mech_action"]
+    "Bool": ["mech_action", "disabled"],
+    "Bool (strict)": ["disabled"],
+    "Pict": ["visible", "cursor"],
+    "Str": ["visible", "key_focus", "tip_strip", "justify", "selection_start", "selection"],
+    "Clust": ["visible"],
+    "Ring (strict)": ["visible"],
+    "Path": ["start_path"],
+    "Scroll": ["doc_max"],
+    "Slide": ["fill_color"],
+    "Slide (strict)": ["fill_color"],
+    "Tree": ["hscroll_visible", "vscroll_visible", "cell_width"],
+    "Tree (strict)": ["hscroll_visible", "vscroll_visible", "cell_width"],
+    "MCListbox (strict)": ["item_names", "item_symbols", "active_cell", "edit_position"],
+    "Arr (strict)": ["index_values"],
+    "XYGraph (strict)": ["x_min"]
   },
   "saved_defaults": {
     "_comment": "The value a saved property has on a control of this VI Server class (control_classes.json) when the panel's saved keyword lists none: the generated panel leaves it out. A Boolean's Mechanical Action 0 is Switch When Pressed, what the saved flags of a Boolean in its default state decode to (labview-binary-format.md, 'A Boolean's mechanical action is in its ddo objFlags').",
@@ -14,7 +28,9 @@
     "inherited": [104013842],
     "classes": {
       "CmbBox": [104099840],
+      "ColBox": [104016896],
       "Path": [104032256],
+      "Pict": [104044544],
       "Str": [104093696]
     }
   },
@@ -62,18 +78,21 @@
       "name": "Visible",
       "member": "visible",
       "value": "bool",
+      "default": true,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/visible.html"
     },
     "104013826": {
       "name": "Key Focus",
       "member": "key_focus",
       "value": "bool",
+      "default": false,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/keyfocus.html"
     },
     "104013885": {
       "name": "Disabled",
       "member": "disabled",
       "value": "enum",
+      "default": 0,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/disabledenum.html"
     },
     "104013825": {
@@ -98,6 +117,7 @@
       "name": "Tip Strip",
       "member": "tip_strip",
       "value": "string",
+      "saved_not_decoded": true,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/tipstrip.html"
     },
     "104013828.103995392": {
@@ -125,6 +145,7 @@
         "name": "Index Values",
         "member": "index_values",
         "value": "number_array",
+        "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/array/indexvalues.html"
       }
     },
@@ -171,6 +192,27 @@
       }
     },
     "Tree (strict)": {
+      "1969896449": {
+        "name": "Visible Items:Horizontal Scrollbar Visible",
+        "member": "hscroll_visible",
+        "value": "bool",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/horizscrollvis.html"
+      },
+      "1969896450": {
+        "name": "Visible Items:Vertical Scrollbar Visible",
+        "member": "vscroll_visible",
+        "value": "bool",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/vertscrollvis.html"
+      },
+      "1969896472": {
+        "name": "Active Cell:Cell Size:Width",
+        "member": "cell_width",
+        "value": "number",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/width.html"
+      },
       "1969896461": {
         "name": "Active Item:Tag",
         "member": "active_item_tag",
@@ -215,7 +257,111 @@
         "name": "Item Names",
         "member": "item_names",
         "value": "string_array",
+        "saved_not_decoded": true,
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/itmnames.html"
+      },
+      "416911361": {
+        "name": "Item Symbols",
+        "member": "item_symbols",
+        "value": "number_array",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/itemsymbols.html"
+      },
+      "416911374": {
+        "name": "Active Cell:Active Cell",
+        "member": "active_cell",
+        "value": "cluster",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/activecell.html"
+      },
+      "416911420": {
+        "name": "Edit Position",
+        "member": "edit_position",
+        "value": "cluster",
+        "default": [-2, -2],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/editposition.html"
+      }
+    },
+    "Tree": {
+      "1969896449": {
+        "name": "Visible Items:Horizontal Scrollbar Visible",
+        "member": "hscroll_visible",
+        "value": "bool",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/horizscrollvis.html"
+      },
+      "1969896450": {
+        "name": "Visible Items:Vertical Scrollbar Visible",
+        "member": "vscroll_visible",
+        "value": "bool",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/vertscrollvis.html"
+      },
+      "1969896472": {
+        "name": "Active Cell:Cell Size:Width",
+        "member": "cell_width",
+        "value": "number",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/width.html"
+      }
+    },
+    "Str": {
+      "104093700.103995413": {
+        "name": "Text:Justification",
+        "member": "justify",
+        "value": "enum",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/justification.html"
+      },
+      "104093700.103995395": {
+        "name": "Text:Selection:Start",
+        "member": "selection_start",
+        "value": "number",
+        "default": 0,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/selstart.html"
+      },
+      "104093700.103995394": {
+        "name": "Text:Selection",
+        "member": "selection",
+        "value": "cluster",
+        "default": [0, 0],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/selection.html"
+      }
+    },
+    "Pict": {
+      "104044549": {
+        "name": "Cursor",
+        "member": "cursor",
+        "value": "number",
+        "default": 0,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/picture/cursor.html"
+      }
+    },
+    "Scroll": {
+      "1727315969": {
+        "name": "Doc Max",
+        "member": "doc_max",
+        "value": "number",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/scrollbar/docmax.html"
+      }
+    },
+    "Slide": {
+      "104072194": {
+        "name": "Fill Color",
+        "member": "fill_color",
+        "value": "color",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/numericwithscale/slide/fillcolor.html"
+      }
+    },
+    "XYGraph (strict)": {
+      "104078347.104001541": {
+        "name": "XScale:Range:Minimum",
+        "member": "x_min",
+        "value": "number",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmin.html"
       }
     },
     "Knob (strict)": {
@@ -233,6 +379,13 @@
       }
     },
     "Slide (strict)": {
+      "104072194": {
+        "name": "Fill Color",
+        "member": "fill_color",
+        "value": "color",
+        "saved_not_decoded": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/numericwithscale/slide/fillcolor.html"
+      },
       "104072195.104001542": {
         "name": "Scale:Range:Maximum",
         "member": "scale_maximum",

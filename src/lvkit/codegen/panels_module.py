@@ -136,7 +136,11 @@ the VI and the tag (``codegen/nodes/tag_methods.py``).
 from __future__ import annotations
 
 from lvkit.control_classes import class_ids
-from lvkit.control_properties import saved_defaults
+from lvkit.control_properties import (
+    property_defaults,
+    saved_defaults,
+    undecoded_saved_members,
+)
 
 PANELS_MODULE_NAME = "panels"
 PANEL_NAME = "Panel"
@@ -195,6 +199,12 @@ CLASS_IDS: dict[str, int] = __CLASS_IDS__
 # The saved property a control of each VI Server class has when its panel lists none
 # (``control_properties.json`` ``saved_defaults``).
 SAVED_DEFAULTS: dict[str, dict[str, Any]] = __SAVED_DEFAULTS__
+
+# The value of each property (by member name) on a control that was neither written
+# nor saved with another (``control_properties.json`` ``default``), and the members
+# whose saved starting value the conversion does not decode.
+PROPERTY_DEFAULTS: dict[str, Any] = __PROPERTY_DEFAULTS__
+UNDECODED_SAVED: frozenset[str] = frozenset(__UNDECODED_SAVED__)
 
 
 class PanelError(LabVIEWError):
@@ -274,6 +284,8 @@ class Control:
             held = self.panel.saved.get(self.name, {}).get(prop, _NO_STATE)
         if held is _NO_STATE and self.class_name is not None:
             held = SAVED_DEFAULTS.get(self.class_name, {}).get(prop, _NO_STATE)
+        if held is _NO_STATE and prop not in UNDECODED_SAVED:
+            held = PROPERTY_DEFAULTS.get(prop, _NO_STATE)
         return held
 
     @property
@@ -306,6 +318,12 @@ class Control:
                 f"Strings[] of the Combo Box {self.label!r} read before any "
                 f"write: its {self.panel.undecoded_strings[self.name]} saved "
                 "strings are in a form the conversion does not decode"
+            )
+        if held is _NO_STATE and prop in UNDECODED_SAVED:
+            raise NotImplementedError(
+                f"{prop} of the control {self.label!r} read before any write: "
+                "the value the file saves is in a form the conversion does not "
+                "decode"
             )
         if held is _NO_STATE:
             raise PanelError(
@@ -1259,6 +1277,9 @@ def as_control(reference: Any) -> Control:
     return reference
 '''
 
-PANELS_MODULE_SOURCE = _PANELS_MODULE_TEMPLATE.replace(
-    "__CLASS_IDS__", repr(class_ids())
-).replace("__SAVED_DEFAULTS__", repr(saved_defaults()))
+PANELS_MODULE_SOURCE = (
+    _PANELS_MODULE_TEMPLATE.replace("__CLASS_IDS__", repr(class_ids()))
+    .replace("__SAVED_DEFAULTS__", repr(saved_defaults()))
+    .replace("__PROPERTY_DEFAULTS__", repr(property_defaults()))
+    .replace("__UNDECODED_SAVED__", repr(sorted(undecoded_saved_members())))
+)

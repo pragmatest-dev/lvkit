@@ -52,6 +52,9 @@ class ControlProperty:
     value: str
     doc_url: str
     settable_while_running: bool = True
+    has_default: bool = False
+    default: Any = None
+    saved_not_decoded: bool = False
 
 
 class ReferenceRow(Enum):
@@ -91,6 +94,9 @@ def _entries(raw: dict[str, dict[str, Any]]) -> dict[str, ControlProperty]:
             entry["value"],
             entry["doc_url"],
             entry.get("settable_while_running", True),
+            "default" in entry,
+            entry.get("default"),
+            entry.get("saved_not_decoded", False),
         )
         for code, entry in raw.items()
     }
@@ -137,6 +143,36 @@ def saved_defaults() -> dict[str, dict[str, Any]]:
     False) on a control of each VI Server class that the control has when nothing
     else is recorded: ``{"Boolean": {"mech_action": 0}}``."""
     return {name: dict(members) for name, members in _table().saved_defaults.items()}
+
+
+def _every_entry() -> list[ControlProperty]:
+    table = _table()
+    return [
+        *table.inherited.values(),
+        *(entry for entries in table.classes.values() for entry in entries.values()),
+    ]
+
+
+def property_defaults() -> dict[str, Any]:
+    """The value each listed property has on a control that was neither written nor
+    saved with another (a ``default`` in ``control_properties.json``: LabVIEW's
+    state of a new control, or what NI's page says), by member name."""
+    return {
+        entry.member: (
+            tuple(entry.default) if entry.value == "cluster" else entry.default
+        )
+        for entry in _every_entry()
+        if entry.has_default
+    }
+
+
+def undecoded_saved_members() -> frozenset[str]:
+    """The members of the listed properties whose starting value the file saves in a
+    form the conversion does not decode (``saved_not_decoded``): a read of one
+    before any write is a run-time NotImplementedError naming it, not a guess."""
+    return frozenset(
+        entry.member for entry in _every_entry() if entry.saved_not_decoded
+    )
 
 
 def is_reinit_to_default(method_code: int | None) -> bool:
