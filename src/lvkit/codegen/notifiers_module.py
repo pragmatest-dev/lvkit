@@ -67,6 +67,11 @@ class Notifier:
             made = _named[name] = cls(name)
             return made, True
 
+    def __deepcopy__(self, memo: dict[int, Any]) -> Notifier:
+        """A notifier is a reference: a class or cluster that holds it is copied
+        by value, and the copy refers to this same notifier."""
+        return self
+
     def _check(self) -> None:
         if not self._valid:
             raise ReferenceError("the notifier was released")
