@@ -71,11 +71,12 @@ class TreeItems:
         items: Sequence[Any] = (),
         widths: Sequence[Any] = (),
         column: int = 0,
+        headers: Sequence[str] = (),
     ) -> None:
         self._control = control
         self._items = [_TreeItem(tag, indent, texts) for tag, indent, texts in items]
         self._widths: dict[int, int] = {int(c): int(w) for c, w in widths}
-        self._headers: dict[int, str] = {}
+        self._headers = list(headers)
         self._active: str | None = None
         self._column = int(column)
         self.symbols: list[Any] | None = None
@@ -632,6 +633,17 @@ class TreeItems:
         self._changed()
 
     @property
+    def column_header_strings(self) -> list[str]:
+        """Column Header Strings[]: NI "An array of the strings in the column
+        headers." The file saves them."""
+        return list(self._headers)
+
+    @column_header_strings.setter
+    def column_header_strings(self, strings: Sequence[str]) -> None:
+        self._headers = list(strings)
+        self._changed()
+
+    @property
     def active_column_number(self) -> int:
         """Active Cell:Active Column Number: NI "-2 Selects all columns. -1 Selects
         all column headers. 0 Selects the first column." The file saves it."""
@@ -649,7 +661,8 @@ class TreeItems:
         if self._column == -2 or self.active_item_tag == TREE_ALL_ROWS:
             raise self._invalid_active("cell_string")
         if self._column == -1 or self.active_item_tag == TREE_COLUMN_HEADERS:
-            return self._headers.get(max(self._column, 0), "")
+            column = max(self._column, 0)
+            return self._headers[column] if column < len(self._headers) else ""
         position = self._active_position("cell_string")
         assert position is not None
         texts = self._items[position].texts
@@ -660,7 +673,9 @@ class TreeItems:
         if self._column == -2 or self.active_item_tag == TREE_ALL_ROWS:
             raise self._invalid_active("cell_string")
         if self._column == -1 or self.active_item_tag == TREE_COLUMN_HEADERS:
-            self._headers[max(self._column, 0)] = text
+            column = max(self._column, 0)
+            self._headers.extend([""] * (column + 1 - len(self._headers)))
+            self._headers[column] = text
         else:
             position = self._active_position("cell_string")
             assert position is not None

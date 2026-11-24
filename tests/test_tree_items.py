@@ -192,7 +192,7 @@ def properties(rows: list[tuple[tuple[int, ...], str, LVType, str]]) -> Recipe:
     return build
 
 
-def target(items: Any = None, widths: Any = None) -> Recipe:
+def target(items: Any = None, widths: Any = None, headers: Any = None) -> Recipe:
     """A VI whose panel has the Tree control ``tree`` (saved with ``items``)."""
 
     def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
@@ -202,6 +202,8 @@ def target(items: Any = None, widths: Any = None) -> Recipe:
             starting["tree_items"] = items
         if widths is not None:
             starting["tree_cell_widths"] = widths
+        if headers is not None:
+            starting["tree_column_headers"] = headers
         control = control.model_copy(
             update={"control_type": "treeControl", "starting_properties": starting}
         )
@@ -224,11 +226,12 @@ def package_of(
     rows: list[tuple[tuple[int, ...], str, LVType, str]] | None = None,
     items: Any = SAVED_ITEMS,
     widths: Any = None,
+    headers: Any = None,
     gaps: list[Gap] | None = None,
 ) -> Any:
     tmp_path.mkdir(parents=True, exist_ok=True)
     project = Project(tmp_path)
-    project.add_vi("Target", target(items, widths))
+    project.add_vi("Target", target(items, widths, headers))
     if steps is not None:
         project.add_vi("Runner", runner(steps))
     if rows is not None:
@@ -567,6 +570,7 @@ def test_a_trees_starting_items_are_read_from_the_file(
     assert found["tree_items"] == [["r", 0, ["Root", "1"]], ["l", 1, ["Leaf", "2"]]]
     assert found["tree_cell_widths"] == [[-2, 35], [0, 176]]
     assert found["tree_active_column"] == 1
+    assert "tree_column_headers" not in found
 
 
 def test_a_property_node_bound_to_the_tree_control_acts_on_its_items(
@@ -584,3 +588,20 @@ def test_a_property_node_bound_to_the_tree_control_acts_on_its_items(
     assert package.gaps == []
     # "l" is the item; the file saves column 1 as the active column.
     assert package.function(t="").seen == "2"
+
+
+def test_the_column_headers_the_file_saves_are_read_and_written(
+    tmp_path: Path,
+) -> None:
+    rows = [
+        (ACTIVE_TAG, "input", STRING, "TREE_COLUMN_HEADERS"),
+        (ACTIVE_COLUMN, "input", INT, "1"),
+        (CELL_STRING, "output", STRING, ""),
+        ((1969896448,), "output", STRINGS, ""),
+        (CELL_STRING, "input", STRING, "Y"),
+        ((1969896448,), "output", STRINGS, ""),
+    ]
+    package = package_of(tmp_path, rows=rows, headers=["Name", "X"])
+    with package.use() as module:
+        result = module("props").props(ctl=tree_of(module))
+        assert (result.r2, result.r3, result.r5) == ("X", ["Name", "X"], ["Name", "Y"])

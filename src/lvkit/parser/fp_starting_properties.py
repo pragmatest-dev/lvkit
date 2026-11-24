@@ -127,6 +127,11 @@ def _tree(found: dict[str, Any], ddo: ET.Element) -> None:
     ]
     if widths:
         found["tree_cell_widths"] = widths
+    headers = [
+        _string(item.text) for item in ddo.findall("columnHeaders/SL__arrayElement")
+    ]
+    if headers:
+        found["tree_column_headers"] = headers
     cell = ddo.find("activeCell")
     if cell is not None:
         found["tree_active_column"] = int_or_none(cell.findtext("col")) or 0

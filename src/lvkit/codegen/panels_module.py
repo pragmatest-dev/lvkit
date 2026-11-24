@@ -379,6 +379,7 @@ class Control:
                 saved.get("tree_items", ()),
                 saved.get("tree_cell_widths", ()),
                 saved.get("tree_active_column", 0),
+                saved.get("tree_column_headers", ()),
             )
         return self._tree
 

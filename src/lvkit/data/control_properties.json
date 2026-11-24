@@ -302,6 +302,25 @@
         "value": "bool",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/vertscrollvis.html"
       },
+      "1969896448": {
+        "name": "Column Header Strings[]",
+        "member": "column_header_strings",
+        "holder": "tree",
+        "value": "string_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/colheaders.html"
+      },
+      "1969896451": {
+        "name": "Number of Rows",
+        "member": "num_rows",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/numrows.html"
+      },
+      "1969896520": {
+        "name": "Expand/Contract Symbol:Show Symbol at Root",
+        "member": "show_symbol_at_root",
+        "value": "bool",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/showsymbolatroot.html"
+      },
       "1969896472": {
         "name": "Active Cell:Cell Size:Width",
         "member": "cell_width",

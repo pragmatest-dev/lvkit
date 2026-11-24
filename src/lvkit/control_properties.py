@@ -54,6 +54,7 @@ FIELD_MEMBERS = (
     "tree_items",
     "tree_cell_widths",
     "tree_active_column",
+    "tree_column_headers",
 )
 """The ``ControlProperty.member`` of the settable properties that start from a field
 of the control's ddo, which the conversion decodes (``FPTerminal.starting_properties``,
