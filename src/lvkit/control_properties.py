@@ -51,6 +51,9 @@ FIELD_MEMBERS = (
     "index_values",
     "item_names",
     "active_cell",
+    "tree_items",
+    "tree_cell_widths",
+    "tree_active_column",
 )
 """The ``ControlProperty.member`` of the settable properties that start from a field
 of the control's ddo, which the conversion decodes (``FPTerminal.starting_properties``,
@@ -86,6 +89,21 @@ class ControlProperty:
     settable_while_running: bool = True
     has_default: bool = False
     default: Any = None
+    holder: str | None = None
+
+
+@dataclass(frozen=True)
+class TreeMethod:
+    """One method of a Tree control (``tree_methods`` of ``control_properties.json``):
+    ``member`` the method of the control's ``TreeItems``, ``params`` its parameters in
+    NI's order with the Python text of each default, ``returns`` whether it gives a
+    value."""
+
+    name: str
+    member: str
+    params: tuple[tuple[str, str], ...]
+    returns: bool
+    doc_url: str
 
 
 class ReferenceRow(Enum):
@@ -116,6 +134,7 @@ class _Table:
     class_parents: dict[str, str | None]
     saved_defaults: dict[str, dict[str, Any]]
     reinit_to_default: frozenset[int]
+    tree_methods: dict[int, TreeMethod]
 
 
 def _entries(raw: dict[str, dict[str, Any]]) -> dict[str, ControlProperty]:
@@ -128,6 +147,7 @@ def _entries(raw: dict[str, dict[str, Any]]) -> dict[str, ControlProperty]:
             entry.get("settable_while_running", True),
             "default" in entry,
             entry.get("default"),
+            entry.get("holder"),
         )
         for code, entry in raw.items()
     }
@@ -172,7 +192,33 @@ def _table() -> _Table:
             if not name.startswith("_")
         },
         reinit_to_default=frozenset(raw["methods"]["reinit_to_default"]["codes"]),
+        tree_methods={
+            int(code): TreeMethod(
+                entry["name"],
+                entry["member"],
+                tuple((name, default) for name, default in entry["params"]),
+                entry["returns"],
+                entry["doc_url"],
+            )
+            for code, entry in raw["tree_methods"].items()
+            if not code.startswith("_")
+        },
     )
+
+
+def tree_method(method_code: int | None) -> TreeMethod | None:
+    """The method of a Tree control that an Invoke Node's method code is; None for any
+    other method."""
+    return _table().tree_methods.get(method_code or 0)
+
+
+TREE_HOLDER = "tree"
+"""The ``holder`` of a property that is a member of the control's ``TreeItems``."""
+
+POINT_TO_ROW_COLUMN_CODE = 1969895445
+"""The method code of Point To Row Column, a Tree method with no Python meaning: NI
+"Converts a pixel coordinate to a tag-column pair in the coordinates of the control"
+(``treecontrol/pttorowcol.html``), a pixel of the control's own drawing."""
 
 
 def saved_defaults() -> dict[str, dict[str, Any]]:
@@ -213,7 +259,9 @@ def undecoded_saved_members() -> frozenset[str]:
     return frozenset(
         entry.member
         for entry in _every_entry()
-        if not entry.has_default and entry.member not in decoded
+        if not entry.has_default
+        and entry.member not in decoded
+        and entry.holder is None
     )
 
 

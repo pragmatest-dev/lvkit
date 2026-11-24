@@ -207,6 +207,10 @@ class CodeGenContext:
     # ``panel_hooks``); None for any other VI. One per function, shared by child
     # contexts.
     panel_hooks: PanelHooks | None = field(default=None, repr=False)
+    # The name of each control and indicator of the VI's panel by terminal id
+    # (``panel_names``): the name the ``Panel`` holds it under, which a node bound to
+    # a control reads it by. One per function, shared by child contexts.
+    panel_names: dict[str, str] = field(default_factory=dict, repr=False)
     # The variable that holds the queue of events of a VI with an Event Structure
     # (``panel_hooks.entry_events``), set when its function starts; one per
     # function, copied to child contexts.
@@ -656,6 +660,7 @@ class CodeGenContext:
             gaps=self.gaps,  # Shared — one list per module
             local_indicators=self.local_indicators,
             panel_hooks=self.panel_hooks,
+            panel_names=self.panel_names,
             events_var=self.events_var,
             property_states=self.property_states,
             event_messages=self.event_messages,

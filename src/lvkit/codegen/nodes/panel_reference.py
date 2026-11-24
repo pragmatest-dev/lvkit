@@ -70,6 +70,7 @@ import ast
 from enum import Enum
 
 from lvkit.control_properties import (
+    TREE_HOLDER,
     ControlProperty,
     ReferenceRow,
     control_property,
@@ -80,7 +81,7 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.vi_reference import is_on_vi_reference
 from lvkit.models import PropertyDef
 
-from ..ast_utils import parse_expr
+from ..ast_utils import parse_expr, parse_stmt
 from ..context import CodeGenContext
 from ..panels_module import (
     AS_CONTROL_NAME,
@@ -177,6 +178,8 @@ def read_property(
     """The Python value of the property ``listed`` of the control ``reference``
     holds: the last write, else the state the control is saved in."""
     ctx.import_panels(f"{AS_CONTROL_NAME}, {PANEL_ERROR_NAME}")
+    if listed.holder == TREE_HOLDER:
+        return parse_expr(f"{AS_CONTROL_NAME}({reference}).tree.{listed.member}")
     return parse_expr(f"{AS_CONTROL_NAME}({reference}).get_property({listed.member!r})")
 
 
@@ -186,6 +189,9 @@ def write_property(
     """The call that sets the property ``listed`` of the control ``reference``
     holds to ``value``."""
     ctx.import_panels(f"{AS_CONTROL_NAME}, {PANEL_ERROR_NAME}")
+    if listed.holder == TREE_HOLDER:
+        target = f"{AS_CONTROL_NAME}({reference}).tree.{listed.member}"
+        return parse_stmt(f"{target} = {value}")
     return ast.Expr(
         value=parse_expr(
             f"{AS_CONTROL_NAME}({reference}).set_property({listed.member!r}, {value})"

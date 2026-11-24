@@ -24,7 +24,6 @@ DBL = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumFloat64")
 
 X_MAX = (104078347, 104001542)
 CELL_FONT_COLOR = (416911404,)
-TREE_ACTIVE_TAG = (1969896461,)
 SELECTION_END = (104093700, 103995396)
 MAXIMUM = (104050694,)
 MINIMUM = (104050693,)
@@ -84,7 +83,6 @@ def write(module: Any, value: Any) -> None:
 @pytest.mark.parametrize(
     ("class_name", "codes", "kind", "control_type", "value"),
     [
-        ("Tree", TREE_ACTIVE_TAG, STRING, "treeControl", "tag"),
         ("Slide (strict)", MAXIMUM, DBL, "stdSlide", 10.0),
         ("Slide (strict)", MINIMUM, DBL, "stdSlide", -1.0),
         ("MCListbox (strict)", CELL_FONT_COLOR, INT, "listbox", 0xFF0000),

@@ -109,6 +109,7 @@ class _MethodBuilderMixin:
         ]
         if property_accessor:
             parameters = [t for t in parameters if not t.is_error_cluster]
+        ctx.panel_names = panel_names(vi_context, names)
         ctx.panel_hooks = (
             None
             if property_accessor

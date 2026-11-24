@@ -56,6 +56,7 @@ from .panel_hooks import (
     function_property_enum_name,
     reads_in_frame,
 )
+from .panel_names import panel_names
 from .references import REFERENCE_KINDS, generated_nodes
 from .type_constants import share_type_constants
 from .type_default import control_default
@@ -128,6 +129,7 @@ def build_module(
     ctx.qualified_vi_name = vi_context.qualified_name
     if shared is not None:
         shared.share_with(ctx)
+    ctx.panel_names = panel_names(vi_context)
     ctx.panel_hooks = PanelHooks.for_vi(
         ctx,
         vi_context,

@@ -145,6 +145,8 @@ from lvkit.control_properties import (
     undecoded_saved_members,
 )
 
+from .tree_items_module import TREE_ITEMS_SOURCE
+
 PANELS_MODULE_NAME = "panels"
 PANEL_NAME = "Panel"
 PANEL_VALUES_NAME = "PanelValues"
@@ -175,7 +177,9 @@ _PANELS_MODULE_TEMPLATE = '''"""The front panel of a VI."""
 from __future__ import annotations
 
 import copy
+import dataclasses
 import inspect
+import locale
 import sys
 import threading
 import time
@@ -288,6 +292,7 @@ class Control:
             else [Field(self, label, key, *rest) for label, key, *rest in fields]
         )
         self._element = None if element is None else Element(self, *element)
+        self._tree: TreeItems | None = None
 
     def _named(self) -> str:
         """The control as a message names it."""
@@ -355,6 +360,27 @@ class Control:
         """Set the property ``prop`` of the control: the panel holds it and tells
         its views."""
         self.panel.set_property(self.name, prop, copy.copy(value))
+
+    @property
+    def tree(self) -> TreeItems:
+        """The items of a Tree control, which hold every property and method of a
+        Tree reference (``TreeItems``): the same object each time, started from what
+        the file saves (``saved``); error 1026 for a control that is not a Tree."""
+        if self.front_panel_class != "treeControl" and self.class_name != "Tree":
+            raise PanelError(
+                code=1026,
+                source="Control.tree",
+                message="Control Reference is invalid.",
+            )
+        if self._tree is None:
+            saved = self.panel.saved.get(self.name, {})
+            self._tree = TreeItems(
+                self,
+                saved.get("tree_items", ()),
+                saved.get("tree_cell_widths", ()),
+                saved.get("tree_active_column", 0),
+            )
+        return self._tree
 
     @property
     def class_id(self) -> int:
@@ -945,6 +971,18 @@ class PanelValues:
         in tabbing order."""
         return [self._refs[name] for name in self._order]
 
+    def control_of(self, name: str) -> Control:
+        """The reference to the control or indicator ``name`` (the one a Property Node
+        or Invoke Node bound to it acts on); error 1026 for a name the panel does not
+        hold."""
+        if name not in self._refs:
+            raise PanelError(
+                code=1026,
+                source="PanelValues.control_of",
+                message="Control Reference is invalid.",
+            )
+        return self._refs[name]
+
     def holds(self, name: str) -> bool:
         """Whether ``name`` is the name of a control or indicator of the panel."""
         return name in self._controls or name in self._indicators
@@ -1470,6 +1508,8 @@ def tags_of(reference: Any) -> Tags:
     raise PanelError(code=1026, source="tags_of", message="VI Reference is invalid.")
 
 
+__TREE_ITEMS__
+
 def as_panel(reference: Any) -> PanelValues:
     """``reference`` as the reference to a front panel (the ``Panel`` property of a
     VI gives one); error 1026 for a reference that holds none."""
@@ -1496,4 +1536,5 @@ PANELS_MODULE_SOURCE = (
     .replace("__SAVED_DEFAULTS__", repr(saved_defaults()))
     .replace("__PROPERTY_DEFAULTS__", repr(property_defaults()))
     .replace("__UNDECODED_SAVED__", repr(sorted(undecoded_saved_members())))
+    .replace("__TREE_ITEMS__", TREE_ITEMS_SOURCE.strip("\n"))
 )

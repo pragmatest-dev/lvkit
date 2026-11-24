@@ -34,6 +34,114 @@
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/reinittodefault.html"
     }
   },
+  "tree_methods": {
+    "_comment": "The methods of a Tree control, each a method of the control's TreeItems (panels.py), by method code. 'params' are the TreeItems method's parameters in the order NI's page lists them, each with the Python text of its default: the Invoke Node's terminals are the reference at 0 (out 1), the error at 2 (out 3), the result at 5 and parameter k at input 6+2k (the corpus's nodes record them so, parameter k's own output terminal 7+2k a void). 'returns' is whether the method gives a value at terminal 5. Point To Row Column (1969895445) is not listed: it converts a pixel of the control's own drawing, which exists only in a view.",
+    "1969895428": {
+      "name": "Edit Tree Items.Add Item",
+      "member": "add_item",
+      "returns": true,
+      "params": [["parent_tag", "''"], ["position", "0"], ["left", "''"], ["child_text", "()"], ["child_tag", "None"], ["child_only", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/additem.html"
+    },
+    "1969895447": {
+      "name": "Edit Tree Items.Add Multiple Items to End",
+      "member": "add_items_to_end",
+      "returns": false,
+      "params": [["items", "()"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/addmultipleitemstoend.html"
+    },
+    "1969895427": {
+      "name": "Edit Tree Items.Delete",
+      "member": "delete_item",
+      "returns": false,
+      "params": [["tag", "''"], ["delete_children", "True"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/deleteitem.html"
+    },
+    "1969895436": {
+      "name": "Edit Tree Items.Move Item",
+      "member": "move_item",
+      "returns": false,
+      "params": [["tag", "''"], ["new_parent", "''"], ["position", "0"], ["carry_children", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/moveitem.html"
+    },
+    "1969895438": {
+      "name": "Edit Tree Items.Set Tag",
+      "member": "set_tag",
+      "returns": true,
+      "params": [["tag", "''"], ["new_tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/setnewtag.html"
+    },
+    "1969895431": {
+      "name": "Edit Tree Items.Sort Children",
+      "member": "sort_children",
+      "returns": false,
+      "params": [["tag", "''"], ["column", "0"], ["case", "0"], ["recursive", "False"], ["reverse", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/sortchildren.html"
+    },
+    "1969895437": {
+      "name": "Navigate Tree.Get Child",
+      "member": "get_child",
+      "returns": true,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/getchild.html"
+    },
+    "1969895424": {
+      "name": "Navigate Tree.Get Next",
+      "member": "get_next",
+      "returns": true,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/getnext.html"
+    },
+    "1969895425": {
+      "name": "Navigate Tree.Get Parent",
+      "member": "get_parent",
+      "returns": true,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/getparent.html"
+    },
+    "1969895426": {
+      "name": "Navigate Tree.Get Path",
+      "member": "get_path",
+      "returns": true,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/getpath.html"
+    },
+    "1969895430": {
+      "name": "Open/Close.Item",
+      "member": "set_open",
+      "returns": false,
+      "params": [["tag", "''"], ["opened", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/opencloseitem.html"
+    },
+    "1969895433": {
+      "name": "Open/Close.Open/Close All",
+      "member": "open_all",
+      "returns": false,
+      "params": [["opened", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/opencloseall.html"
+    },
+    "1969895432": {
+      "name": "Open/Close.Ensure Visible",
+      "member": "ensure_visible",
+      "returns": false,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/ensurevisible.html"
+    },
+    "1969895442": {
+      "name": "Custom Item Symbols.Set Symbol Array",
+      "member": "set_symbol_array",
+      "returns": false,
+      "params": [["symbols", "()"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/settocustomsymbolarray.html"
+    },
+    "1969895444": {
+      "name": "Custom Item Symbols.Revert Symbols",
+      "member": "revert_symbols",
+      "returns": false,
+      "params": [],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/revertalltobuiltinsymbols.html"
+    }
+  },
   "value_signaling_codes": {
     "inherited": [104013860],
     "classes": {
@@ -182,13 +290,13 @@
       }
     },
     "Tree": {
-      "1969896449": {
+      "1969896450": {
         "name": "Visible Items:Horizontal Scrollbar Visible",
         "member": "hscroll_visible",
         "value": "bool",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/horizscrollvis.html"
       },
-      "1969896450": {
+      "1969896449": {
         "name": "Visible Items:Vertical Scrollbar Visible",
         "member": "vscroll_visible",
         "value": "bool",
@@ -197,24 +305,70 @@
       "1969896472": {
         "name": "Active Cell:Cell Size:Width",
         "member": "cell_width",
+        "holder": "tree",
         "value": "number",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/width.html"
       },
       "1969896461": {
         "name": "Active Item:Tag",
         "member": "active_item_tag",
+        "holder": "tree",
         "value": "string",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/activeitemtag.html"
+      },
+      "1969896514": {
+        "name": "Active Item:Row Number",
+        "member": "active_item_row_number",
+        "holder": "tree",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/activeitemrownumber.html"
+      },
+      "1969896476": {
+        "name": "Displayed Items",
+        "member": "displayed_items",
+        "holder": "tree",
+        "value": "string_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/displayeditems.html"
+      },
+      "1969896462": {
+        "name": "Active Item:Open?",
+        "member": "active_open",
+        "holder": "tree",
+        "value": "bool",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/open.html"
+      },
+      "1969896465": {
+        "name": "Active Item:Indent Level",
+        "member": "indent_level",
+        "holder": "tree",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/indent.html"
+      },
+      "1969896464": {
+        "name": "Active Item:Child-Only?",
+        "member": "child_only",
+        "holder": "tree",
+        "value": "bool",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/childonly.html"
+      },
+      "1969896466": {
+        "name": "Active Item:Symbol Index",
+        "member": "symbol_index",
+        "holder": "tree",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/symbol.html"
       },
       "1969896467": {
         "name": "Active Cell:Active Column Number",
         "member": "active_column_number",
+        "holder": "tree",
         "value": "number",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/activecolumnnumber.html"
       },
       "1969896473": {
         "name": "Active Cell:String",
         "member": "cell_string",
+        "holder": "tree",
         "value": "string",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/cellstring.html"
       },

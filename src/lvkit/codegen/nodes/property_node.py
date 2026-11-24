@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.control_properties import (
+    TREE_HOLDER,
     control_property,
     is_value_row,
     is_value_signaling_row,
@@ -15,7 +16,7 @@ from lvkit.graph.op_walk import correlate_property_terminals
 from lvkit.graph.vi_reference import VI_CLASS, is_on_vi_reference
 from lvkit.models import FPTerminal, PropertyDef, Terminal
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name
 from ..called_vi import run_call
 from ..context import CodeGenContext
 from ..control_property_state import (
@@ -29,7 +30,7 @@ from ..errors import CodeGenError
 from ..errors_module import LABVIEW_ERROR_NAME
 from ..fragment import CodeFragment
 from ..panel_hooks import get_property_stmt, property_stmt
-from ..panels_module import PANEL_ERROR_NAME
+from ..panels_module import PANEL_ERROR_NAME, PANEL_OF_NAME
 from ..variant_values import is_variant_type
 from . import (
     class_property_node,
@@ -166,6 +167,8 @@ def _unsupported_reason(
                 f"{subject} {verb} {row.name!r}, which lvkit does not yet know "
                 "how to carry out while the VI runs"
             )
+        elif listed.holder == TREE_HOLDER:
+            continue
         elif not listed.settable_while_running:
             if written:
                 return (
@@ -227,6 +230,7 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         raise ConversionGap(f"The control {control.name!r} has no variable", node)
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
+    tree_rows = False
     for row, term in rows:
         if term is None:
             raise CodeGenError("Property value terminal is missing", node)
@@ -283,6 +287,20 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             hooks = ctx.panel_hooks
             if listed is None:
                 raise CodeGenError("Property row is not a listed property", node)
+            if listed.holder == TREE_HOLDER:
+                tree = _bound_tree(node, ctx, bound)
+                tree_rows = True
+                if term.direction == "output":
+                    read = ctx.make_output_var(listed.member, node.id, term.id)
+                    statements.append(
+                        build_assign(read, parse_expr(f"{tree}.{listed.member}"))
+                    )
+                    bindings[term.id] = read
+                else:
+                    statements.append(
+                        parse_stmt(f"{tree}.{listed.member} = {value}")
+                    )
+                continue
             if not listed.settable_while_running:
                 saved = saved_value(bound, listed.member)
                 if term.direction != "output" or saved is None:
@@ -316,7 +334,21 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 )
             statements += assign_state(ctx, bound.id, listed.member, parse_expr(value))
             statements.append(property_stmt(hooks, bound.id, listed, value))
+    if tree_rows:
+        return report_panel_error(node, ctx, statements, bindings)
     return CodeFragment(statements=statements, bindings=bindings)
+
+
+def _bound_tree(node: PrimitiveNode, ctx: CodeGenContext, bound: FPTerminal) -> str:
+    """The ``TreeItems`` of the Tree control ``bound`` of this VI's panel, which the
+    bound Property Node's Active Item and Active Cell rows read and write."""
+    name = ctx.panel_names.get(bound.id)
+    if name is None:
+        raise ConversionGap(
+            f"The control {bound.name!r} is not on the panel of the VI", node
+        )
+    ctx.import_panels(f"{PANEL_OF_NAME}, {PANEL_ERROR_NAME}")
+    return f"{PANEL_OF_NAME}({ctx.this_vi_expression()}).control_of({name!r}).tree"
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:

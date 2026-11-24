@@ -43,6 +43,8 @@ def read_starting_properties(ddo: ET.Element, control_type: str) -> dict[str, An
         ]
     if control_type == "listbox":
         _listbox(found, ddo)
+    if control_type == "treeControl":
+        _tree(found, ddo)
     if control_type == "stdGraph":
         for part in ddo.findall("partsList/SL__arrayElement[@class='scale']"):
             members = _SCALE_MEMBERS.get(int_or_none(part.findtext("partID")) or 0)
@@ -76,10 +78,10 @@ def _string(text: str | None) -> str:
     return "" if raw == _EMPTY_STRING_TEXT else strip_surrounding_quotes(raw)
 
 
-def _listbox(found: dict[str, Any], ddo: ET.Element) -> None:
-    """A listbox's item strings (one list per row: ``baseListboxItemStrings`` is the
-    ``[rows, columns]`` sizes and the strings row-major) and its active cell
-    ``(row, column)``."""
+def _rows(ddo: ET.Element) -> list[list[str]] | None:
+    """The cell strings of a listbox or tree, one list per row
+    (``baseListboxItemStrings``: the ``[rows, columns]`` sizes and the strings
+    row-major); None when the sizes do not match the strings."""
     sizes = [
         int_or_none(item.text) or 0
         for item in ddo.findall(
@@ -92,11 +94,51 @@ def _listbox(found: dict[str, Any], ddo: ET.Element) -> None:
             "baseListboxItemStrings/multiDimArrayElems/SL__arrayElement"
         )
     ]
-    if len(sizes) == 2 and sizes[0] * sizes[1] == len(items):
-        rows, columns = sizes
-        found["item_names"] = [
-            items[row * columns : (row + 1) * columns] for row in range(rows)
+    if len(sizes) != 2 or sizes[0] * sizes[1] != len(items):
+        return None
+    rows, columns = sizes
+    return [items[row * columns : (row + 1) * columns] for row in range(rows)]
+
+
+def _tree(found: dict[str, Any], ddo: ET.Element) -> None:
+    """A Tree's items, ``tree_items``: ``[tag, indent level, [the cell strings]]`` in
+    display order (the tag and indent level of ``treeNodeArray``, the strings of
+    ``baseListboxItemStrings``, the same count each); the width of each column,
+    ``tree_cell_widths``: ``[column, width]`` from the ``attributeList`` entries that
+    address every row (row -2) and set a width, column -2 the width of every column;
+    and the active column, ``tree_active_column``. A tree with no items records no
+    items. ``nodeFlags`` (0 or 4 in the corpus) is not decoded."""
+    rows = _rows(ddo) or []
+    nodes = ddo.findall("treeNodeArray/SL__arrayElement")
+    if nodes and len(nodes) == len(rows):
+        found["tree_items"] = [
+            [
+                _string(node.findtext("tag")),
+                int_or_none(node.findtext("indentLevel")) or 0,
+                row,
+            ]
+            for node, row in zip(nodes, rows, strict=True)
         ]
+    widths = [
+        [int_or_none(entry.findtext("cellPosCol")) or 0, width]
+        for entry in ddo.findall("attributeList/SL__arrayElement")
+        if int_or_none(entry.findtext("cellPosRow")) == -2
+        and (width := int_or_none(entry.findtext("width"))) is not None
+    ]
+    if widths:
+        found["tree_cell_widths"] = widths
+    cell = ddo.find("activeCell")
+    if cell is not None:
+        found["tree_active_column"] = int_or_none(cell.findtext("col")) or 0
+
+
+def _listbox(found: dict[str, Any], ddo: ET.Element) -> None:
+    """A listbox's item strings (one list per row: ``baseListboxItemStrings`` is the
+    ``[rows, columns]`` sizes and the strings row-major) and its active cell
+    ``(row, column)``."""
+    rows = _rows(ddo)
+    if rows is not None:
+        found["item_names"] = rows
     cell = ddo.find("activeCell")
     if cell is not None:
         found["active_cell"] = (

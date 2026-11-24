@@ -7,7 +7,7 @@ a control the node is bound to by
 ``reinit_default``; FP.Open, FP.Close, FP.Center and Abort VI, on the VI's own front
 panel and on another VI's reference, by ``front_panel_window``; SubPanel Insert VI
 and Remove VI by ``subpanel``; the Tag methods of a VI or a library by
-``tag_methods``;
+``tag_methods``; the methods of a Tree control by ``tree_methods``;
 every other method has no Python equivalent yet, so the node
 is a gap (``gaps.py``): generation warns, and the generated code raises
 ``NotImplementedError`` where the node would run.
@@ -29,7 +29,7 @@ from lvkit.graph.vi_reference import (
 
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from . import front_panel_window, reinit_default, subpanel, tag_methods
+from . import front_panel_window, reinit_default, subpanel, tag_methods, tree_methods
 from .base import DefaultObjectError, unwired_ref_class
 
 # The methods that act on the reference of another VI: its window and its run.
@@ -50,6 +50,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
 
     if node.bound_control_uid and is_reinit_to_default(node.method_code):
         return reinit_default.generate(node, ctx)
+
+    if tree_methods.is_tree_method(node):
+        return tree_methods.generate(node, ctx)
 
     if ctx.graph is not None and ctx.graph.acts_on_own_front_panel_window(
         node, ctx.vi_name or ""

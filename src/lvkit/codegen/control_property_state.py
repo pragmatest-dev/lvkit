@@ -26,6 +26,7 @@ stays a gap (``property_node``)."""
 from __future__ import annotations
 
 import ast
+from typing import Any
 
 from lvkit.control_properties import (
     FIELD_MEMBERS,
@@ -43,7 +44,15 @@ from .ast_utils import build_assign, node_owned_name
 from .context import CodeGenContext
 
 StateValue = (
-    bool | int | float | str | tuple[int, ...] | list[int] | list[str] | list[list[str]]
+    bool
+    | int
+    | float
+    | str
+    | tuple[int, ...]
+    | list[int]
+    | list[str]
+    | list[list[str]]
+    | list[list[Any]]
 )
 """A property's state: ``Visible`` a bool, ``Disabled`` its enum value, a Combo
 Box's ``Strings[]`` the list of its drop-down strings, a number, a string, a cell
