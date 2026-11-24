@@ -326,7 +326,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     reference's Name, Path, Description and Exec.State
     (``vi_reference.vi_property_read``), its Front Panel Window:Title (a read
     and a write: ``front_panel_title``), its Front Panel Window:Window Bounds
-    (``front_panel_bounds``), the properties its file records
+    (``front_panel_bounds``), the rows of its window the panel holds
+    (``window_rows``: State, Open, Is Frontmost, Panel Bounds, Origin, Monitor,
+    Behavior, Custom Title, Edit Mode On Open; a read and a write), the properties
+    its file records
     (``vi_file_properties``, Help:Document Web URL also a write) and the rows of
     the front panel's own
     references (``panel_reference``: Panel, Controls[], a control's Value,
@@ -386,6 +389,33 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             raise ConversionGap("Normalized property names collide", node)
         attr_names[attr_name] = prop.name
         if default_class is not None:
+            window = window_rows.window_row(prop) if default_class == VI_CLASS else None
+            if window is not None:
+                # a node of the VI's own window that also has a row of another kind:
+                # the panel's rows, with no ``live_io`` to tell
+                target = window_rows.Target(
+                    ctx.this_vi_expression(), False, term.lv_type, node, ctx
+                )
+                if term.direction == "output":
+                    var_name = ctx.make_output_var(attr_name, term.id, term.id)
+                    statements.append(
+                        ast.Assign(
+                            targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                            value=window_rows.read(window, target),
+                        )
+                    )
+                    bindings[term.id] = var_name
+                else:
+                    value = ctx.wired_input(term.id, node)
+                    if value is None:
+                        raise ConversionGap(
+                            f"Front Panel Window:{window.name}: the value written "
+                            "is not wired",
+                            node,
+                        )
+                    statements.extend(window_rows.write(window, target, value))
+                panel_read = True
+                continue
             monitor_list = monitors.read(default_class, prop, term, node, ctx)
             if monitor_list is not None:
                 var_name = ctx.make_output_var(attr_name, term.id, term.id)

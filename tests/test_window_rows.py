@@ -417,3 +417,22 @@ def test_all_monitors_asks_live_io_and_is_empty_without_a_screen(
         recorder = Recorder()
         assert screens(live_io=recorder).monitors == [(((0, 0, 1920, 1080), 32))]
         assert without_writes(recorder) == [("monitors",)]
+
+
+def test_a_node_of_the_own_window_with_another_kind_of_row_reads_the_panel(
+    tmp_path: Path,
+) -> None:
+    """Is Frontmost and VI Name on the default VI object in one node: the window row
+    is the panel's, the other row the default object's."""
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    project = Project(tmp_path)
+    project.add_vi("Own", window_vi([(FRONTMOST, "r", BOOL), (500, "r", string)], None))
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    assert gaps == []
+    with package.use() as module:
+        own = module("own").own
+        assert own().r0 is False
+        own.panel.open_window(True)
+        assert own().r0 is True
+        assert own().r1 == own.vi_name

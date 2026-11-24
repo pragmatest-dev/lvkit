@@ -6,6 +6,7 @@ package is imported and run."""
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any
 
@@ -121,12 +122,9 @@ def test_abort_vi_on_an_idle_vi_does_nothing_and_ends_a_running_one(
         module("target").target.panel = running
         running.run(wait=False)
         assert module("runner").runner().error_out is None
-        running._thread_done = None  # noqa: SLF001
         for _ in range(100):
             if running.state == 1:
                 break
-            import time
-
             time.sleep(0.05)
         assert running.state == 1
         assert running.aborted is True
