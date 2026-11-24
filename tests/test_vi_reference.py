@@ -1053,19 +1053,18 @@ def _open_with_error_out(tmp_path: Path) -> d.Loaded:
     return loaded
 
 
-def test_a_name_that_no_vi_of_the_project_has_is_error_7_on_the_error_out(
+def test_a_name_that_no_vi_of_the_project_has_is_error_1004_on_the_error_out(
     tmp_path: Path,
 ) -> None:
-    """NI, Open VI Reference: "If a matching VI is not found in memory, LabVIEW
-    then tries to load the VI from that file on disk. An error occurs if
-    LabVIEW cannot find the file." (NI, General LabVIEW Error Codes: 7 "File
-    not found.")"""
+    """NI, Open VI Reference: "LabVIEW will only search in memory for a VI with
+    a specified name" (NI, General LabVIEW Error Codes: 1004 "The VI is not in
+    memory.")."""
     loaded = _open_with_error_out(tmp_path)
     for refs in _package(tmp_path, _source(loaded), _CALLEE):
         found = refs.refs("Callee.vi")  # type: ignore[attr-defined]
         assert found.error_out is None
         missing = refs.refs("Missing.vi")  # type: ignore[attr-defined]
-        assert missing.error_out.code == 7
+        assert missing.error_out.code == 1004
         assert "'Missing.vi'" in missing.error_out.message
 
 

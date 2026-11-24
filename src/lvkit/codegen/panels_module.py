@@ -860,16 +860,18 @@ class PanelValues:
             raise PanelError(code=1, source="Panel", message=f'"{name}" not found')
 
     def _value(self, name: str) -> Any:
-        """The panel's value of ``name``. A control with a default made for it
-        holds that from the first read on, as a front panel holds one value; else
-        the control's own default (``_own_default``), else None."""
+        """The panel's value of ``name``. A control or indicator with a default
+        made for it holds that from the first read on, as a front panel holds one
+        value (an indicator no run has written holds its type's default, a
+        class's default object, not nothing); else the control's own default
+        (``_own_default``), else None."""
         if name in self._values:
             return self._values[name]
+        factory = self._defaults.get(name)
+        if factory is not None:
+            self._values[name] = factory()
+            return self._values[name]
         if name in self._controls:
-            factory = self._defaults.get(name)
-            if factory is not None:
-                self._values[name] = factory()
-                return self._values[name]
             return self._own_default(name)
         return None
 

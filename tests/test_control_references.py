@@ -235,7 +235,7 @@ def test_a_control_reference_reads_its_label_indicator_and_value(
         assert (result.label, result.indicator, result.value) == (
             "c",
             True,
-            variant(None, i32),
+            variant(0, i32),
         )
 
 

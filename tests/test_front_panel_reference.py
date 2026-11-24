@@ -335,7 +335,7 @@ def test_unknown_control_name_is_error_1_and_nothing_runs(tmp_path: Path) -> Non
         # empty Variant, the default of a Variant.
         assert result.out == module("variants").Variant()
         panel = module("target").target.panel
-        assert panel.get("y") is None
+        assert panel.get("y") == 0
 
 
 def test_the_front_panel_is_one_per_function(tmp_path: Path) -> None:
@@ -348,7 +348,7 @@ def test_the_front_panel_is_one_per_function(tmp_path: Path) -> None:
         assert isinstance(target.panel, panels.Panel)
         assert panels.panel_of(target) is target.panel
         assert target.panel.get_all(True) == [("x", 0)]
-        assert target.panel.get_all(False) == [("y", None)]
+        assert target.panel.get_all(False) == [("y", 0)]
         assert module("runner").runner.panel is not target.panel
 
 
@@ -704,7 +704,7 @@ def test_a_subvi_call_stays_a_direct_call_and_leaves_the_panel_alone(
     )
     with package.use() as module:
         assert module("runner").runner().out == 1
-        assert module("target").target.panel.get("y") is None
+        assert module("target").target.panel.get("y") == 0
 
 
 def required_and_optional(vi: str) -> tuple[VIContext, list[GraphNode]]:
@@ -737,7 +737,7 @@ def test_a_required_control_holds_its_saved_default_until_set(tmp_path: Path) ->
     package = project.generate()
     assert (
         "controls={'x': 'x', 'o': 'o'}" in package.sources["target"]
-        and "defaults={'x': lambda: 5}" in package.sources["target"]
+        and "defaults={'x': lambda: 5, 'y': lambda: 0}" in package.sources["target"]
     )
     with package.use() as module:
         panel = module("target").target.panel
@@ -786,6 +786,37 @@ def test_a_required_class_control_holds_one_default_object(tmp_path: Path) -> No
         assert second is first
 
 
+def test_a_class_indicator_no_run_wrote_holds_its_default_object(
+    tmp_path: Path,
+) -> None:
+    """A front panel's indicator holds its type's default until a run writes it:
+    a class indicator is its class's default object (a read of it, such as
+    Ctrl Val.Get, is not nothing), made once."""
+    cls = class_type("Cls")
+
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "c", cls, "c", 0)],
+                outputs=[pane(vi, "output", "d", cls, "d", 1)],
+                data_flow=[wire(vi, "c", "d")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_class("Cls", [])
+    project.add_vi("Take", take)
+    package = project.generate()
+    with package.use() as module:
+        panel = module("take").take.panel
+        first = panel.get("d")
+        assert isinstance(first, module("cls").Cls)
+        assert panel.get("d") is first
+        assert isinstance(panel.get_variant("d").value, module("cls").Cls)
+
+
 def test_a_required_array_control_holds_its_default_until_set(tmp_path: Path) -> None:
     """An unset required array control holds ``[]``, made once (a default never
     shared with another function's panel); a set value replaces it."""
@@ -806,7 +837,7 @@ def test_a_required_array_control_holds_its_default_until_set(tmp_path: Path) ->
     project.add_vi("Take", take)
     package = project.generate()
     assert "controls={'a': 'a'}" in package.sources["take"]
-    assert "defaults={'a': lambda: []}" in package.sources["take"]
+    assert "'a': lambda: []" in package.sources["take"]
     with package.use() as module:
         panel = module("take").take.panel
         first = panel.get("a")
@@ -858,7 +889,8 @@ def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
     package = project.generate()
     assert (
         "controls={'hidden': 'hidden'}, indicators={'shown': 'shown'}, "
-        "types={'hidden': LV_I32, 'shown': LV_I32}, defaults={'hidden': lambda: 0}"
+        "types={'hidden': LV_I32, 'shown': LV_I32}, "
+        "defaults={'hidden': lambda: 0, 'shown': lambda: 0}"
         in package.sources["take"]
     )
     with package.use() as module:
@@ -868,7 +900,7 @@ def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
         assert panel.get("hidden") == 3
         panel.run()
         assert panel.get("hidden") == 3
-        assert panel.get_all(False) == [("shown", None)]
+        assert panel.get_all(False) == [("shown", 0)]
 
 
 def test_a_label_two_objects_share_is_the_first_in_tabbing_order(
@@ -1073,7 +1105,7 @@ def test_an_unset_optional_array_control_holds_an_empty_array(tmp_path: Path) ->
     project = Project(tmp_path)
     project.add_vi("Take", take)
     package = project.generate()
-    assert "defaults={'a': lambda: []}" in package.sources["take"]
+    assert "'a': lambda: []" in package.sources["take"]
     with package.use() as module:
         panel = module("take").take.panel
         first = panel.get("a")

@@ -100,6 +100,9 @@ INVALID_VI_REFERENCE_CODE = 1026
 # NI, General LabVIEW Error Codes: 7 "File not found."
 FILE_NOT_FOUND_CODE = 7
 
+# NI, General LabVIEW Error Codes: 1004 "The VI is not in memory."
+NOT_IN_MEMORY_CODE = 1004
+
 # Open VI Reference options: bit 0x80 opens the VI to be called and forgotten.
 CALL_AND_FORGET = 0x80
 
@@ -641,26 +644,30 @@ def _generate_lookup(
         # the lookup's own exception, as a native failure does
         # (``native_failure``).
         return fragment
-    return _not_found_is_error_7(node, ctx, fragment, reference_var, value)
+    return _not_found_is_error(node, ctx, fragment, reference_var, value, by_name)
 
 
-def _not_found_is_error_7(
+def _not_found_is_error(
     node: PrimitiveNode,
     ctx: CodeGenContext,
     fragment: CodeFragment,
     reference_var: str,
     value: str,
+    by_name: bool,
 ) -> CodeFragment:
     """``fragment``, the lookup of a computed VI name or path, with a name or
-    path that finds no VI in the project made the node's own error 7, "File not
-    found.", and the reference Not a Refnum. NI, Open VI Reference: "If a
-    matching VI is not found in memory, LabVIEW then tries to load the VI from
-    that file on disk. An error occurs if LabVIEW cannot find the file." (7 is
-    NI's General LabVIEW Error Code for a file not found.)"""
+    path that finds no VI in the project made the node's own error and the
+    reference Not a Refnum. A path: error 7, "File not found." (NI, Open VI
+    Reference: "If you wire a path, LabVIEW searches for a VI in memory ...
+    then tries to load the VI from that file on disk. An error occurs if
+    LabVIEW cannot find the file."). A name: error 1004, "The VI is not in
+    memory." (NI, Open VI Reference: "LabVIEW will only search in memory for a
+    VI with a specified name"; NI, General LabVIEW Error Codes: 1004. JKI VI
+    Tester's own diagram filters 1004 on a name that no class member has.)"""
     own_error = ctx.make_output_var("own_error", node.id)
     ctx.import_labview_error()
     not_found = labview_error(
-        FILE_NOT_FOUND_CODE,
+        NOT_IN_MEMORY_CODE if by_name else FILE_NOT_FOUND_CODE,
         _label(node),
         f"'the VI ' + repr({value}) + ' is not in memory and has no file'",
     )

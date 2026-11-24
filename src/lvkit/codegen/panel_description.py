@@ -16,7 +16,8 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   cluster or class (the function body makes it): the function is a ``lambda``
   making the control's default (its saved default, else its type's, a class's
   default object), so each run gets a fresh list or object. Every other
-  control's default is its parameter's own;
+  control's default is its parameter's own. Each indicator whose type's default
+  is not ``None`` has one too: it holds that until a run writes it;
 - ``indicators``: the name of each indicator to its label;
 - ``results``: the name of each indicator on the connector pane to the field of the
   result that holds it;
@@ -117,6 +118,7 @@ def default_functions(
     ctx: CodeGenContext,
     target: str,
     lazy: bool,
+    indicators: Sequence[NamedTerminal] = (),
 ) -> DefaultFunctions:
     """The default function of each control whose parameter does not hold its
     default (a Required input, a control off the connector pane, a control whose
@@ -128,10 +130,15 @@ def default_functions(
     (``lazy``), a default that needs one is a ``def`` of ``target``'s name that
     imports it, as the function bodies do. A control whose default needs a class
     that is not loaded has no entry: the panel holds ``None`` for it (the class is
-    reported where the VI uses it)."""
+    reported where the VI uses it).
+    Each of ``indicators`` has an entry too when its default is not ``None``: an
+    indicator no run has written holds its type's default (a class's default
+    object), as a front panel does."""
     defaults = DefaultFunctions()
     stem = target.replace(".", "_")
-    for terminal, parameter in controls:
+    entries = [(t, parameter, False) for t, parameter in controls]
+    entries += [(t, None, True) for t, _ in indicators]
+    for terminal, parameter, indicator in entries:
         on_def_default = parameter is not None and not is_required(terminal, "input")
         if on_def_default and not _is_none(parameter_default_expr(terminal)):
             continue
@@ -142,7 +149,7 @@ def default_functions(
             ctx.imports = module_imports
             continue
         added, ctx.imports = ctx.imports, module_imports
-        if on_def_default and _is_none(value):
+        if (on_def_default or indicator) and _is_none(value):
             continue
         needed = (
             {i for i in added if i.startswith("from .") and not imports_variants(i)}
@@ -250,7 +257,7 @@ def panel_statements(
     indicator with the field of the result that holds it (None off the pane) and
     ``passed`` each class output with the parameter holding the object it shows."""
     ctx.import_panels(PANEL_NAME, at_module_level=True)
-    defaults = default_functions(controls, names, ctx, target, lazy)
+    defaults = default_functions(controls, names, ctx, target, lazy, indicators)
     keywords: list[tuple[str, ast.expr]] = []
     for entry in (
         _name_map("controls", [(names[t.id], t.name or "") for t, _ in controls]),
