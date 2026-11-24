@@ -74,16 +74,64 @@ VI_FP_TITLE_PROPERTY_CODE = 553
 VI_FP_BOUNDS_PROPERTY_CODE = 536
 VI_FP_CENTER_METHOD_CODE = 1089
 
-# The methods of the VI class that act on a front panel window.
+# The other properties of the VI class that are the front panel window, by the code
+# a Property Node records beside each name in every such node of the corpus (NI:
+# properties-and-methods/vi-server/vi/): Front Panel Window:Open (an older
+# property; the LabVIEW Wiki, VI class/Front Panel Window.Open property, gives it
+# as Boolean: TRUE displays the window, FALSE closes it), Is Frontmost
+# (fpwinisfrontmost.html), Origin (the scroll position of the front panel; the page
+# of the Pane class's Origin gives its cluster), Panel Bounds (fpwinpanelbounds.html),
+# State (fpstate.html), Behavior (fpbehavior.html), Monitor (fpmonitor.html), Custom
+# Title (fpwincustomtitle.html) and Edit Mode On Open (editmode.html).
+VI_FP_OPEN_PROPERTY_CODE = 534
+VI_FP_IS_FRONTMOST_PROPERTY_CODE = 535
+VI_FP_ORIGIN_PROPERTY_CODE = 552
+VI_FP_PANEL_BOUNDS_PROPERTY_CODE = 556
+VI_FP_STATE_PROPERTY_CODE = 608
+VI_FP_BEHAVIOR_PROPERTY_CODE = 601
+VI_FP_MONITOR_PROPERTY_CODE = 629
+VI_FP_CUSTOM_TITLE_PROPERTY_CODE = 561
+VI_EDIT_MODE_PROPERTY_CODE = 558
+
+# The method of the VI class that aborts a VI (abort.html).
+VI_ABORT_METHOD_CODE = 1004
+
+# The Display:All Monitors property (Disp.AllMonitors; NI: properties-and-methods/
+# vi-server/application/dispallmon.html) of the Application class (the heap's class
+# name ``App``), by the code every Property Node of the corpus records beside it.
+APP_CLASS = "App"
+APP_ALL_MONITORS_PROPERTY_CODE = 34
+
+# The methods of a SubPanel control that load a VI's front panel into it and take it
+# out (insertvi.html, removevi.html), by the method code every Invoke Node of the
+# corpus records beside those names.
+SUBPANEL_CLASS = "SubPanel"
+SUBPANEL_INSERT_VI_METHOD_CODE = 1918385152
+SUBPANEL_REMOVE_VI_METHOD_CODE = 1918385153
+
+# The methods of the VI class whose reference out is the reference given.
 _WINDOW_METHOD_CODES = (
     VI_FP_OPEN_METHOD_CODE,
     VI_FP_CLOSE_METHOD_CODE,
     VI_FP_CENTER_METHOD_CODE,
+    VI_ABORT_METHOD_CODE,
 )
 
 # The properties of the VI's own window that ``acts_on_own_window_properties``
-# covers: Title and Window Bounds.
-_OWN_WINDOW_PROPERTY_CODES = (VI_FP_TITLE_PROPERTY_CODE, VI_FP_BOUNDS_PROPERTY_CODE)
+# covers.
+_OWN_WINDOW_PROPERTY_CODES = (
+    VI_FP_TITLE_PROPERTY_CODE,
+    VI_FP_BOUNDS_PROPERTY_CODE,
+    VI_FP_OPEN_PROPERTY_CODE,
+    VI_FP_IS_FRONTMOST_PROPERTY_CODE,
+    VI_FP_ORIGIN_PROPERTY_CODE,
+    VI_FP_PANEL_BOUNDS_PROPERTY_CODE,
+    VI_FP_STATE_PROPERTY_CODE,
+    VI_FP_BEHAVIOR_PROPERTY_CODE,
+    VI_FP_MONITOR_PROPERTY_CODE,
+    VI_FP_CUSTOM_TITLE_PROPERTY_CODE,
+    VI_EDIT_MODE_PROPERTY_CODE,
+)
 
 # The Property Node's VI reference input.
 _PROPERTY_REFERENCE_INDEX = 0
@@ -201,18 +249,43 @@ class VIReferenceMixin(WireOriginMixin):
             and self._reference_is_own(node, vi_name)
         )
 
-    def writes_own_window_properties(self, node: AnyGraphNode, vi_name: str) -> bool:
-        """Whether ``node`` writes the Title or the Window Bounds of the VI's own
-        window (``acts_on_own_window_properties`` with a row that takes a value
-        in)."""
+    def reads_monitors(self, node: AnyGraphNode) -> bool:
+        """Whether ``node`` is a Property Node of the Application class that reads
+        Display:All Monitors, which Python gets from ``live_io.monitors()``."""
         return (
             isinstance(node, PrimitiveNode)
-            and self.acts_on_own_window_properties(node, vi_name)
+            and node.object_name == APP_CLASS
             and any(
-                t.id in node.property_value_terminal_ids and t.direction == "input"
-                for t in node.terminals
+                len(p.segments) == 1
+                and p.segments[0].code == APP_ALL_MONITORS_PROPERTY_CODE
+                for p in node.properties or []
             )
         )
+
+    def calls_live_io_on_own_window(self, node: AnyGraphNode, vi_name: str) -> bool:
+        """Whether ``node`` is a Property Node of the VI's own window
+        (``acts_on_own_window_properties``) with a row that asks ``live_io`` for
+        the window: a write of any row but Edit Mode On Open (a fact of how the VI
+        opens, which no window answers), or a read of Is Frontmost (the window
+        system knows which window has focus)."""
+        if not (
+            isinstance(node, PrimitiveNode)
+            and self.acts_on_own_window_properties(node, vi_name)
+        ):
+            return False
+        by_id = {t.id: t for t in node.terminals}
+        for prop, term_id in zip(
+            node.properties, node.property_value_terminal_ids, strict=False
+        ):
+            term = by_id.get(term_id)
+            code = prop.segments[0].code
+            if term is None:
+                continue
+            if term.direction == "input" and code != VI_EDIT_MODE_PROPERTY_CODE:
+                return True
+            if term.direction == "output" and code == VI_FP_IS_FRONTMOST_PROPERTY_CODE:
+                return True
+        return False
 
     def _reference_is_own(self, node: PrimitiveNode, vi_name: str) -> bool:
         """Whether the node's VI reference is unwired (the default VI object) or

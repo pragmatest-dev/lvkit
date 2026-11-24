@@ -192,6 +192,21 @@ from .variants import (
 
 ABORT_POLL = 0.1
 
+# NI's values of Front Panel Window:State (properties-and-methods/vi-server/vi/
+# fpstate.html: 1 Standard, 2 Closed, 3 Hidden, 4 Minimized, 5 Maximized; 0 Invalid
+# is an error when set) and the ones a window is opened or set to.
+WINDOW_STANDARD = 1
+WINDOW_CLOSED = 2
+WINDOW_HIDDEN = 3
+WINDOW_MINIMIZED = 4
+WINDOW_MAXIMIZED = 5
+WINDOW_OPEN_STATES = (
+    WINDOW_STANDARD,
+    WINDOW_HIDDEN,
+    WINDOW_MINIMIZED,
+    WINDOW_MAXIMIZED,
+)
+
 # NI's ClassID number of each VI Server class (the ClassID property,
 # properties-and-methods/vi-server/generic/classid.html).
 CLASS_IDS: dict[str, int] = __CLASS_IDS__
@@ -536,6 +551,24 @@ class PanelView:
         what is pending and then holds new changes back; False, it draws every
         change as it comes."""
 
+    def window_changed(self, state: int, active: bool) -> None:
+        """The VI's front panel window was opened, closed or given a state, by the
+        program (FP.Open, FP.Close, FP.State, Is Frontmost): ``state`` is NI's
+        Front Panel Window:State number (1 Standard, 2 Closed, 3 Hidden, 4
+        Minimized, 5 Maximized) and ``active`` whether the window came to the
+        front. A view that has a window for the panel shows, hides or closes
+        it."""
+
+    def window_property_changed(self, prop: str, value: Any) -> None:
+        """The program wrote the property ``prop`` of the VI's front panel window:
+        ``panel_bounds`` (``(left, top, right, bottom)``), ``origin`` (the scroll
+        position, in the order of the cluster written), ``monitor``, ``behavior``
+        or ``edit_mode_on_open``."""
+
+    def subpanel_changed(self, control: str, vi: Any) -> None:
+        """The program loaded the VI ``vi`` (a function) into the SubPanel control
+        ``control`` (Insert VI), or took it out (Remove VI, ``vi`` None)."""
+
     def run_started(self) -> None:
         """A run of the VI began."""
 
@@ -660,6 +693,156 @@ class PanelValues:
         self._views: list[PanelView] = []
         self._lock = threading.RLock()
         self._defer_updates = False
+        self._window_state = WINDOW_CLOSED
+        self._window_values: dict[str, Any] = {}
+        self._frontmost = False
+        self._hosted_in: tuple[PanelValues, str] | None = None
+        self._subpanels: dict[str, Any] = {}
+
+    @property
+    def window_state(self) -> int:
+        """The Front Panel Window:State of the VI (NI: 1 Standard, 2 Closed, 3
+        Hidden, 4 Minimized, 5 Maximized): Closed until the program opens the
+        window (FP.Open, a write of Front Panel Window:Open) and after it closes
+        it; Hidden while the panel is loaded in a SubPanel control (NI: "If you
+        load the VI in a subpanel control, this property is read only and always
+        returns a value of Hidden")."""
+        with self._lock:
+            return WINDOW_HIDDEN if self._hosted_in is not None else self._window_state
+
+    def open_window(self, activate: bool = False, state: int = 1) -> None:
+        """FP.Open: open the front panel window in ``state`` (NI: "If the front
+        panel is already open, this method changes the state of the front panel
+        window to the state you wire to this method"); ``activate`` opens it as
+        the active window. 0 Invalid and 2 Closed are errors, as NI says ("the
+        method returns an error"; NI gives no code, so this is the generic error 1,
+        "An input parameter is invalid"). The views are told."""
+        if state not in WINDOW_OPEN_STATES:
+            raise PanelError(
+                code=1,
+                source="Panel.open_window",
+                message=f"{state} is not a state a front panel window opens in.",
+            )
+        with self._lock:
+            self._window_state = state
+            self._frontmost = bool(activate)
+        self._tell("window_changed", state, bool(activate))
+
+    def close_window(self) -> None:
+        """FP.Close: close the front panel window; the views are told."""
+        with self._lock:
+            self._window_state = WINDOW_CLOSED
+            self._frontmost = False
+        self._tell("window_changed", WINDOW_CLOSED, False)
+
+    def set_window_state(self, state: int) -> None:
+        """Write Front Panel Window:State. NI: "If you attempt to set this property
+        for a front panel window that is not open, the property returns an error",
+        and Invalid and Closed "return an error" when set; the VI Server's error
+        for a VI not in a state that allows the operation is 1000 (NI, General
+        LabVIEW Error Codes: "The VI is not in a state compatible with this
+        operation"), and an input that is not allowed is error 1. A VI loaded in a
+        SubPanel control has a read-only state."""
+        with self._lock:
+            hosted = self._hosted_in is not None
+            closed = self._window_state == WINDOW_CLOSED
+        if hosted or closed:
+            raise PanelError(
+                code=1000,
+                source="Panel.set_window_state",
+                message="The VI is not in a state compatible with this operation: "
+                "the front panel window is not open.",
+            )
+        if state not in WINDOW_OPEN_STATES:
+            raise PanelError(
+                code=1,
+                source="Panel.set_window_state",
+                message=f"{state} is not a state a front panel window is set to.",
+            )
+        with self._lock:
+            self._window_state = state
+        self._tell("window_changed", state, False)
+
+    @property
+    def frontmost(self) -> bool:
+        """Whether the front panel window is the front window: it was opened as the
+        active window or brought to the front, and is open and not hidden or
+        minimized. The window system, when a view has one, knows better: a view
+        tells the panel through ``window_changed`` only what the program did."""
+        with self._lock:
+            return self._frontmost and self.window_state in (
+                WINDOW_STANDARD,
+                WINDOW_MAXIMIZED,
+            )
+
+    def bring_to_front(self) -> None:
+        """Write TRUE to Front Panel Window:Is Frontmost: the window comes to the
+        front (a write of FALSE has no effect, NI)."""
+        with self._lock:
+            self._frontmost = True
+            state = self._window_state
+        self._tell("window_changed", state, True)
+
+    def window_value(self, prop: str, default: Any) -> Any:
+        """The last written value of the window property ``prop`` (``panel_bounds``,
+        ``origin``, ``monitor``, ``behavior``, ``edit_mode_on_open``), else
+        ``default``."""
+        with self._lock:
+            return self._window_values.get(prop, default)
+
+    def set_window_value(self, prop: str, value: Any) -> None:
+        """Write the window property ``prop``: the panel holds it and tells the
+        views."""
+        with self._lock:
+            self._window_values[prop] = value
+        self._tell("window_property_changed", prop, value)
+
+    def insert_vi(self, control: str, vi: Any) -> None:
+        """SubPanel Insert VI on the control ``control``: load the front panel of
+        the VI ``vi`` (a reference: its function) into it. NI: "If the front panel
+        of the VI you want to load is open or if you loaded the front panel in
+        another subpanel control on the same front panel, LabVIEW returns an error"
+        (no code is given: error 1000, as for a VI not in a state that allows the
+        operation); the panel the control holds before is unloaded first. The views
+        are told, and one that has a widget for the SubPanel shows the VI's
+        panel."""
+        panel = panel_of(vi)
+        with self._lock:
+            loaded = panel is not self._subpanels.get(control)
+            busy = panel._window_state != WINDOW_CLOSED or panel._hosted_in is not None
+            if loaded and busy:
+                raise PanelError(
+                    code=1000,
+                    source="Panel.insert_vi",
+                    message="The VI is not in a state compatible with this "
+                    "operation: its front panel is open or loaded in a SubPanel "
+                    "control.",
+                )
+            before = self._subpanels.get(control)
+            if before is not None and before is not panel:
+                before._hosted_in = None
+            self._subpanels[control] = panel
+            panel._hosted_in = (self, control)
+        self._tell("subpanel_changed", control, vi)
+
+    def remove_vi(self, control: str) -> None:
+        """SubPanel Remove VI on the control ``control``: unload the VI it holds
+        (nothing when it holds none)."""
+        with self._lock:
+            panel = self._subpanels.pop(control, None)
+            if panel is not None:
+                panel._hosted_in = None
+        self._tell("subpanel_changed", control, None)
+
+    def abort(self) -> None:
+        """Abort VI on a panel that is not a VI's function: a Global VI has no
+        diagram to abort (NI's Abort VI page lists "Available with global VIs:
+        No"), so it is error 1035, as Run VI on it is."""
+        raise PanelError(
+            code=1035,
+            source="Panel.abort",
+            message="Operation is invalid for this type of VI.",
+        )
 
     @property
     def defer_updates(self) -> bool:
@@ -1029,10 +1212,37 @@ class Panel(PanelValues):
             self._go.set()
         self._tell("run_finished", error)
 
+    def _called_by_a_vi(self) -> bool:
+        """Whether this thread is inside this VI's function called by another VI's
+        function: the VI is then a subVI of the running one."""
+        own = getattr(self.function, "vi_name", None)
+        seen = False
+        frame: types.FrameType | None = sys._getframe(1)
+        while frame is not None:
+            name = getattr(_function_of(frame), "vi_name", None)
+            if isinstance(name, str):
+                if seen:
+                    return True
+                seen = name == own
+            frame = frame.f_back
+        return False
+
     def abort(self) -> None:
-        """End the run in progress at its next point (a ``live_io`` call or a wait
-        for an event); a paused run is released so it reaches that point. A VI that
-        takes no ``live_io`` has no such point and runs to its end."""
+        """Abort VI. NI: "Aborts the execution of a top-level VI. This method returns
+        error 1000 if you call it on a subVI. Otherwise, this method is similar to
+        pressing the Abort Execution button": a VI whose function this thread is
+        inside, called by another VI's function, is error 1000. Else the run in
+        progress ends at its next point (a ``live_io`` call or a wait for an
+        event); a paused run is released so it reaches that point. A VI that takes
+        no ``live_io`` has no such point and runs to its end, and a VI that is not
+        running has nothing to abort."""
+        if self._called_by_a_vi():
+            raise PanelError(
+                code=1000,
+                source="Panel.abort",
+                message="The VI is not in a state compatible with this "
+                "operation: it is a subVI.",
+            )
         with self._lock:
             if self._running:
                 self._abort = True

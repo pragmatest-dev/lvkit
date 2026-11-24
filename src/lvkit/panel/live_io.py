@@ -8,7 +8,11 @@ one, ``prompt`` when it shows a
 dialog box, calls ``open_panel`` / ``close_panel`` when it opens or closes its
 own front panel window, calls ``center_panel`` when it centers it,
 ``set_window_title`` / ``set_window_bounds`` when it writes that window's title or
-bounds, and takes the front panel's events from ``events``.
+bounds, ``set_window_state`` / ``set_panel_bounds`` / ``set_panel_origin`` /
+``set_window_monitor`` / ``set_window_behavior`` when it writes the window's other
+properties, ``bring_to_front`` / ``is_frontmost`` to bring it to the front or ask
+whether it is, ``monitors`` for the computer's screens, and takes the front panel's
+events from ``events``.
 The base class
 does nothing, except ``prompt``, which asks on the terminal: ``read`` returns
 the value the function already holds. Pass a subclass to show, record or supply
@@ -99,6 +103,68 @@ class LiveIO:
         function does not change the bounds it keeps: the screen's size is the
         window's to know."""
         return None
+
+    def set_window_state(self, state: int) -> None:
+        """The function wrote the State of its own front panel window (Front Panel
+        Window:State, FP.State: docs-be ``properties-and-methods/vi-server/vi/
+        fpstate.html``): 1 Standard, 3 Hidden, 4 Minimized or 5 Maximized (the
+        window was open: a write on a closed window is an error the function
+        reports). The function keeps the state for its own later reads."""
+        return None
+
+    def bring_to_front(self) -> None:
+        """The function wrote TRUE to the Is Frontmost property of its own front
+        panel window (Front Panel Window:Is Frontmost, FP.IsFrontmost: docs-be
+        ``properties-and-methods/vi-server/vi/fpwinisfrontmost.html``): "Writing
+        TRUE to this value brings the front panel to the front"."""
+        return None
+
+    def is_frontmost(self, held: bool) -> bool:
+        """Whether the function's own front panel window is the front window
+        (NI: "If you read this property, it indicates whether the front panel
+        window is the front window (ignoring floating windows)"). ``held`` is what
+        the function knows (True after it brought the window to the front or
+        opened it as the active window); the base class returns it, the window
+        system is what knows for sure."""
+        return held
+
+    def set_panel_bounds(self, bounds: tuple[int, int, int, int]) -> None:
+        """The function wrote the Panel Bounds of its own front panel window (Front
+        Panel Window:Panel Bounds, FP.PanelBounds: docs-be
+        ``properties-and-methods/vi-server/vi/fpwinpanelbounds.html``):
+        ``(left, top, right, bottom)`` of the interior of the front panel in global
+        screen coordinates."""
+        return None
+
+    def set_panel_origin(self, origin: tuple[int, ...]) -> None:
+        """The function wrote the Origin of its own front panel (Front Panel
+        Window:Origin): the position the panel is scrolled to, the coordinates of
+        its upper left corner as the Pane class's Origin gives them (docs-be
+        ``properties-and-methods/vi-server/generic/gobject/pane/origin.html``),
+        in the order of the cluster the function wrote."""
+        return None
+
+    def set_window_monitor(self, monitor: int) -> None:
+        """The function wrote the Monitor of its own front panel window (Front
+        Panel Window:Monitor, FP.Monitor: docs-be
+        ``properties-and-methods/vi-server/vi/fpmonitor.html``): "The value 0 is the
+        primary monitor" on Windows."""
+        return None
+
+    def set_window_behavior(self, behavior: int) -> None:
+        """The function wrote the Behavior of its own front panel window (Front
+        Panel Window:Behavior, FP.Behavior: docs-be
+        ``properties-and-methods/vi-server/vi/fpbehavior.html``): 1 Default, 2
+        Floating, 3 Floating/Auto-Hide, 4 Modal."""
+        return None
+
+    def monitors(self) -> list[tuple[int, int, int, int, int]]:
+        """The monitors of the computer, ``(left, top, right, bottom, depth)`` each
+        (Display:All Monitors, Disp.AllMonitors: docs-be ``properties-and-methods/
+        vi-server/application/dispallmon.html``: "information about all the
+        monitors on the computer, including their bit depths and bounding
+        rectangles"). The base class has no screen: it gives no monitors."""
+        return []
 
     def prompt(
         self, message: str, buttons: Sequence[str] = ("OK",), title: str = ""

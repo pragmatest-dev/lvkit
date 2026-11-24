@@ -51,15 +51,15 @@ def is_bounds_row(prop: PropertyDef) -> bool:
 
 
 def _attributes(
-    lv_type: LVType | None, node: PrimitiveNode
+    lv_type: LVType | None, node: PrimitiveNode, what: str, count: int
 ) -> list[str] | None:
     """The attribute name of each element of the property's cluster, in order;
-    None for an anonymous cluster (a tuple). A type that is not a cluster of four
-    elements is a gap."""
-    if lv_type is None or not lv_type.fields or len(lv_type.fields) != _ELEMENTS:
+    None for an anonymous cluster (a tuple). A type that is not a cluster of
+    ``count`` elements is a gap naming the property ``what``."""
+    if lv_type is None or not lv_type.fields or len(lv_type.fields) != count:
         raise ConversionGap(
-            "Front Panel Window:Window Bounds: the property's terminal is not a "
-            f"cluster of the {_ELEMENTS} elements NI's Window Bounds has",
+            f"Front Panel Window:{what}: the property's terminal is not a "
+            f"cluster of the {count} elements NI's {what} has",
             node,
         )
     if not lv_type.typedef_name and not lv_type.classname:
@@ -67,13 +67,19 @@ def _attributes(
     return field_attribute_names(f.name for f in lv_type.fields)
 
 
-def read(
-    reference: str, lv_type: LVType | None, node: PrimitiveNode, ctx: CodeGenContext
+def cluster_read(
+    held: str,
+    lv_type: LVType | None,
+    node: PrimitiveNode,
+    ctx: CodeGenContext,
+    what: str = "Window Bounds",
+    count: int = _ELEMENTS,
 ) -> ast.expr:
-    """The bounds of the VI whose function is ``reference``, as the cluster the
-    property's terminal carries (None where the file records none)."""
-    attributes = _attributes(lv_type, node)
-    held = f"{reference}.{BOUNDS_ATTRIBUTE}"
+    """The tuple ``held`` (None where there is none) as the cluster of ``count``
+    elements the property ``what``'s terminal carries: a ``SimpleNamespace`` of its
+    labelled elements for a cluster the diagram names, the tuple for an anonymous
+    one."""
+    attributes = _attributes(lv_type, node, what, count)
     if attributes is None:
         return parse_expr(held)
     ctx.add_import("from types import SimpleNamespace")
@@ -85,6 +91,32 @@ def read(
     )
 
 
+def cluster_tuple(
+    value: str,
+    lv_type: LVType | None,
+    node: PrimitiveNode,
+    what: str = "Window Bounds",
+    count: int = _ELEMENTS,
+) -> tuple[list[ast.stmt], str]:
+    """The statements that unpack the cluster ``value`` and the expression of its
+    elements as a tuple, in the cluster's order."""
+    attributes = _attributes(lv_type, node, what, count)
+    if attributes is None:
+        return [], f"tuple({value})"
+    return (
+        [parse_stmt(f"{_BOUNDS_NAME} = {value}")],
+        f"({', '.join(f'{_BOUNDS_NAME}.{name}' for name in attributes)})",
+    )
+
+
+def read(
+    reference: str, lv_type: LVType | None, node: PrimitiveNode, ctx: CodeGenContext
+) -> ast.expr:
+    """The bounds of the VI whose function is ``reference``, as the cluster the
+    property's terminal carries (None where the file records none)."""
+    return cluster_read(f"{reference}.{BOUNDS_ATTRIBUTE}", lv_type, node, ctx)
+
+
 def write(
     reference: str,
     value: str,
@@ -93,16 +125,8 @@ def write(
 ) -> list[ast.stmt]:
     """Set the bounds of the VI whose function is ``reference`` from the cluster
     ``value``."""
-    attributes = _attributes(lv_type, node)
-    held = f"{reference}.{BOUNDS_ATTRIBUTE}"
-    if attributes is None:
-        return [parse_stmt(f"{held} = tuple({value})")]
-    return [
-        parse_stmt(f"{_BOUNDS_NAME} = {value}"),
-        parse_stmt(
-            f"{held} = ({', '.join(f'{_BOUNDS_NAME}.{name}' for name in attributes)})"
-        ),
-    ]
+    statements, elements = cluster_tuple(value, lv_type, node)
+    return [*statements, parse_stmt(f"{reference}.{BOUNDS_ATTRIBUTE} = {elements}")]
 
 
 def window_bounds_statement(ctx: CodeGenContext, key: str, target: str) -> ast.stmt:

@@ -35,10 +35,12 @@ from . import (
     class_property_node,
     front_panel_bounds,
     front_panel_title,
+    monitors,
     own_window_properties,
     panel_reference,
     vi_file_properties,
     vi_reference,
+    window_rows,
 )
 from .base import (
     DefaultObjectError,
@@ -384,6 +386,17 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             raise ConversionGap("Normalized property names collide", node)
         attr_names[attr_name] = prop.name
         if default_class is not None:
+            monitor_list = monitors.read(default_class, prop, term, node, ctx)
+            if monitor_list is not None:
+                var_name = ctx.make_output_var(attr_name, term.id, term.id)
+                statements.append(
+                    ast.Assign(
+                        targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                        value=monitor_list,
+                    )
+                )
+                bindings[term.id] = var_name
+                continue
             value_expr = _default_object_read(node, default_class, prop, term)
             var_name = ctx.make_output_var(attr_name, term.id, term.id)
             statements.append(
@@ -411,7 +424,14 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
             row = panel_reference.panel_row(node, prop)
             listed = panel_reference.property_row(node, prop)
-            if listed is not None:
+            window = window_rows.window_row(prop) if is_on_vi_reference(node) else None
+            if window is not None:
+                reflected = window_rows.read(
+                    window,
+                    window_rows.Target(ref_var, False, term.lv_type, node, ctx),
+                )
+                panel_read = True
+            elif listed is not None:
                 reflected = panel_reference.read_property(listed, ref_var, ctx)
                 panel_read = True
             elif row is not None:
@@ -456,12 +476,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     f"VI runs ({listed.doc_url})",
                     node,
                 )
-            title = is_on_vi_reference(
-                node
-            ) and front_panel_title.is_title_row(prop)
-            bounds = is_on_vi_reference(node) and front_panel_bounds.is_bounds_row(
-                prop
-            )
+            title = is_on_vi_reference(node) and front_panel_title.is_title_row(prop)
+            bounds = is_on_vi_reference(node) and front_panel_bounds.is_bounds_row(prop)
             file_row = (
                 vi_file_properties.file_property(prop)
                 if is_on_vi_reference(node)
@@ -469,9 +485,11 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             )
             if file_row is not None and not file_row.writable:
                 file_row = None
+            window = window_rows.window_row(prop) if is_on_vi_reference(node) else None
             if (
                 not title
                 and not bounds
+                and window is None
                 and file_row is None
                 and listed is None
                 and (row is None or not panel_reference.is_writable(row))
@@ -480,6 +498,16 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             value = ctx.wired_input(term.id, node)
             if value is None:
                 raise CodeGenError("Property write value is unresolved", node)
+            if window is not None:
+                statements.extend(
+                    window_rows.write(
+                        window,
+                        window_rows.Target(ref_var, False, term.lv_type, node, ctx),
+                        value,
+                    )
+                )
+                panel_read = True
+                continue
             if listed is not None:
                 statements.append(
                     panel_reference.write_property(listed, ref_var, value, ctx)

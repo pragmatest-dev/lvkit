@@ -68,6 +68,32 @@ class Recorder(LiveIO):
     def center_panel(self) -> None:
         self.log.append(("center_panel",))
 
+    def set_window_state(self, state: int) -> None:
+        self.log.append(("window_state", state))
+
+    def bring_to_front(self) -> None:
+        self.log.append(("bring_to_front",))
+
+    def is_frontmost(self, held: bool) -> bool:
+        self.log.append(("is_frontmost", held))
+        return held
+
+    def set_panel_bounds(self, bounds: tuple[int, int, int, int]) -> None:
+        self.log.append(("panel_bounds", bounds))
+
+    def set_panel_origin(self, origin: tuple[int, ...]) -> None:
+        self.log.append(("panel_origin", origin))
+
+    def set_window_monitor(self, monitor: int) -> None:
+        self.log.append(("window_monitor", monitor))
+
+    def set_window_behavior(self, behavior: int) -> None:
+        self.log.append(("window_behavior", behavior))
+
+    def monitors(self) -> list[tuple[int, int, int, int, int]]:
+        self.log.append(("monitors",))
+        return [(0, 0, 1920, 1080, 32)]
+
 
 class PromptRecorder(LiveIO):
     """A ``LiveIO`` that records every dialog a function shows, ``(message,

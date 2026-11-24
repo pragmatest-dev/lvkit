@@ -144,7 +144,6 @@ def test_properties_with_no_python_meaning_raise_where_they_run() -> None:
         ("App", "App.Version", 2),
         ("App", "App.Kind", 3),
         ("App", "App.LVTarget", 131),
-        ("App", "Disp.AllMonitors", 34),
     ):
         source = _vi(class_name, name, code)
         assert (
