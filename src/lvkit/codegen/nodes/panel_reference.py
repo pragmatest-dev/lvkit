@@ -46,8 +46,8 @@ that module, and these rows read them:
   value)``: the panel holds the property like any other control property (every
   entry of ``control_properties.json``, found on the class of the node or one above
   it, is read and written this way, as a bound Property Node reads and writes it), a
-  read gives the last write, else the state the file saves, else the property's
-  ``default``, else raises
+  read gives the last write, else the value the file starts the control in
+  (``FPTerminal.starting_properties``), else the property's ``default``, else raises
   NotImplementedError naming the property, and its views show a write.
 
 - ``Strings[]`` of an Enum reference and ``MechAction`` of a Boolean reference

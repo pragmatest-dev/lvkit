@@ -103,6 +103,7 @@ from .fp_parts import (
     parse_multi_label_buf,
 )
 from .fp_pictures import attach_panel_pictures
+from .fp_starting_properties import read_starting_properties, tip_strip
 from .fp_structure import read_panel_layout
 from .front_panel import (
     _lvtype_to_parsed,
@@ -2272,6 +2273,8 @@ def _parse_ddo(
                 inner_control.hidden = _is_hidden(ddo)
                 inner_control.name = name
                 inner_control.caption = extract_caption(ddo)
+                if ddo.find("description") is not None:
+                    inner_control.starting_properties["tip_strip"] = tip_strip(ddo)
                 inner_control.label_visible = _part_shown(ddo, 16) is not None
                 inner_control.caption_visible = _part_shown(
                     ddo, 82
@@ -2481,6 +2484,7 @@ def _parse_ddo(
         parts=_parse_fp_parts(ddo, fonts),
         enum_values=enum_values,
         undecoded_strings=undecoded_strings,
+        starting_properties=read_starting_properties(ddo, control_type),
         ring_values=ring_values,
         cluster_geom=cluster_geom,
         element_default_value=element_default_value,

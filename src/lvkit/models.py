@@ -20,7 +20,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field, replace
 from enum import IntEnum, StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 import hightime
 from pydantic import BaseModel
@@ -1135,6 +1135,9 @@ class FPTerminal(Terminal):
     # A Combo Box saved with this many drop-down strings whose form is not decoded
     # (0: none, or not a Combo Box).
     undecoded_strings: int = 0
+    # The starting value of each settable property the control's ddo records, by the
+    # property's member name (``ParsedFPControl.starting_properties``).
+    starting_properties: dict[str, Any] = {}
     # Structure containment for a SPECIFIC on-diagram GLYPH of this control —
     # set only when the heap places this terminal inside a case/event/disable
     # frame or a stacked-sequence frame via an sRN's termList (a control used

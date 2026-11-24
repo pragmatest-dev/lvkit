@@ -737,6 +737,9 @@ class ParsedFPControl:
     # A Combo Box saved with this many drop-down strings whose form is not decoded
     # (0: none, or not a Combo Box); ``enum_values`` is then empty.
     undecoded_strings: int = 0
+    # The starting value of each settable property the control's ddo records and the
+    # conversion decodes, by member name (``parser/fp_starting_properties.py``).
+    starting_properties: dict[str, Any] = field(default_factory=dict)
     # A ring's own item values (``ringSparseValues``), parallel to
     # ``enum_values``, when they differ from the ordinals -- for an `indArr`,
     # its ring ELEMENT's. Empty for a ring numbered 0, 1, 2, ... and for every

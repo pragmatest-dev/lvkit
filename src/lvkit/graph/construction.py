@@ -590,6 +590,7 @@ class ConstructionMixin:
                 unwritable=ctrl.unwritable if ctrl else None,
                 enum_values=ctrl.enum_values if ctrl else [],
                 undecoded_strings=ctrl.undecoded_strings if ctrl else 0,
+                starting_properties=ctrl.starting_properties if ctrl else {},
             )
             vi_terminals.append(terminal)
 
@@ -1373,6 +1374,7 @@ class ConstructionMixin:
             unwritable=ctrl.unwritable,
             enum_values=ctrl.enum_values,
             undecoded_strings=ctrl.undecoded_strings,
+            starting_properties=ctrl.starting_properties,
         )
 
     def _connect_subvi_calls(

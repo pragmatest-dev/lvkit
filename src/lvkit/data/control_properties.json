@@ -116,6 +116,7 @@
       "name": "Tip Strip",
       "member": "tip_strip",
       "value": "string",
+      "default": "",
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/tipstrip.html"
     },
     "104013828.103995392": {

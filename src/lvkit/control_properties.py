@@ -41,6 +41,22 @@ STATE_MEMBERS = ("visible", "disabled", "strings")
 state of the control, which the conversion decodes: ``Visible`` and ``Disabled``
 from the flags, ``Strings[]`` of a Combo Box or a Ring from its items."""
 
+FIELD_MEMBERS = (
+    "tip_strip",
+    "doc_max",
+    "x_min",
+    "x_max",
+    "y_min",
+    "y_max",
+    "index_values",
+    "item_names",
+    "active_cell",
+)
+"""The ``ControlProperty.member`` of the settable properties that start from a field
+of the control's ddo, which the conversion decodes (``FPTerminal.starting_properties``,
+``parser/fp_starting_properties.py``). The panel holds the value as saved, which a
+write replaces."""
+
 SAVED_MEMBERS = ("strings", "mech_action")
 """The ``ControlProperty.member`` of the properties a control is saved with and a
 running VI cannot change, which the conversion decodes (an Enum's ``Strings[]``,
@@ -190,10 +206,10 @@ def property_defaults() -> dict[str, Any]:
 def undecoded_saved_members() -> frozenset[str]:
     """The members of the listed properties that start from a value the file saves
     and the conversion does not decode: every listed member with no ``default`` that
-    is not one of ``STATE_MEMBERS`` or ``SAVED_MEMBERS``. A read
+    is not one of ``STATE_MEMBERS``, ``FIELD_MEMBERS`` or ``SAVED_MEMBERS``. A read
     of one before any write is a run-time NotImplementedError naming it, not a
     guess."""
-    decoded = {*STATE_MEMBERS, *SAVED_MEMBERS}
+    decoded = {*STATE_MEMBERS, *FIELD_MEMBERS, *SAVED_MEMBERS}
     return frozenset(
         entry.member
         for entry in _every_entry()

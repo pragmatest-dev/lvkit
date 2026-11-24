@@ -28,6 +28,7 @@ from __future__ import annotations
 import ast
 
 from lvkit.control_properties import (
+    FIELD_MEMBERS,
     SAVED_MEMBERS,
     STATE_MEMBERS,
     control_property,
@@ -53,9 +54,9 @@ def starting_state(control: FPTerminal, member: str) -> StateValue | None:
     """The value the file stores for the property ``member`` of ``control``:
     ``Visible`` as a bool, ``Disabled`` as its enum value, a Combo Box's
     ``Strings[]`` as its list of strings (the parser records the items of a
-    Combo Box or a Ring in ``enum_values``); None when the file does not record it
-    (or ``member`` is not one of ``STATE_MEMBERS``, or the control is neither for
-    ``Strings[]``)."""
+    Combo Box in ``enum_values``), any other member as the parser read it from the
+    control's ddo; None when the file does not record it (or ``member`` is not one
+    of ``STATE_MEMBERS``, or the control is not a Combo Box for ``Strings[]``)."""
     if member == "visible":
         return None if control.starts_hidden is None else not control.starts_hidden
     if member == "disabled":
@@ -66,7 +67,7 @@ def starting_state(control: FPTerminal, member: str) -> StateValue | None:
         ):
             return list(control.enum_values)
         return None
-    return None
+    return control.starting_properties.get(member)
 
 
 def saved_value(control: FPTerminal, member: str) -> StateValue | None:
@@ -85,12 +86,20 @@ def saved_value(control: FPTerminal, member: str) -> StateValue | None:
 def saved_properties(control: FPTerminal) -> dict[str, StateValue]:
     """Every property ``control`` is saved with that is not the default of its VI
     Server class (``control_properties.saved_defaults``), by member name: what the
-    panel holds for a reference to read (``Panel`` ``saved=``)."""
+    panel holds for a reference to read (``Panel`` ``saved=``), with the starting
+    value of each settable property the file records in a field of the control's
+    ddo (``FIELD_MEMBERS``) that is not the property's ``default``; a write replaces
+    it."""
     defaults = saved_defaults().get(control.vi_server_class or "", {})
     found: dict[str, StateValue] = {}
     for member in SAVED_MEMBERS:
         value = saved_value(control, member)
         if value is not None and value != defaults.get(member):
+            found[member] = value
+    property_default = property_defaults()
+    for member in FIELD_MEMBERS:
+        value = control.starting_properties.get(member)
+        if value is not None and value != property_default.get(member):
             found[member] = value
     return found
 

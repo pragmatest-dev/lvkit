@@ -52,7 +52,10 @@ saves and a running VI cannot change (NI: "Settable when the VI is running: No",
 Enum's ``Strings[]`` and a Boolean's ``MechAction``) to those properties by member
 name, leaving out one that is the default of the control's VI Server class
 (``SAVED_DEFAULTS``: a Boolean's Switch When Pressed); ``Control.get_property``
-reads them after the state a write or the file's flags set.
+reads them after the state a write or the file's flags set. ``saved`` also holds the
+starting value of a settable property the file records in a field of the control's
+ddo (a Tip Strip, a graph's scale range, a listbox's items), which a write
+replaces.
 
 ``elements`` maps the name of each array control or indicator to the element its
 Array Element property is a reference to, ``(class, front_panel_class, saved)``
