@@ -1487,6 +1487,7 @@ def as_control(reference: Any) -> Control:
     return reference
 '''
 
+
 PANELS_MODULE_SOURCE = (
     _PANELS_MODULE_TEMPLATE.replace("__CLASS_IDS__", repr(class_ids()))
     .replace("__SAVED_DEFAULTS__", repr(saved_defaults()))

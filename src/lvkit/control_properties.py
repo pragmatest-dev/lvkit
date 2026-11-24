@@ -36,6 +36,16 @@ _PATH = data_dir() / "control_properties.json"
 _CONTROL = "Control"
 _STRICT_SUFFIX = " (strict)"
 
+STATE_MEMBERS = ("visible", "disabled", "strings")
+"""The ``ControlProperty.member`` of the properties that start from the stored
+state of the control, which the conversion decodes: ``Visible`` and ``Disabled``
+from the flags, ``Strings[]`` of a Combo Box or a Ring from its items."""
+
+SAVED_MEMBERS = ("strings", "mech_action")
+"""The ``ControlProperty.member`` of the properties a control is saved with and a
+running VI cannot change, which the conversion decodes (an Enum's ``Strings[]``,
+a Boolean's ``MechAction``)."""
+
 
 @dataclass(frozen=True)
 class ControlProperty:
@@ -50,8 +60,8 @@ class ControlProperty:
     staying a cluster); ``cluster`` (the cluster the wire carries).
     ``settable_while_running`` is NI's "Settable when the VI is running": False
     for a property the file saves and a running VI only reads (an Enum's
-    ``Strings[]``). ``on_reference`` is whether a Property Node on a wired control
-    reference reads and writes it through the panel."""
+    ``Strings[]``). A property is the same whether a Property Node bound to a
+    control or one on a wired control reference reads it."""
 
     name: str
     member: str
@@ -60,8 +70,6 @@ class ControlProperty:
     settable_while_running: bool = True
     has_default: bool = False
     default: Any = None
-    saved_not_decoded: bool = False
-    on_reference: bool = False
 
 
 class ReferenceRow(Enum):
@@ -88,6 +96,7 @@ class _Table:
     inherited_signaling: frozenset[int]
     class_signaling: dict[str, frozenset[int]]
     reference_rows: dict[tuple[int, ...], ReferenceRow]
+    unsettable_rows: dict[tuple[int, ...], str]
     class_parents: dict[str, str | None]
     saved_defaults: dict[str, dict[str, Any]]
     reinit_to_default: frozenset[int]
@@ -103,8 +112,6 @@ def _entries(raw: dict[str, dict[str, Any]]) -> dict[str, ControlProperty]:
             entry.get("settable_while_running", True),
             "default" in entry,
             entry.get("default"),
-            entry.get("saved_not_decoded", False),
-            entry.get("on_reference", False),
         )
         for code, entry in raw.items()
     }
@@ -130,6 +137,12 @@ def _table() -> _Table:
         reference_rows={
             tuple(path): ReferenceRow(name)
             for name, entry in raw["reference_rows"].items()
+            for path in entry["codes"]
+        },
+        unsettable_rows={
+            tuple(path): entry["doc_url"]
+            for entry in raw["reference_rows"].values()
+            if not entry.get("settable_while_running", True)
             for path in entry["codes"]
         },
         class_parents={
@@ -175,11 +188,16 @@ def property_defaults() -> dict[str, Any]:
 
 
 def undecoded_saved_members() -> frozenset[str]:
-    """The members of the listed properties whose starting value the file saves in a
-    form the conversion does not decode (``saved_not_decoded``): a read of one
-    before any write is a run-time NotImplementedError naming it, not a guess."""
+    """The members of the listed properties that start from a value the file saves
+    and the conversion does not decode: every listed member with no ``default`` that
+    is not one of ``STATE_MEMBERS`` or ``SAVED_MEMBERS``. A read
+    of one before any write is a run-time NotImplementedError naming it, not a
+    guess."""
+    decoded = {*STATE_MEMBERS, *SAVED_MEMBERS}
     return frozenset(
-        entry.member for entry in _every_entry() if entry.saved_not_decoded
+        entry.member
+        for entry in _every_entry()
+        if not entry.has_default and entry.member not in decoded
     )
 
 
@@ -220,17 +238,6 @@ def control_property(class_name: str, codes: Sequence[int]) -> ControlProperty |
     return None
 
 
-def reference_property(
-    class_name: str, codes: Sequence[int]
-) -> ControlProperty | None:
-    """The listed property that the row with property ``codes`` on a wired control
-    reference of class ``class_name`` is, when the panel reads and writes it
-    (``on_reference`` of its entry in ``control_properties.json``); None for any
-    other row."""
-    listed = control_property(class_name, codes)
-    return listed if listed is not None and listed.on_reference else None
-
-
 def is_value_row(class_name: str, codes: Sequence[int]) -> bool:
     """Whether the row with property ``codes`` is the control's ``Value``."""
     if len(codes) != 1:
@@ -261,3 +268,12 @@ def reference_row(class_name: str, codes: Sequence[int]) -> ReferenceRow | None:
     if is_value_row(class_name, codes):
         return ReferenceRow.VALUE
     return _table().reference_rows.get(tuple(codes))
+
+
+def unsettable_reference_page(codes: Sequence[int]) -> str | None:
+    """NI's page for the own property of a control reference that the row with
+    property ``codes`` is, when the page says it cannot be set while the VI runs
+    (``settable_while_running`` false: ``Indicator``, ``Label.Text`` of an owned
+    label, ``ClassID``, ``Controls[]``, ``Array Element``); None for any other
+    row."""
+    return _table().unsettable_rows.get(tuple(codes))

@@ -266,7 +266,10 @@ def test_a_write_of_the_element_stays_a_gap(tmp_path: Path) -> None:
     gaps: list[Gap] = []
     project_with(tmp_path).generate(gaps)
     assert [g.reason for g in gaps] == [
-        "Property 'p104041479' on a Arr reference has no Python equivalent"
+        "Property 'p104041479' on a Arr reference is written, and NI's page says it "
+        "cannot be set while the VI runs ("
+        "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/"
+        "vi-server/generic/gobject/control/array/arrayelement.html)"
     ]
 
 

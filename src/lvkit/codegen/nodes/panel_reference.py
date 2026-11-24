@@ -43,20 +43,24 @@ that module, and these rows read them:
   strings.html, "Array of the strings from which you can select in the combo box
   control", read and write, settable while the VI runs) is
   ``as_control(reference).get_property("strings")`` / ``.set_property("strings",
-  value)``: the panel holds the property like any other control property
-  (``on_reference`` of its entry in ``control_properties.json``), a read gives the last
-  write, else the strings the control is saved with, and its views show a write.
+  value)``: the panel holds the property like any other control property (every
+  entry of ``control_properties.json``, found on the class of the node or one above
+  it, is read and written this way, as a bound Property Node reads and writes it), a
+  read gives the last write, else the state the file saves, else the property's
+  ``default``, else raises
+  NotImplementedError naming the property, and its views show a write.
 
 - ``Strings[]`` of an Enum reference and ``MechAction`` of a Boolean reference
-  (``on_reference``, ``settable_while_running`` false: NI "you cannot write
-  this property when the VI is running" for an enumerated type control, "Settable
-  when the VI is running: No" for MechAction) are read the same way, from what the
-  file saves (``saved`` of the panel); a write is a gap.
+  (``settable_while_running`` false: NI "you cannot write this property when the VI
+  is running" for an enumerated type control, "Settable when the VI is running: No"
+  for MechAction) are read the same way, from what the file saves (``saved`` of the
+  panel); a write is a gap.
 
 A row is told by its property code and the class of the node (``PanelRow``), never
-by the stored name. Indicator and Controls[] cannot be set while the VI runs (NI's
-pages), and writing a label's text renames a control: those writes have no Python
-meaning. A reference that holds no panel or control (Not a Refnum) is error 1026
+by the stored name. Indicator, Controls[], ClassID, Array Element and the Label.Text
+of an owned label cannot be set while the VI runs (NI's pages,
+``reference_rows`` of ``control_properties.json``): a write of one is a gap quoting
+the page. A reference that holds no panel or control (Not a Refnum) is error 1026
 (``panels_module.as_panel``, ``as_control``), reported on the node's error out.
 """
 
@@ -68,8 +72,9 @@ from enum import Enum
 from lvkit.control_properties import (
     ControlProperty,
     ReferenceRow,
-    reference_property,
+    control_property,
     reference_row,
+    unsettable_reference_page,
 )
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.vi_reference import is_on_vi_reference
@@ -147,14 +152,23 @@ def panel_row(node: PrimitiveNode, prop: PropertyDef) -> PanelRow | None:
 
 def property_row(node: PrimitiveNode, prop: PropertyDef) -> ControlProperty | None:
     """The listed property of the control the Property Node row ``prop`` of ``node``
-    reads or writes through the panel (``on_reference`` of
-    ``control_properties.json``: a Combo Box's Strings[]); None for any other
-    row."""
+    reads or writes through the panel (an entry of ``control_properties.json``, found
+    on the class of the node or one above it: a Combo Box's Strings[]); None for any
+    other row."""
     if is_on_vi_reference(node):
         return None
-    return reference_property(
+    return control_property(
         node.object_name or "", [segment.code for segment in prop.segments]
     )
+
+
+def unsettable_page(node: PrimitiveNode, prop: PropertyDef) -> str | None:
+    """NI's page for the own property of a control reference that the row ``prop``
+    of ``node`` is, when it says the property cannot be set while the VI runs; None
+    for any other row."""
+    if is_on_vi_reference(node) or node.object_name == PANEL_CLASS:
+        return None
+    return unsettable_reference_page([segment.code for segment in prop.segments])
 
 
 def read_property(

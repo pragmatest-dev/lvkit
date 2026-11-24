@@ -1,5 +1,5 @@
 """Properties of a control read and written on a control REFERENCE through the panel
-(``on_reference`` of its entry in ``control_properties.json``): a read gives the last
+(every entry of ``control_properties.json``): a read gives the last
 write, else the state the file saves, else the default the row lists; a property
 whose saved value the conversion does not decode raises on a read before a write;
 a write is held by the panel and told to its views. Each case is a handmade diagram
@@ -204,7 +204,6 @@ def test_a_property_with_no_nis_page_stays_a_gap(tmp_path: Path) -> None:
 
 TREE_HSCROLL_VISIBLE = (1969896449,)
 LISTBOX_VSCROLL_VISIBLE = (416911367,)
-RING_STRINGS = (104056839,)
 
 
 @pytest.mark.parametrize("class_name", ["Ring (strict)", "Scroll", "Digital", "Clust"])
@@ -265,7 +264,6 @@ def test_a_multicolumn_listbox_reads_its_own_vertical_scrollbar_flag(
     [
         ("Bool", TREE_HSCROLL_VISIBLE, BOOL),
         ("Str", LISTBOX_VSCROLL_VISIBLE, BOOL),
-        ("Ring (strict)", RING_STRINGS, STRING),
         ("Decor", VISIBLE, BOOL),
     ],
 )

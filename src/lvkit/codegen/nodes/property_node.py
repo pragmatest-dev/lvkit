@@ -494,6 +494,14 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 and listed is None
                 and (row is None or not panel_reference.is_writable(row))
             ):
+                unsettable = panel_reference.unsettable_page(node, prop)
+                if unsettable is not None:
+                    raise ConversionGap(
+                        f"Property '{prop.name}' on a {node.object_name} reference "
+                        "is written, and NI's page says it cannot be set while the "
+                        f"VI runs ({unsettable})",
+                        node,
+                    )
                 raise _no_python_equivalent(node, prop)
             value = ctx.wired_input(term.id, node)
             if value is None:
