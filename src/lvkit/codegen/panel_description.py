@@ -38,6 +38,9 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   Boolean's Mechanical Action when it is not Switch When Pressed,
   ``control_property_state.saved_properties``), what a reference's ``get_property``
   reads;
+- ``layout``: where the objects of the front panel are (panes, decorations, the
+  rectangle of each object, a cluster's own objects), written by
+  ``panel_layout.layout_expression``;
 - ``elements``: the name of each array control or indicator to the element its Array
   Element property is a reference to, ``(class, front_panel_class, saved)``: the
   element's VI Server class name (None when it has none), its front-panel class
@@ -78,6 +81,7 @@ from .control_property_state import (
     stored_states,
 )
 from .panel_clusters import cluster_specs
+from .panel_layout import layout_expression
 from .panel_names import panel_names
 from .panel_types import panel_type_keywords
 from .panels_module import PANEL_NAME
@@ -247,6 +251,7 @@ def panel_statements(
     indicators: Sequence[NamedTerminal],
     lazy: bool,
     passed: Sequence[NamedTerminal] = (),
+    vi_key: str | None = None,
 ) -> list[ast.stmt]:
     """``target.panel = Panel(target, controls=..., indicators=..., results=...,
     passed=..., defaults=..., clusters=..., types=..., variants=...)``, ``target``
@@ -255,7 +260,9 @@ def panel_statements(
     is the VI's name table (``panel_names``); ``controls`` pair each control with
     the parameter that takes it (None off the connector pane), ``indicators`` each
     indicator with the field of the result that holds it (None off the pane) and
-    ``passed`` each class output with the parameter holding the object it shows."""
+    ``passed`` each class output with the parameter holding the object it shows.
+    ``vi_key`` is the VI whose front panel the ``layout`` keyword is written from
+    (``panel_layout``)."""
     ctx.import_panels(PANEL_NAME, at_module_level=True)
     defaults = default_functions(controls, names, ctx, target, lazy, indicators)
     keywords: list[tuple[str, ast.expr]] = []
@@ -353,6 +360,14 @@ def panel_statements(
     ):
         if entry is not None:
             keywords.append(entry)
+    layout = layout_expression(
+        ctx.graph.get_vi_front_panel(vi_key)
+        if ctx.graph is not None and vi_key is not None
+        else None,
+        {t.fp_dco_uid: names[t.id] for t in fp_objects if t.fp_dco_uid},
+    )
+    if layout is not None:
+        keywords.append(("layout", layout))
     given = [names[t.id] for t, _ in objects]
     tabbing = _tabbing_order(names, objects)
     if tabbing != given:
@@ -395,5 +410,11 @@ def function_panel_statements(
     ]
     indicators += [(t, None) for t in vi_context.off_pane_outputs]
     return panel_statements(
-        ctx, target, panel_names(vi_context), controls, indicators, lazy
+        ctx,
+        target,
+        panel_names(vi_context),
+        controls,
+        indicators,
+        lazy,
+        vi_key=ctx.vi_name or vi_context.name,
     )

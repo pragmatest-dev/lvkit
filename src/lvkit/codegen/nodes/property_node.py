@@ -6,9 +6,11 @@ import ast
 
 from lvkit.control_properties import (
     TREE_HOLDER,
+    ReferenceRow,
     control_property,
     is_value_row,
     is_value_signaling_row,
+    reference_row,
 )
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
@@ -43,6 +45,7 @@ from . import (
     class_property_node,
     front_panel_bounds,
     front_panel_title,
+    geometry_rows,
     monitors,
     own_window_properties,
     panel_reference,
@@ -174,6 +177,19 @@ def _unsupported_reason(
                 )
             if not written:
                 return f"{subject} reads 'Value (Signaling)', which is write only"
+        elif (geometry := geometry_rows.geometry_row(row)) is not None:
+            if written and not geometry.settable:
+                return (
+                    f"{subject} writes {row.name!r}, which NI's page says cannot "
+                    "be set while the VI runs "
+                    f"({geometry_rows.page_url(geometry)})"
+                )
+        elif _bound_list_attribute(class_name, codes) is not None:
+            if written:
+                return (
+                    f"{subject} writes {row.name!r}, which NI's page says cannot "
+                    "be set while the VI runs"
+                )
         elif (listed := control_property(class_name, codes)) is None:
             return (
                 f"{subject} {verb} {row.name!r}, which lvkit does not yet know "
@@ -294,6 +310,28 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 statements += signal_value_change(ctx, control.id, variable, old)
             else:
                 statements += write_control(control, variable, value, ctx)
+        elif (geometry := geometry_rows.geometry_row(row)) is not None:
+            target = _bound_control(node, ctx, bound)
+            tree_rows = True
+            if term.direction == "output":
+                read = ctx.make_output_var(geometry.member, node.id, term.id)
+                statements.append(
+                    build_assign(
+                        read,
+                        geometry_rows.read(geometry, target, term.lv_type, node, ctx),
+                    )
+                )
+                bindings[term.id] = read
+            else:
+                statements += geometry_rows.write(
+                    geometry, target, value, term.lv_type, node
+                )
+        elif (members := _bound_list_attribute(class_name, codes)) is not None:
+            target = _bound_control(node, ctx, bound)
+            tree_rows = True
+            read = ctx.make_output_var(members, node.id, term.id)
+            statements.append(build_assign(read, parse_expr(f"{target}.{members}")))
+            bindings[term.id] = read
         else:
             listed = control_property(class_name, codes)
             hooks = ctx.panel_hooks
@@ -351,16 +389,35 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     return CodeFragment(statements=statements, bindings=bindings)
 
 
-def _bound_tree(node: PrimitiveNode, ctx: CodeGenContext, bound: FPTerminal) -> str:
-    """The ``TreeItems`` of the Tree control ``bound`` of this VI's panel, which the
-    bound Property Node's Active Item and Active Cell rows read and write."""
+def _bound_control(node: PrimitiveNode, ctx: CodeGenContext, bound: FPTerminal) -> str:
+    """The reference to the control ``bound`` of this VI's panel, which a bound
+    Property Node's rows on the panel read and write."""
     name = ctx.panel_names.get(bound.id)
     if name is None:
         raise ConversionGap(
             f"The control {bound.name!r} is not on the panel of the VI", node
         )
     ctx.import_panels(f"{PANEL_OF_NAME}, {PANEL_ERROR_NAME}")
-    return f"{PANEL_OF_NAME}({ctx.this_vi_expression()}).control_of({name!r}).tree"
+    return f"{PANEL_OF_NAME}({ctx.this_vi_expression()}).control_of({name!r})"
+
+
+def _bound_tree(node: PrimitiveNode, ctx: CodeGenContext, bound: FPTerminal) -> str:
+    """The ``TreeItems`` of the Tree control ``bound`` of this VI's panel, which the
+    bound Property Node's Active Item and Active Cell rows read and write."""
+    return f"{_bound_control(node, ctx, bound)}.tree"
+
+
+_LIST_ROWS = {
+    ReferenceRow.CLUSTER_DECORATIONS: "decorations",
+    ReferenceRow.CLUSTER_ALL_OBJECTS: "all_objects",
+}
+
+
+def _bound_list_attribute(class_name: str, codes: list[int]) -> str | None:
+    """The attribute of a cluster control that the row with property ``codes`` is
+    when it is the cluster's Decos[] or AllObjs[]; None for any other row."""
+    found = reference_row(class_name, codes)
+    return _LIST_ROWS.get(found) if found is not None else None
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -521,10 +578,22 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             row = panel_reference.panel_row(node, prop)
             listed = panel_reference.property_row(node, prop)
             window = window_rows.window_row(prop) if is_on_vi_reference(node) else None
+            geometry = (
+                None if is_on_vi_reference(node) else geometry_rows.geometry_row(prop)
+            )
             if window is not None:
                 reflected = window_rows.read(
                     window,
                     window_rows.Target(ref_var, False, term.lv_type, node, ctx),
+                )
+                panel_read = True
+            elif geometry is not None:
+                reflected = geometry_rows.read(
+                    geometry,
+                    geometry_rows.reference_target(geometry, ref_var, ctx),
+                    term.lv_type,
+                    node,
+                    ctx,
                 )
                 panel_read = True
             elif listed is not None:
@@ -582,10 +651,16 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             if file_row is not None and not file_row.writable:
                 file_row = None
             window = window_rows.window_row(prop) if is_on_vi_reference(node) else None
+            geometry = (
+                None if is_on_vi_reference(node) else geometry_rows.geometry_row(prop)
+            )
+            if geometry is not None:
+                geometry_rows.check_writable(geometry, node)
             if (
                 not title
                 and not bounds
                 and window is None
+                and geometry is None
                 and file_row is None
                 and listed is None
                 and (row is None or not panel_reference.is_writable(row))
@@ -608,6 +683,18 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                         window,
                         window_rows.Target(ref_var, False, term.lv_type, node, ctx),
                         value,
+                    )
+                )
+                panel_read = True
+                continue
+            if geometry is not None:
+                statements.extend(
+                    geometry_rows.write(
+                        geometry,
+                        geometry_rows.reference_target(geometry, ref_var, ctx),
+                        value,
+                        term.lv_type,
+                        node,
                     )
                 )
                 panel_read = True

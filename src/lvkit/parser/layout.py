@@ -273,7 +273,7 @@ class Layout:
     # A cluster-constant's raw uid -> its REAL heap geometry (see
     # ClusterGeom), for the glyph to draw each field at its actual value/
     # label rect instead of a uniform-row stretch. Present only when the
-    # constant's ddo resolves to a cluster shape (``_cluster_shape``) that
+    # constant's ddo resolves to a cluster shape (``cluster_shape``) that
     # carries a decodable ``paneHierarchy`` — absent (empty) for anything
     # else, and the glyph falls back to its own small-box/uniform-row draw.
     cluster_field_geom: dict[str, ClusterGeom] = field(default_factory=dict)
@@ -556,7 +556,7 @@ def _array_chrome_rects(
     return viewport, scrollbar, index_hidden
 
 
-def _cluster_shape(el: ET.Element | None) -> ET.Element | None:
+def cluster_shape(el: ET.Element | None) -> ET.Element | None:
     """The ``class="stdClust"`` element that defines ``el``'s cluster shape,
     or None when ``el`` isn't a cluster at all.
 
@@ -624,7 +624,7 @@ def _refnum_payload_layout(ddo: ET.Element) -> RefnumPayload | None:
 
     The payload ddo (a DIRECT ``<ddo>`` CHILD of the refnum — a sibling of
     its own ``<partsList>``, never a part of it, and never the
-    genuinely-nested-cluster-FIELD case ``_cluster_shape(field_el)`` covers)
+    genuinely-nested-cluster-FIELD case ``cluster_shape(field_el)`` covers)
     carries its own ``<bounds>`` relative to the REFNUM's own raw-bounds
     origin — the SAME "relative to the owning ddo's top-left" convention
     every ``partsList`` part uses (see ``_const_value_box``), verified on
@@ -633,7 +633,7 @@ def _refnum_payload_layout(ddo: ET.Element) -> RefnumPayload | None:
     (31, 5) inside a 111x206 field).
 
     None when ``ddo`` isn't a ``stdRefNum``, carries no nested ``<ddo>``, that
-    nested control isn't a cluster shape (``_cluster_shape``), or either
+    nested control isn't a cluster shape (``cluster_shape``), or either
     level's geometry can't be decoded (no ``paneHierarchy``, degenerate
     extent, …) — callers then fall back to the COMPACT type-terminal
     display, never an invented layout."""
@@ -642,7 +642,7 @@ def _refnum_payload_layout(ddo: ET.Element) -> RefnumPayload | None:
     nested = ddo.find("ddo")
     if nested is None:
         return None
-    shape = _cluster_shape(nested)
+    shape = cluster_shape(nested)
     if shape is None:
         return None
     geom = _cluster_field_geoms(shape)
@@ -704,7 +704,7 @@ def _cluster_field_geoms(
     always means the value box's own top-left, matching what a caller's
     assigned drawn box actually starts at.
 
-    A field whose OWN value is itself a cluster (``_cluster_shape`` — a
+    A field whose OWN value is itself a cluster (``cluster_shape`` — a
     direct ``stdClust``, or a typedef-wrapped one) recurses into its OWN
     full ``ClusterGeom`` (``ClusterFieldGeom.nested``) — self-contained,
     relative to ITS OWN (0, 0), never scaled by this level's scale (the
@@ -796,7 +796,7 @@ def _cluster_field_geoms(
     for name, field_value_box, label_box, label_text, f in entries:
         mapped_value = _map(field_value_box)
         mapped_label = _map(label_box) if label_box is not None else None
-        nested_shape = _cluster_shape(f)
+        nested_shape = cluster_shape(f)
         nested = None
         if nested_shape is not None:
             wrapper = _rect(f) if nested_shape is not f else None
@@ -1149,16 +1149,16 @@ class _LayoutBuilder:
                         )
                     # A cluster constant (direct, or a typedef-wrapped named
                     # cluster type): its REAL per-field geometry (issue #45).
-                    cluster_shape = _cluster_shape(ddo) if ddo is not None else None
-                    if cluster_shape is not None:
-                        cg = _cluster_field_geoms(cluster_shape)
+                    shape_el = cluster_shape(ddo) if ddo is not None else None
+                    if shape_el is not None:
+                        cg = _cluster_field_geoms(shape_el)
                         if cg is not None:
                             self.cluster_field_geom[term_uid] = cg
                     # An array constant whose ELEMENT is a cluster: the
                     # element's real geometry, at its own natural size — every
                     # visible row draws this SAME shape (issue #45).
                     elif ddo is not None and ddo.get("class") in _ARRAY_DDO_CLASSES:
-                        elem_shape = _cluster_shape(ddo.find("ddo"))
+                        elem_shape = cluster_shape(ddo.find("ddo"))
                         if elem_shape is not None:
                             elem_cg = _cluster_field_geoms(elem_shape)
                             if elem_cg is not None:

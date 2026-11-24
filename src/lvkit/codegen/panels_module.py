@@ -148,6 +148,7 @@ from lvkit.control_properties import (
     undecoded_saved_members,
 )
 
+from .panel_objects_module import PANEL_OBJECTS_SOURCE
 from .panels_application import APPLICATION_SOURCE
 from .tree_items_module import TREE_ITEMS_SOURCE
 
@@ -158,6 +159,8 @@ PANEL_ERROR_NAME = "PanelError"
 PANEL_OF_NAME = "panel_of"
 AS_PANEL_NAME = "as_panel"
 AS_CONTROL_NAME = "as_control"
+AS_OBJECT_NAME = "as_object"
+AS_PANE_NAME = "as_pane"
 CALL_CHAIN_NAME = "call_chain"
 TAGS_NAME = "Tags"
 TAGS_OF_NAME = "tags_of"
@@ -267,7 +270,10 @@ def raise_empty_variant(label: str) -> NoReturn:
 _NO_STATE = object()
 
 
-class Control:
+__PANEL_OBJECTS__
+
+
+class Control(GObject):
     """A control or indicator of a panel, as a reference to it: its ``label``, whether
     it is an ``indicator`` and its ``value``, which is the panel's value of it. A
     cluster's ``controls`` are a reference to each of its fields, in field order.
@@ -581,6 +587,11 @@ class PanelView:
         """The running VI set the property ``prop`` (the name of the property) of
         the control or indicator ``name``."""
 
+    def geometry_changed(self, name: str, prop: str, value: Any) -> None:
+        """The running VI moved the object ``name`` (``prop`` "position", value
+        ``(left, top)``) or scrolled the pane ``name`` (``prop`` "origin", value
+        ``(horizontal, vertical)``)."""
+
     def defer_updates_changed(self, deferred: bool) -> None:
         """The running VI set the panel's Defer Panel Updates: True, the view draws
         what is pending and then holds new changes back; False, it draws every
@@ -671,7 +682,7 @@ class PanelIO(LiveIO):
         return self._panel._live_get_property(key_of(name), key_of(prop), value)
 
 
-class PanelValues:
+class PanelValues(PanelLayout):
     """The values of a front panel: each control and indicator by name, with the
     label LabVIEW shows for it, and the views told of every change. A Global VI's
     panel is this class over the module's own names (``storage``): its controls
@@ -695,6 +706,7 @@ class PanelValues:
         undecoded_strings: Mapping[str, int] | None = None,
         saved: Mapping[str, Mapping[str, Any]] | None = None,
         elements: Mapping[str, Sequence[Any]] | None = None,
+        layout: Mapping[str, Any] | None = None,
     ) -> None:
         self.undecoded_strings = dict(undecoded_strings or {})
         self.saved = {name: dict(held) for name, held in (saved or {}).items()}
@@ -724,6 +736,7 @@ class PanelValues:
             )
             for name, label in {**self._controls, **self._indicators}.items()
         }
+        self._build_layout(layout)
         self._values: MutableMapping[str, Any] = {} if storage is None else storage
         self._views: list[PanelView] = []
         self._lock = threading.RLock()
@@ -1158,6 +1171,7 @@ class Panel(PanelValues):
         undecoded_strings: Mapping[str, int] | None = None,
         saved: Mapping[str, Mapping[str, Any]] | None = None,
         elements: Mapping[str, Sequence[Any]] | None = None,
+        layout: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__(
             controls,
@@ -1173,6 +1187,7 @@ class Panel(PanelValues):
             undecoded_strings=undecoded_strings,
             saved=saved,
             elements=elements,
+            layout=layout,
         )
         self.function = function
         self._results = dict(results or {})
@@ -1534,6 +1549,27 @@ def as_control(reference: Any) -> Control:
             code=1026, source="as_control", message="Control Reference is invalid."
         )
     return reference
+
+
+def as_object(reference: Any) -> GObject:
+    """``reference`` as the reference to a front-panel object (a control, an
+    indicator, a decoration or a pane); error 1026 for a reference that holds
+    none."""
+    if not isinstance(reference, GObject):
+        raise PanelError(
+            code=1026, source="as_object", message="Object Reference is invalid."
+        )
+    return reference
+
+
+def as_pane(reference: Any) -> Pane:
+    """``reference`` as the reference to a pane of a panel (an element of
+    ``Panel.panes``); error 1026 for a reference that holds none."""
+    if not isinstance(reference, Pane):
+        raise PanelError(
+            code=1026, source="as_pane", message="Pane Reference is invalid."
+        )
+    return reference
 '''
 
 
@@ -1543,5 +1579,6 @@ PANELS_MODULE_SOURCE = (
     .replace("__PROPERTY_DEFAULTS__", repr(property_defaults()))
     .replace("__UNDECODED_SAVED__", repr(sorted(undecoded_saved_members())))
     .replace("__TREE_ITEMS__", TREE_ITEMS_SOURCE.strip("\n"))
+    .replace("__PANEL_OBJECTS__", PANEL_OBJECTS_SOURCE.strip("\n"))
     + APPLICATION_SOURCE
 )

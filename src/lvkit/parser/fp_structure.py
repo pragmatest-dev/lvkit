@@ -17,6 +17,7 @@ from collections.abc import Sequence
 from ..text_encoding import decode_labview_text
 from .fp_fonts import font_of_run, read_font_run
 from .fp_parts import parse_fp_parts_list
+from .layout import cluster_shape
 from .models import (
     ParsedFPControl,
     ParsedFPDecoration,
@@ -179,7 +180,30 @@ class _ObjectReader:
         ddo = fpdco.find("ddo")
         if ddo is not None and ddo.get("class") == _TAB_CONTROL_CLASS:
             self._fill_tab(control, fpdco, ddo)
+        self._fill_cluster(control, ddo)
         return control
+
+    # --- clusters ------------------------------------------------------
+
+    def _fill_cluster(self, control: ParsedFPControl, ddo: ET.Element | None) -> None:
+        """Set ``cluster_objects`` of a cluster control: the objects of the
+        cluster's own pane in stored order, a field being the control the flat
+        parse made for it (looked up by uid), a free decoration or label read as
+        on the panel. An object of another kind is left out and noted as unread."""
+        shape = cluster_shape(ddo)
+        zplane = shape.find("paneHierarchy/zPlaneList") if shape is not None else None
+        if zplane is None:
+            return
+        for elem in zplane.findall("SL__arrayElement"):
+            found: ParsedFPObject | None
+            if elem.get("class") in ("cosm", "label"):
+                found = self._read_object(elem)
+            else:
+                found = self._controls.get(elem.get("uid", ""))
+                if found is not None:
+                    self._fill_cluster(found, elem)
+            if found is not None:
+                control.cluster_objects.append(found)
 
     def _read_label(
         self, elem: ET.Element, bounds: tuple[int, int, int, int]
@@ -211,6 +235,7 @@ class _ObjectReader:
             image_res_id=image_res_id,
             fg_color=heap_color(elem.findtext("fgColor")),
             bg_color=heap_color(elem.findtext("bgColor")),
+            hidden=bool(_int(elem.findtext("objFlags")) & HIDDEN_FLAG),
         )
 
     def _read_grouper(

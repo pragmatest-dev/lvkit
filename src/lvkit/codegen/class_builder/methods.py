@@ -240,6 +240,7 @@ class _MethodBuilderMixin:
                 indicators,
                 self._lazy,
                 passed,
+                ctx.vi_name or vi_context.name,
             ),
         ]
 

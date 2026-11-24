@@ -164,6 +164,16 @@
       "codes": [[104102914]],
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/cluster/controls.html"
     },
+    "cluster_decorations": {
+      "settable_while_running": false,
+      "codes": [[104102915]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/cluster/decorations.html"
+    },
+    "cluster_all_objects": {
+      "settable_while_running": false,
+      "codes": [[104102916]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/cluster/allobjects.html"
+    },
     "array_element": {
       "settable_while_running": false,
       "codes": [[104041479]],
@@ -235,6 +245,15 @@
     }
   },
   "classes": {
+    "Decoration": {
+      "103992326": {
+        "name": "Visible",
+        "member": "visible",
+        "value": "bool",
+        "default": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/visible.html"
+      }
+    },
     "Arr": {
       "104041473": {
         "name": "Number of Columns",

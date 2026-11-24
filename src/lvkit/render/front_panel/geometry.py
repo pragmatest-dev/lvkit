@@ -44,10 +44,6 @@ from .controls.base import stored_rect
 from .controls.subpanel import subpanel_extent
 from .controls.tab import tab_row_rect
 
-# Panels saved before this LabVIEW major version store a container's children in
-# the space of the pane that holds the container.
-_CONTAINER_LOCAL_FROM_MAJOR = 9
-
 # Thickness of the band drawn between the two panes of a splitter.
 _BAR_WIDTH = 2.0
 
@@ -119,16 +115,6 @@ def _tab_extent(ctrl: ParsedFPControl, rect: Rect) -> Rect | None:
         max(rect[2], rect[0] + row[2]),
         max(rect[3], rect[1] + row[3]),
     )
-
-
-def _container_local(front_panel: ParsedFrontPanel) -> bool:
-    """Whether a container's children are stored relative to the container: from
-    LabVIEW 9.0, and when the file records no version."""
-    version = front_panel.lv_version
-    if version is None:
-        return True
-    major = version.split(".")[0]
-    return not major.isdigit() or int(major) >= _CONTAINER_LOCAL_FROM_MAJOR
 
 
 class _Placer:
@@ -255,7 +241,7 @@ def build_boxes(
             for ctrl in front_panel.controls
             if not ctrl.hidden
         ]
-    placer = _Placer(_container_local(front_panel))
+    placer = _Placer(front_panel.children_in_container_space)
     placer.place_node(layout, (0.0, 0.0), clipped=False)
     boxes = placer.boxes
     window = _window(front_panel) if window_frame else None

@@ -111,9 +111,11 @@ class ReferenceRow(Enum):
     """What a row of a Property Node on a control reference is, when it is one of
     the control's own: its ``Value``, whether it is an ``Indicator``, the text of
     its ``Label``, its ``ClassID`` (``control_classes.json``) and, of a cluster, the
-    references to its ``Controls[]`` and, of an array, the reference to its ``Array
-    Element``."""
+    references to its ``Controls[]``, ``Decos[]`` and ``AllObjs[]`` and, of an array,
+    the reference to its ``Array Element``."""
 
+    CLUSTER_DECORATIONS = "cluster_decorations"
+    CLUSTER_ALL_OBJECTS = "cluster_all_objects"
     VALUE = "value"
     INDICATOR = "indicator"
     LABEL_TEXT = "label_text"

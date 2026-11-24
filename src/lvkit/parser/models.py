@@ -32,6 +32,10 @@ from .utils import HIDDEN_FLAG
 if TYPE_CHECKING:
     from .layout import Layout
 
+# Panels saved before this LabVIEW major version store a container's children in
+# the space of the pane that holds the container.
+CONTAINER_SPACE_FROM_MAJOR = 9
+
 
 @dataclass
 class ParsedType:
@@ -816,6 +820,11 @@ class ParsedFPControl:
     # Hidden on the panel (bit 0x8 of the control's own ddo ``objFlags``): the
     # control exists (terminal, local variables) but the panel does not show it.
     hidden: bool = False
+    # For a cluster: the objects of its own pane in stored order (first = topmost),
+    # each a field control (the same object as in ``children``), a free decoration or
+    # a free label, with bounds in the cluster's own space; empty for any other
+    # control (``parser/fp_structure.py``).
+    cluster_objects: list[ParsedFPObject] = field(default_factory=list)
     # For ``control_type == "listbox"``: its table settings; None otherwise.
     listbox: ParsedFPListbox | None = None
 
@@ -875,6 +884,8 @@ class ParsedFPDecoration:
     image_res_id: int
     fg_color: str | None
     bg_color: str | None
+    # The decoration's own ``objFlags`` hidden bit: its Visible property starts False.
+    hidden: bool = False
 
 
 @dataclass
@@ -992,6 +1003,17 @@ class ParsedFrontPanel:
     # The window's bounds the file saves, ``(left, top, right, bottom)`` in screen
     # pixels; None when the heap records none (``utils.saved_window_bounds``).
     window_bounds: tuple[int, int, int, int] | None = None
+
+    @property
+    def children_in_container_space(self) -> bool:
+        """Whether a container's children (a grouper's, a tab control's page's) are
+        stored relative to the container: from LabVIEW 9.0, and when the file
+        records no version; before it they are in the space of the pane that holds
+        the container."""
+        if self.lv_version is None:
+            return True
+        major = self.lv_version.split(".")[0]
+        return not major.isdigit() or int(major) >= CONTAINER_SPACE_FROM_MAJOR
 
     def tab_index(self, uid: str) -> int | None:
         """The position of the control ``uid`` in the panel's tabbing order (its
