@@ -16,10 +16,11 @@ forum it is "the label of the data" the variant was made from ("Get type info in
 malleable VI returns VIM input control name", forums.ni.com td-p/4234698: "the name
 of the data that gets embedded in the variant is taken from the calling VI"). The
 generated ``Variant`` records it as ``Variant.name``, set where the variant is made
-from the label the graph keeps for the wire's source (``variant_values.variant_label``:
-a control or indicator, a Bundle or Unbundle By Name field, a constant); the type
-string the variant is flattened with ends in the same label. A variant made from a
-wire whose source records no label, an empty variant and one read from a flattened
+from the label the wire's type descriptor records (``variant_values.variant_label``;
+where the descriptor records none, the source's own label: a control or indicator,
+a Bundle or Unbundle By Name field, a constant); the type string the variant is
+flattened with ends in the same label. A variant made from a
+wire that records no label, an empty variant and one read from a flattened
 string have the name "" (NI's page does not say what they return). ``type
 definition`` and ``type definition info`` read the type definition's name the
 variant's type records (``_type_definition_fragment``).

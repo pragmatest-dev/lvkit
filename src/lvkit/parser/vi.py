@@ -42,8 +42,8 @@ from lvkit.models import (
     UnreadPrivateData,
     ValuesNotKept,
     VariantData,
-    contains_class_instance,
     find_unwritable,
+    keeps_default_bytes,
     leading_element,
     plain_structured,
     unique_names,
@@ -760,7 +760,7 @@ def _parse_front_panel(
                 default_value, field_defaults = _decode_default_bytes(
                     stored_bytes, ddo.get("class", "unknown"), lv_type
                 )
-                if contains_class_instance(lv_type):
+                if keeps_default_bytes(lv_type):
                     default_raw = stored_bytes
 
         control = _parse_ddo(
@@ -780,7 +780,7 @@ def _parse_front_panel(
             if (
                 default_elem is not None
                 and default_elem.text
-                and contains_class_instance(lv_type)
+                and keeps_default_bytes(lv_type)
             ):
                 default_raw = decode_xml_entities_to_bytes(raw_data)
             control.default_raw = default_raw

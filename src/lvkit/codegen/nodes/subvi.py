@@ -38,7 +38,13 @@ from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..ini_module import imports_ini
 from ..label_names import python_label
-from ..native_failure import CatalogFailures, catch_failures, raise_unwired_error
+from ..local_time_module import imports_local_time
+from ..native_failure import (
+    CatalogFailures,
+    catch_failures,
+    invalid_reference_guards,
+    raise_unwired_error,
+)
 from ..value_copy import is_by_value_object, owned_input
 from ..vilib_pane import check_against_pane, with_instance_defaults
 from . import accessor_call, error_vi, method_call, vilib_op
@@ -109,6 +115,10 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             else generate_inline(node, ctx, vilib_vi)
         )
         fragment.runs_on_error = vilib_vi.runs_on_error
+        fragment.statements = [
+            *invalid_reference_guards(node, ctx, vilib_vi),
+            *fragment.statements,
+        ]
         return catch_failures(node, fragment, CatalogFailures.of_vilib(vilib_vi), ctx)
 
     parts = build_call(node, ctx, callee_name, callee_key, vilib_vi)
@@ -383,9 +393,14 @@ def generate_inline(
 
     # Build imports from vilib imports
     # An import of the package's ``ini`` module is spelled for the calling module.
-    imports = {i for i in vilib_vi.imports if not imports_ini(i)}
-    if len(imports) != len(vilib_vi.imports):
+    imports = {
+        i for i in vilib_vi.imports if not imports_ini(i) and not imports_local_time(i)
+    }
+    if any(imports_ini(i) for i in vilib_vi.imports):
         ctx.import_ini()
+    for statement in vilib_vi.imports:
+        if imports_local_time(statement):
+            ctx.import_local_time(statement.split(" import ", 1)[1])
 
     return CodeFragment(
         statements=[*made_statements, *statements],

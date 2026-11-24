@@ -1045,6 +1045,11 @@ class Package:
         return self.errors.LabVIEWError(code=code, source=source, status=status)
 
     @property
+    def queues(self) -> ModuleType:
+        """The package's ``queues`` module: ``Queue`` and ``ShutDown``."""
+        return importlib.import_module(f"{self.module.__package__}.queues")
+
+    @property
     def variants(self) -> ModuleType:
         """The package's ``variants`` module: ``Variant``, ``LVType`` and the
         type constants (``I32``, ``DBL``, ``String``, ...)."""
@@ -1357,7 +1362,7 @@ def json_body(views: ErrorViews) -> str:
             return {
                 key: strip(value)
                 for key, value in node.items()
-                if key != "lv_type" and value not in (None, [], False)
+                if key != "lv_type" and value not in (None, [], {}, False)
             }
         if isinstance(node, list):
             return [strip(item) for item in node]

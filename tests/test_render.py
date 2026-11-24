@@ -50,7 +50,7 @@ from lvkit.render.scene import (
 from lvkit.render.style import DEFAULT_THEME, coercion_key, wire_style
 from lvkit.render.wire_router import RouterConfig, WireRouter, _compress, path_d
 from tests.corpus_graphs import OPENG_USERLIB
-from tests.helpers import error_cluster_type, vi_key
+from tests.helpers import RENDER_SAMPLE_VI, error_cluster_type, vi_key
 
 # --------------------------------------------------------------------------- #
 # Case-selector faithful labels (#16) — pure functions over CaseFrame + LVType
@@ -1052,7 +1052,13 @@ def test_measure_text_grows_with_length_and_size():
 # Graph-driven scene join — real sample VIs (skip gracefully if unavailable)
 # --------------------------------------------------------------------------- #
 
-GROUND_TRUTH_VI = Path(".tmp/array average 1.vi")
+GROUND_TRUTH_VI = RENDER_SAMPLE_VI
+
+# A VI whose only structure is a For Loop: no case, no sequence.
+LOOP_ONLY_VI = Path(
+    ".lvkit/cache/samples/LabVIEW-OOP-Classes/DAQ/Analog Input/AI_class/utils/"
+    "Filter - Moving Point Average.vi"
+)
 
 # A VI with two captioned numeric constants: an I32 "Index" = 1 (decimal) and a
 # hex-format U32 = 0x02 labelled "0x02 => Open Templates for Editing…" — the
@@ -1179,8 +1185,8 @@ def test_build_scene_joins_graph_and_geometry():
 
     # FP terminal labels come from the graph (Terminal.name), not heap XML.
     fp_names = {fp.terminal.name for fp in scene.fp_terminals}
-    assert "Array" in fp_names
-    assert any(n and n.startswith("Array average") for n in fp_names)
+    assert "24-bit pixmap in" in fp_names
+    assert any(n and n.startswith("average gray") for n in fp_names)
 
     # A For-Loop structure is present and joined to real geometry.
     assert any(
@@ -1291,7 +1297,7 @@ def test_class_refnum_constant_labeled_by_class_name_not_refnum():
         kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Occurrence"
     )
     assert type_family(gen) == "refnum"
-    assert lv_type_label(gen) == "Occurrence Refnum"
+    assert lv_type_label(gen) == "Occurrence refnum"
     gen_glyph = _leaf_const_glyph(gen, raw="Refnum(1)")
     assert isinstance(gen_glyph, RefnumGlyph)
     assert gen_glyph.kind == "Occurrence"
@@ -1938,9 +1944,9 @@ def test_loop_only_vi_has_no_frame_groups():
     """Regression guard: a VI with no interactive structures (no case, no
     stacked sequence — just a For-Loop) produces no lv-frame / lv-selector
     groups at all."""
-    if not GROUND_TRUTH_VI.exists():
-        pytest.skip(f"sample VI not available: {GROUND_TRUTH_VI}")
-    svg = render_vi_file(GROUND_TRUTH_VI)
+    if not LOOP_ONLY_VI.exists():
+        pytest.skip(f"sample VI not available: {LOOP_ONLY_VI}")
+    svg = render_vi_file(LOOP_ONLY_VI)
     assert svg is not None
     # (The inline frame-controller <script> mentions the CSS class names in
     # its JS source even when unused, so check for the actual SVG elements —

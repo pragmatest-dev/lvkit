@@ -214,7 +214,7 @@ class TestRefnumElementType:
         ev = result[2]
         assert ev.ref_type == "EventReg"
         assert ev.element_type is None
-        assert ev.type_descriptor() == "EventReg refnum"
+        assert ev.type_descriptor() == "Event Registration refnum"
 
     def test_class_refnum_keeps_class_name_not_element(self, tmp_path):
         result = self._vctp(
@@ -255,7 +255,7 @@ class TestUserEventName:
             </TypeDesc>""",
         )
         assert result[1].user_event_name == "stopped"
-        assert result[1].type_descriptor() == "UserEvent refnum{stopped: TF}"
+        assert result[1].type_descriptor() == "User Event refnum{stopped: TF}"
 
     def test_typedef_instance_label_wins_over_ctl_name(self, tmp_path):
         result = self._vctp(
@@ -275,7 +275,7 @@ class TestUserEventName:
         assert ev.element_type is not None
         assert ev.element_type.typedef_name == "Lib.lvlib:Network Endpoint.ctl"
         assert ev.type_descriptor() == (
-            "UserEvent refnum{Drive Status: Network Endpoint}"
+            "User Event refnum{Drive Status: Network Endpoint}"
         )
 
     def test_other_parametrized_refnums_carry_no_name(self, tmp_path):
@@ -343,6 +343,51 @@ class TestSalvagedTypeDescriptors:
         missing = resolve_type_rich("TypeID(2)", type_map)
         assert missing.unreadable == "the heap type pool is unreadable: cut off"
         assert resolve_type_rich("TypeID(2)", TypeMap()).unreadable is None
+
+
+class TestTypedefIdentityOnSharedType:
+    def test_heap_type_and_nested_use_both_carry_the_typedef_path(self, tmp_path):
+        """A labelled heap type is a copy of the shared VCTP type; the typedef's
+        name and path reach the shared type too, so a cluster field of the same
+        flat type carries them."""
+        xml = tmp_path / "T.xml"
+        xml.write_text(
+            textwrap.dedent(
+                """\
+                <RSRC>
+                  <LIvi><VICC>
+                    <LinkSavePathRef>
+                      <String>Lib</String><String>Mode.ctl</String>
+                    </LinkSavePathRef>
+                  </VICC></LIvi>
+                  <VCTP>
+                    <TopLevel>
+                      <TypeDesc Index="5" FlatTypeID="0" />
+                      <TypeDesc Index="6" FlatTypeID="1" />
+                    </TopLevel>
+                    <Section>
+                      <TypeDesc Type="TypeDef">
+                        <TypeDesc Type="NumInt32" Nested="True" Label="mode" />
+                        <Label Text="Mode.ctl" />
+                      </TypeDesc>
+                      <TypeDesc Type="Cluster">
+                        <TypeDesc TypeID="0" />
+                      </TypeDesc>
+                    </Section>
+                  </VCTP>
+                  <!-- Heap TypeID 1 = Consolidated TypeID 5: TypeDef -->
+                  <!-- Heap TypeID 2 = Consolidated TypeID 6: Cluster -->
+                </RSRC>
+                """
+            ),
+            encoding="utf-8",
+        )
+        type_map = parse_type_map_rich(xml)
+        heap = type_map[1]
+        nested = type_map[2].fields[0].type
+        for lv_type in (heap, nested):
+            assert lv_type.typedef_name == "Mode.ctl"
+            assert lv_type.typedef_path == "Lib/Mode.ctl"
 
 
 class TestDataSpaceTypeComments:

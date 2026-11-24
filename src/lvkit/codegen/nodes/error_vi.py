@@ -49,7 +49,7 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Generate the call of a vi.lib error VI (``error_path.is_error_wire_vi``)."""
     file_name = ctx.vilib_catalog.catalog_file_name(ctx.catalog_path(node))
     if file_name == VI_NAME_MERGE_ERRORS:
-        return merge_errors(node, ctx)
+        return merge_errors(node, ctx, vi_pane=True)
     if file_name == VI_NAME_CLEAR_ERRORS:
         return _clear_errors(node, ctx)
     if file_name == VI_NAME_ERROR_CLUSTER_FROM_ERROR_CODE:

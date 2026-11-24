@@ -86,7 +86,7 @@ vi loadTestsFromTestCase.vi :
         subVI TestSuite_Init_115 : TestSuite.lvclass:TestSuite_Init.vi
           in   TestSuite in                    : TestSuite.lvclass default
           in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
-          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
+          in   testSuiteStatusChanged EventRef : User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
           in   GUID ("")                       : String            default
           in   error in (no error)             : Error             = loop_879::shift0
           out  TestSuite out                   : TestSuite.lvclass
@@ -157,7 +157,7 @@ vi loadTestsFromTestCase.vi :
 #    here with the same +1 padding as everywhere else, for one consistent
 #    rule rather than reproducing an isolated typo.
 # 7. `testSuiteStatusChanged EventRef`'s type renders
-#    `UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}` --
+#    `User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster}` --
 #    the event name, then the inner cluster's OWN `typedef_name` (verified: `LVType.typedef_name` on that terminal's
 #    element type is literally `"...suiteStatusChanged--Cluster"`, stripped
 #    the same way `type_descriptor()` always has) makes it a NAMED type, so
@@ -289,7 +289,7 @@ vi loadTestsFromTestCase.vi :
       in   TestSuite in                    : TestSuite.lvclass
       in   tests (none)                    : [LabVIEW Object]
       in   GUID ("")                       : String
-      in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}
+      in   testSuiteStatusChanged EventRef : User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster}
       in   error in (no error)             : Error
       out  TestSuite out                   : TestSuite.lvclass
       out  error out                       : Error
@@ -435,7 +435,7 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
       never immediately followed by a TODO.
     - ``feedback-node`` is fully designed too, but is a state REGISTER, so it
       has NO more-specific-type: its header is
-      ``feedback-node <handle> (<N> iteration[s]) :`` (the trailing ``:`` opens
+      ``feedback-node <handle> (delay=<N>) :`` (the trailing ``:`` opens
       its ``init``/``each`` block), and is never followed by a TODO.
     - ``formula-node``/``expression-node`` are fully designed too: their
       header's component is the formula text as one quoted literal (or absent),
@@ -487,7 +487,7 @@ def _assert_no_invented_open_syntax(text: str) -> dict[str, int]:
                     assert stripped.endswith(":"), (
                         f"feedback-node header must open a block: {stripped!r}"
                     )
-                    if "uninitialized" in stripped:
+                    if "initialized=False" in stripped:
                         assert not next_line.startswith("init ="), (
                             f"an uninitialized feedback-node has no init line, "
                             f"got {next_line!r}"
@@ -566,7 +566,7 @@ def test_generating_code_does_not_change_what_lvnet_shows() -> None:
 @pytest.mark.needs_samples
 def test_feedback_node_renders_handle_component_init_each() -> None:
     """A real split Feedback Node (1-iteration): renders
-    `feedback-node <net> (<N> iteration[s]) :` (a state register -- no
+    `feedback-node <net> (delay=<N>) :` (a state register -- no
     more-specific-type; the count is a parenthetical attribute; the handle IS
     its own `fbK` net, §7), then `each =` (this node's initializer is unwired,
     so it is `uninitialized` and has no `init =`) -- never a TODO."""
@@ -586,7 +586,7 @@ def test_feedback_node_renders_handle_component_init_each() -> None:
     idx = next(
         i for i, ln in enumerate(lines) if ln.strip().startswith("feedback-node ")
     )
-    assert lines[idx].strip() == "feedback-node fb0 (1 iteration, uninitialized) :"
+    assert lines[idx].strip() == "feedback-node fb0 (delay=1, initialized=False) :"
     assert (
         lines[idx + 1].strip()
         == "each = High_Resolution_Relative_Seconds_3710::relative seconds"

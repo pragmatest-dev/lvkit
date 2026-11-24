@@ -38,6 +38,7 @@ from ..labview_scan import (
     scan_pieces,
     scan_plan,
 )
+from ..local_time_module import LOCAL_OFFSET_NAME, imports_local_time
 from ..output_binding import bind_output
 from ..scan_module import SCAN_FUNCTION_NAME
 from ..type_default import type_default
@@ -107,7 +108,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             raise ConversionGap(str(reason), node) from None
         ctx.add_import("import re")
         for statement_import in plan.imports:
-            ctx.add_import(statement_import)
+            # An import of the package's ``local_time`` module is spelled for the
+            # calling module.
+            if imports_local_time(statement_import):
+                ctx.import_local_time(LOCAL_OFFSET_NAME)
+            else:
+                ctx.add_import(statement_import)
     else:
         ctx.import_scan()
     fragment = CodeFragment()

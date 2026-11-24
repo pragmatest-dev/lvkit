@@ -309,6 +309,7 @@ class SubVIBuildHandler(NodeBuildHandler):
             qualified_name=qualified_name,
             callee_key=callee_key,
             variant_key=variant_key,
+            is_embedded_instance=node.uid in ctx.instance_call_uids,
             call_save_style=(
                 node.save_style if isinstance(node, CallByRefNode) else None
             ),

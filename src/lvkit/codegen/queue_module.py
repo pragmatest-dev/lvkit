@@ -10,7 +10,11 @@ The module is written from ``InMemoryVIGraph.obtain_queue_uses`` over the whole
 package, with the queues in the order of their names, so it does not depend on the
 order the VIs are generated in.
 
-Releasing a queue shuts it down (``queue.ShutDown``), which needs Python 3.13.
+Releasing a queue shuts it down. ``queue.Queue.shutdown`` and ``queue.ShutDown``
+are Python 3.13 (Python docs, "Added in version 3.13"), so the module defines
+``Queue`` and ``ShutDown`` itself: on 3.13 and later the standard library's, and
+before it a ``Queue`` subclass with the same ``shutdown`` behaviour. Every queue
+a VI obtains is made from the module's ``Queue``.
 """
 
 from __future__ import annotations
@@ -29,9 +33,99 @@ from .errors import CodeGenError
 QUEUES_MODULE = "queues"
 
 _DOCSTRING = (
-    "Named queues shared by the package. Releasing a queue shuts it down "
-    "(queue.ShutDown), which needs Python 3.13 or later."
+    "Named queues shared by the package, and the Queue they are made from. "
+    "Releasing a queue shuts it down (Queue.shutdown, ShutDown)."
 )
+
+# Python 3.13's behaviour of queue.Queue.shutdown (Python docs, "Terminating
+# queues"): after a shutdown put raises ShutDown, and so does get once the queue
+# is empty; blocked putters and getters wake; ``immediate`` drains the queue, and
+# the count of unfinished tasks falls by the number drained.
+_SHUT_DOWN_SUPPORT = '''
+import time
+from queue import Empty, Full
+from queue import Queue as _StdQueue
+
+if hasattr(_StdQueue, "shutdown"):
+    from queue import Queue, ShutDown
+else:
+
+    class ShutDown(Exception):
+        """Raised by put and get on a queue that was shut down."""
+
+    class Queue(_StdQueue):
+        """queue.Queue with the shutdown of Python 3.13."""
+
+        is_shutdown = False
+
+        def put(self, item, block=True, timeout=None):
+            with self.not_full:
+                if self.is_shutdown:
+                    raise ShutDown
+                if self.maxsize > 0:
+                    if not block:
+                        if self._qsize() >= self.maxsize:
+                            raise Full
+                    elif timeout is None:
+                        while self._qsize() >= self.maxsize:
+                            self.not_full.wait()
+                            if self.is_shutdown:
+                                raise ShutDown
+                    elif timeout < 0:
+                        raise ValueError("'timeout' must be a non-negative number")
+                    else:
+                        endtime = time.monotonic() + timeout
+                        while self._qsize() >= self.maxsize:
+                            remaining = endtime - time.monotonic()
+                            if remaining <= 0.0:
+                                raise Full
+                            self.not_full.wait(remaining)
+                            if self.is_shutdown:
+                                raise ShutDown
+                self._put(item)
+                self.unfinished_tasks += 1
+                self.not_empty.notify()
+
+        def get(self, block=True, timeout=None):
+            with self.not_empty:
+                if self.is_shutdown and not self._qsize():
+                    raise ShutDown
+                if not block:
+                    if not self._qsize():
+                        raise Empty
+                elif timeout is None:
+                    while not self._qsize():
+                        self.not_empty.wait()
+                        if self.is_shutdown and not self._qsize():
+                            raise ShutDown
+                elif timeout < 0:
+                    raise ValueError("'timeout' must be a non-negative number")
+                else:
+                    endtime = time.monotonic() + timeout
+                    while not self._qsize():
+                        remaining = endtime - time.monotonic()
+                        if remaining <= 0.0:
+                            raise Empty
+                        self.not_empty.wait(remaining)
+                        if self.is_shutdown and not self._qsize():
+                            raise ShutDown
+                item = self._get()
+                self.not_full.notify()
+                return item
+
+        def shutdown(self, immediate=False):
+            with self.mutex:
+                self.is_shutdown = True
+                if immediate:
+                    while self._qsize():
+                        self._get()
+                        if self.unfinished_tasks > 0:
+                            self.unfinished_tasks -= 1
+                    if self.unfinished_tasks == 0:
+                        self.all_tasks_done.notify_all()
+                self.not_empty.notify_all()
+                self.not_full.notify_all()
+'''
 
 
 @dataclass(frozen=True)
@@ -152,16 +246,23 @@ class PackageQueues:
             )
         return use
 
+    @property
+    def has_module(self) -> bool:
+        """Whether the package writes a ``queues`` module: it does when any VI
+        obtains a queue, since each is made from the module's ``Queue``."""
+        return bool(self.uses)
+
     def build_module(self) -> str | None:
-        """Module source defining every named queue; None when there is none."""
-        if not (self.attributes or self.uses_by_name or self.uses_obtained):
+        """Module source defining ``Queue``, ``ShutDown`` and every named queue;
+        None when no VI obtains a queue."""
+        if not self.has_module:
             return None
         body: list[ast.stmt] = [
             ast.Expr(value=ast.Constant(value=_DOCSTRING)),
             ast.ImportFrom(
                 module="__future__", names=[ast.alias(name="annotations")], level=0
             ),
-            ast.ImportFrom(module="queue", names=[ast.alias(name="Queue")], level=0),
+            *ast.parse(_SHUT_DOWN_SUPPORT).body,
         ]
         if self.uses_obtained:
             body.append(_annotated("obtained", "set[str]", "set()"))

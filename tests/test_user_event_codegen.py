@@ -452,7 +452,7 @@ def test_a_row_that_registers_a_control_is_a_gap(
     project.add(vi)
     package = project.generate("Control.vi")
     assert [g.reason for g in package.gaps] == [
-        "Register For Events row 1 registers a LVObjCtl refnum (dynamic "
+        "Register For Events row 1 registers a Control refnum (dynamic "
         "front-panel events); only User Event rows are converted"
     ]
     with pytest.raises(NotImplementedError, match="row 1 registers"):
@@ -575,23 +575,23 @@ vi Stopper.vi :
     out  Timed Out : TF @1
   block-diagram :
     function Create_User_Event_114 : Create User Event
-      in   user event datatype : TF                   = False
-      in   error in (no error) : Error                default
-      out  user event          : UserEvent refnum{TF}
+      in   user event datatype : TF                    = False
+      in   error in (no error) : Error                 default
+      out  user event          : User Event refnum{TF}
       out  error out           : Error
     function Reg_Events_128 : Reg Events
-      in   0 : EventReg refnum{UserEvent refnum{TF}} default
-      in   2 : Error                                 = Create_User_Event_114::error out
-      in   4 : UserEvent refnum{TF}                  = Create_User_Event_114::user event
-      out  1 : EventReg refnum{UserEvent refnum{TF}}
+      in   0 : Event Registration refnum{User Event refnum{TF}} default
+      in   2 : Error                 = Create_User_Event_114::error out
+      in   4 : User Event refnum{TF} = Create_User_Event_114::user event
+      out  1 : Event Registration refnum{User Event refnum{TF}}
       out  3 : Error
     function Generate_User_Event_141 : Generate User Event
-      in   user event     : UserEvent refnum{TF} = Create_User_Event_114::user event
-      in   event data     : TF                   = True
-      in   error in       : Error                = Reg_Events_128::3
-      out  user event out : UserEvent refnum{TF}
+      in   user event     : User Event refnum{TF} = Create_User_Event_114::user event
+      in   event data     : TF                    = True
+      in   error in       : Error                 = Reg_Events_128::3
+      out  user event out : User Event refnum{TF}
       out  error out      : Error
-    while-loop (stop if true) :
+    while-loop (stop=if-true) :
       loop_147::in1 = Generate_User_Event_141::error out
       event-structure :
         event_158::dynamic = Reg_Events_128::1
@@ -602,7 +602,7 @@ vi Stopper.vi :
           event_158::out0 = True
         frame "[1] <Stop>: User Event" :
           function Event_Data_Node_178 : Event Data Node
-            in   0    : Cluster{ Source : U32, Type : U32, Time : U32, UsrEvtRef : UserEvent refnum, Stop : TF } default
+            in   0    : Cluster{ Source : U32, Type : U32, Time : U32, UsrEvtRef : User Event refnum, Stop : TF } default
             out  Stop : TF
           Stop Seen = Event_Data_Node_178::Stop
           event_158::out0 = True

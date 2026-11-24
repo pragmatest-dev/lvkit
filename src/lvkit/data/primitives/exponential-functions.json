@@ -151,6 +151,8 @@
     },
     "1223": {
       "name": "Power Of 2",
+      "op": "POWER_OF_2",
+      "imports": ["import math"],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/power-of-2.html",
       "terminals": [
         {
@@ -167,9 +169,6 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "two_pow_x": "2.0 ** in_1"
-      },
       "verified": false
     },
     "1224": {

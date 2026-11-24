@@ -21,6 +21,7 @@ from ..parser.constants import (
     TUNNEL_CLASS_RIGHT_SR,
 )
 from .lvnet_grammar import _LVNET_SCRIPT_KINDS
+from .lvnet_settings import settings_to_json
 from .models import (
     vi_health_to_dict,
     vi_properties_to_dict,
@@ -129,6 +130,7 @@ def _mu_to_dict(mu: MuMerge) -> dict[str, Any]:
     return {
         "net": mu.net,
         "kind": "shift_register",
+        "settings": settings_to_json(mu.settings),
         "initial_value": _merge_source_to_dict(mu.init),
         "next_value": _netref_to_dict(mu.recur) if mu.recur is not None else None,
     }
@@ -222,7 +224,7 @@ def _property_access_to_dict(access: NetlistPropertyAccess) -> dict[str, Any]:
 
 def _feedback_to_dict(fb: NetlistFeedback) -> dict[str, Any]:
     """A standalone Feedback Node body item -- the JSON counterpart of
-    ``render_lvnet``'s ``feedback-node <handle> (<N> iteration[s]) :`` text
+    ``render_lvnet``'s ``feedback-node <handle> (delay=<N>) :`` text
     (see ``_render_lvnet_feedback``). ``net``
     leads (matching ``_gamma_to_dict``/``_mu_to_dict``/``_eta_to_dict``'s key
     order -- a Feedback Node IS a standalone mu merge, see ``NetlistFeedback``'s
@@ -233,7 +235,7 @@ def _feedback_to_dict(fb: NetlistFeedback) -> dict[str, Any]:
         "net": fb.net,
         "kind": "feedback",
         "uid": fb.uid,
-        "delay": fb.delay,
+        "settings": settings_to_json(fb.settings),
         "initial_value": _merge_source_to_dict(fb.init),
         "next_value": _netref_to_dict(fb.recur) if fb.recur is not None else None,
     }
@@ -406,7 +408,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
             # lookup key); a dynamic-dispatch call reports its declaring parent.
             "qualified_name": item.qualified_name,
             "occurrence": item.occurrence,
-            "operation": item.operation,
+            "settings": settings_to_json(item.settings),
             # Property Node / Invoke Node only (see NetlistInstance
             # docstring) -- ``None``/``[]`` for every other instance kind.
             "object": item.object_name,
@@ -449,7 +451,6 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
             instance["library"] = item.library
             instance["variable"] = item.name
             instance["access"] = item.access
-            instance["network_path"] = item.network_path
             instance["library_unreadable"] = item.library_unreadable
         return instance
     if isinstance(item, NetlistFeedback):
@@ -458,6 +459,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
         "kind": "scope",
         "uid": item.uid,
         "scope_kind": item.kind,
+        "settings": settings_to_json(item.settings),
         "selector": _netref_to_dict(item.selector) if item.selector else None,
         "frames": [_frame_to_dict(f, verbose=verbose) for f in item.frames],
         # Always present (empty for sequence/disabled/event scopes) -- see
@@ -472,12 +474,7 @@ def _item_to_dict(item: NetlistItem, *, verbose: bool = False) -> dict[str, Any]
     if item.inputs:
         d["inputs"] = [_structure_input_to_dict(i) for i in item.inputs]
     if item.kind in ("for", "while"):
-        d["condition"] = (
-            item.condition_mode.name.lower() if item.condition_mode else None
-        )
         d["count"] = _netref_to_dict(item.count) if item.count else None
-        d["parallel"] = item.parallel
-        d["parallel_static_workers"] = item.parallel_static_workers
         d["tunnels"] = [
             {
                 "kind": _LOOP_BORDER_KIND[t.tunnel_type],

@@ -36,7 +36,7 @@ from lvkit.graph.lvnet_reconstruct import reconstruct_module
 from lvkit.graph.models import SharedVariableLibrary, SharedVariableNode
 from lvkit.graph.netlist import NetlistModule, build_netlist_from_graph, render_lvnet
 from lvkit.graph.netlist_json import netlist_to_dict
-from lvkit.graph.render_lvnet import lvnet_literal_token, lvnet_shared_variable_target
+from lvkit.graph.render_lvnet import lvnet_shared_variable_target
 from lvkit.index.build import project_vi_facts
 from lvkit.index.model import NodeKind
 from lvkit.load_mode import LoadMode
@@ -279,38 +279,36 @@ def test_generated_python_writes_then_reads_the_shared_value(
 
 
 @pytest.mark.parametrize(
-    "attribute",
+    "mark",
     [
         "",
-        f" (network-published {lvnet_literal_token(NETWORK_PATH)})",
-        ' (library unreadable "HpVL record at offset 12: a : b \\"q\\"")',
+        ' (unreadable "HpVL record at offset 12: a : b \\"q\\"")',
     ],
 )
-def test_lvnet_attribute_reads_back_exactly(attribute: str) -> None:
-    component = f"Lib.lvlib::Value : write{attribute}"
+def test_lvnet_unreadable_mark_reads_back_exactly(mark: str) -> None:
+    component = f"Lib.lvlib::Value : write{mark}"
     parsed = split_shared_variable_component(component)
     assert (parsed.library, parsed.variable, parsed.access) == (
         "Lib.lvlib",
         "Value",
         "write",
     )
-    assert (parsed.network_path is not None) == ("network-published" in attribute)
-    assert (parsed.library_unreadable is not None) == ("unreadable" in attribute)
+    assert (parsed.library_unreadable is not None) == bool(mark)
 
 
-def test_lvnet_attribute_after_a_quoted_name_with_a_separator() -> None:
+def test_lvnet_unreadable_mark_after_a_quoted_name_with_a_separator() -> None:
     parsed = split_shared_variable_component(
-        'Lib.lvlib::"Two Words : x" : read (network-published "p : q")'
+        'Lib.lvlib::"Two Words : x" : read (unreadable "p : q")'
     )
     assert parsed.variable == "Two Words : x"
-    assert parsed.network_path == "p : q"
+    assert parsed.library_unreadable == "p : q"
 
 
-def test_a_malformed_lvnet_attribute_is_an_error() -> None:
+def test_a_malformed_unreadable_mark_is_an_error() -> None:
     for bad in (
-        'read (network-published "p"',
+        'read (unreadable "p"',
         "read (somewhere)",
-        "read (library unreadable p)",
+        "read (unreadable p)",
     ):
         with pytest.raises(LvnetParseError):
             split_shared_variable_component(f"Lib.lvlib::Value : {bad}")
@@ -346,7 +344,7 @@ def test_network_fixture_lvnet_json_and_index_carry_the_path() -> None:
     escaped = NETWORK_PATH.replace("\\", "\\\\")
     expected = (
         "shared-variable Value_1033 : SV Sample.lvlib::Value : write "
-        f'(network-published "{escaped}")'
+        f'(path="{escaped}")'
     )
     assert expected in text
     body = netlist_to_dict(module)["body"]
@@ -357,7 +355,7 @@ def test_network_fixture_lvnet_json_and_index_carry_the_path() -> None:
         for inner in frame["body"]
         if inner.get("kind") == "shared_variable"
     ]
-    assert {s["network_path"] for s in shared} == {NETWORK_PATH}
+    assert {s["settings"]["path"] for s in shared} == {NETWORK_PATH}
     facts = project_vi_facts(graph, vi, SV_NETWORK_SAMPLE, SV_NETWORK_SAMPLE.parent)
     nodes = [n for n in facts.nodes if n.kind is NodeKind.SHARED_VARIABLE]
     assert {n.network_path for n in nodes} == {NETWORK_PATH}
@@ -431,7 +429,7 @@ def test_an_unreadable_record_reads_back_strictly_from_lvnet(
     module = build_netlist_from_graph(graph, vi)
     text = render_lvnet(module, display_name="SV Sample.vi", verbose=True)
     assert (
-        "shared-variable Value_1033 : Value : write (library unreadable "
+        "shared-variable Value_1033 : Value : write (unreadable "
         '"HpVL record at offset 12: unknown layout flag 0x07")'
     ) in text
     _assert_strict_round_trip(text, module)
@@ -500,7 +498,7 @@ def test_an_hpvr_record_reads_back_strictly_and_runs(
     graph, vi = _load(SV_NETWORK_SAMPLE)
     module = build_netlist_from_graph(graph, vi)
     text = render_lvnet(module, display_name="SV Sample.vi", verbose=True)
-    assert "(network-published " in text
+    assert "(path=" in text
     _assert_strict_round_trip(text, module)
 
     for sv_sample, shared in _generated_package(tmp_path, monkeypatch, graph, vi):

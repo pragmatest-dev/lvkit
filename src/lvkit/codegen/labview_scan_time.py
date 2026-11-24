@@ -20,8 +20,9 @@ Leading white space is not skipped (forums.ni.com "Scan From String Timestamp
 format bug and workaround", td-p/4246261). A space in the embedded format matches
 any white space.
 
-Local time follows the rule of Format Date/Time String: from 1970 the operating
-system's conversion, before 1970 the computer's current offset from UTC. The
+Local time follows the rule of Format Date/Time String (``labview_local_time.py``):
+the computer's daylight-saving rule from 1970, before 1970 its current offset from
+UTC. The
 codes whose text is locale-specific or that the scan cannot place on the time
 (names of days and months, 12-hour clock, day of the year, week numbers,
 locale-specific date and time, the zone) are a gap that names the code.
@@ -43,10 +44,9 @@ _NUMBERS = {
     "S": ("S", "[0-5]?[0-9]"),
 }
 _CODE = re.compile(r"%(?:\.(\d))?(\d*)(.)", re.DOTALL)
-_LOCAL_OFFSET = (
-    "(x.astimezone().utcoffset() if x.year >= 1970 else "
-    "datetime.timedelta(seconds=time.localtime().tm_gmtoff))"
-)
+# The computer's offset from UTC at the time stamp ``x``: ``local_offset`` of the
+# package's ``local_time`` module.
+_LOCAL_OFFSET = "local_offset(x)"
 
 
 @dataclass(frozen=True)
@@ -118,6 +118,7 @@ def time_scan(spec_text: str, embedded: str, utc: bool, separator: str) -> TimeS
             "import datetime",
             "import hightime",
             "from datetime import UTC",
+            "from .local_time import local_offset",
         ),
     )
 

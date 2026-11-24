@@ -238,7 +238,8 @@
           "index": 8,
           "direction": "output",
           "name": "notifier out",
-          "type": "Refnum"
+          "type": "Refnum",
+          "passes_input": 0
         },
         {
           "index": 9,

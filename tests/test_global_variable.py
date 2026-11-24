@@ -303,8 +303,15 @@ _ERROR = LVType(
 )
 
 
-def _control(uid: str, name: str, lv_type: LVType, default: str | None) -> FPTerminal:
+def _control(
+    uid: str,
+    name: str,
+    lv_type: LVType,
+    default: str | None,
+    structured: object = None,
+) -> FPTerminal:
     return FPTerminal(
+        default_structured=structured,
         id=f"fp_{uid}",
         index=None,
         direction="output",
@@ -332,6 +339,7 @@ def _synthetic_global_vi() -> VINode:
                 ],
             ),
             "{'Rows': 3, 'Cols': 4}",
+            {"Rows": "3", "Cols": "4"},
         ),
     ]
     return VINode(
@@ -436,6 +444,62 @@ def test_global_vi_module_keeps_saved_values_and_holds_no_error() -> None:
     assert module.count == 5
     assert module.settings == (3, 4)
     assert module.error_out is None
+
+
+def test_global_vi_nested_cluster_control_starts_at_its_saved_value() -> None:
+    """A Global VI control that saves ``{outer: {b: 'x', c: 'y'}}`` starts there
+    (the same decoded value an off-pane control starts from), and one saving
+    nothing starts at the type's default."""
+    from lvkit.codegen.global_module import build_global_module
+
+    string = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+    inner = LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[
+            ClusterField("b", string, labelled=True),
+            ClusterField("c", string, labelled=True),
+        ],
+    )
+    outer = LVType(
+        kind=LVTypeKind.CLUSTER,
+        underlying_type="Cluster",
+        fields=[ClusterField("outer", inner, labelled=True)],
+    )
+    controls = [
+        _control(
+            "d0",
+            "Nest",
+            outer,
+            "{'outer': {'b': 'x', 'c': 'y'}}",
+            {"outer": {"b": "'x'", "c": "'y'"}},
+        ),
+        _control("d1", "Plain", outer, None),
+    ]
+    vi = VINode(
+        id="nest_global",
+        vi_path="nest_global",
+        name="nest_global",
+        terminals=controls,
+        front_panel=ParsedFrontPanel(
+            controls=[], panel_bounds=(0, 0, 0, 0), dco_order=["d0", "d1"]
+        ),
+    )
+    source = build_global_module(vi)
+    package = types.ModuleType("gvnest")
+    package.__path__ = []  # type: ignore[attr-defined]
+    sys.modules["gvnest"] = package
+    try:
+        _import_generated("errors", ERRORS_MODULE_SOURCE, package)
+        _import_generated("variants", VARIANTS_MODULE_SOURCE, package)
+        _import_generated("live_io", LIVE_IO_MODULE_SOURCE, package)
+        _import_generated("panels", PANELS_MODULE_SOURCE, package)
+        module = _import_generated("nested", source, package)
+    finally:
+        for name in [n for n in sys.modules if n.startswith("gvnest")]:
+            del sys.modules[name]
+    assert module.nest == (("x", "y"),)
+    assert module.plain == (("", ""),)
 
 
 def test_global_variable_node_on_an_error_cluster_control_reads_the_error() -> None:

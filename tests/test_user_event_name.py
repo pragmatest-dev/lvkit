@@ -70,7 +70,7 @@ def test_lvnet_inline_name_reads_back_exactly(name: str) -> None:
 
 
 def test_unnamed_user_event_renders_without_a_name() -> None:
-    assert _lvnet_type_inline(_user_event(None, _dbl())) == "UserEvent refnum{DBL}"
+    assert _lvnet_type_inline(_user_event(None, _dbl())) == "User Event refnum{DBL}"
 
 
 @pytest.mark.needs_samples
@@ -93,7 +93,7 @@ def test_describe_shows_the_event_name(vi_path: Path, expected: str) -> None:
         check=True,
         encoding="utf-8",
     ).stdout
-    assert f"UserEvent refnum{{{expected}" in out
+    assert f"User Event refnum{{{expected}" in out
 
 
 @pytest.mark.needs_samples
@@ -104,7 +104,7 @@ def test_strict_lvnet_round_trip(vi_path: Path, expected: str) -> None:
     graph, vi_name = load_vi_by_path(vi_path, LoadMode.MINIMAL, layout=False)
     module = build_netlist_from_graph(graph, vi_name)
     text = render_lvnet(module, display_name=vi_path.name, verbose=True)
-    assert "UserEvent refnum{" in text
+    assert "User Event refnum{" in text
     parsed = parse_lvnet(text)
     ambiguous = _lvnet_ambiguous_named_types(module)
     assert netlist_signature(module, ambiguous) == netlist_signature(parsed, ambiguous)

@@ -7,23 +7,36 @@ the module, reading the same tables (``_FLAT_NUMBERS``, ``_number_name``) and th
 same type reader (``read_type``): numbers and Booleans as ``struct`` data, a
 string or array behind 32-bit sizes (an array's one per dimension, the slowest
 varying first), a cluster as its members one after another, an enum as its
-number, all big-endian. The ``type string`` output is the type string the
-variant's type records. A type this does not write (an extended-precision number,
-a refnum, a waveform, a path, a class) raises ``NotImplementedError`` naming it.
+number, a time stamp as the function ``flat_timestamp_source`` holds, all
+big-endian. The ``type string`` output is the type string the variant's type
+records. A type this does not write (an extended-precision number, a refnum, a
+waveform, a path, a class) raises ``NotImplementedError`` naming it.
 """
 
 from __future__ import annotations
 
-from lvkit.type_string import NAME_FLAG
+from .flat_timestamp_source import FLATTEN_TIMESTAMP, LAZY_HIGHTIME_SETUP
 
 _WRITER_SOURCE = '''
 
 # The writer of flattened data by a variant's type (the inverse of the reader).
+$TIMESTAMP_WRITER
+
+
 def _unwritable(lv_type: LVType) -> NotImplementedError:
     return NotImplementedError(
         f"flattened data of the type {lv_type.name!r} (descriptor code "
         f"{lv_type.code}) is not written"
     )
+
+
+def cluster_members(value: Any) -> list:
+    """The members of the cluster value ``value`` in order: those of a tuple or
+    list; an error cluster's value is a LabVIEWError, whose members are its
+    status, code and source."""
+    if hasattr(value, "status") and hasattr(value, "code"):
+        return [value.status, value.code, value.source]
+    return list(value)
 
 
 def _array_sizes(value: Any, dimensions: int) -> list[int]:
@@ -59,6 +72,9 @@ def _flatten_value(value: Any, lv_type: LVType) -> bytes:
         value = []
     elif value is None and info.kind == "cluster":
         value = [None] * len(info.fields)
+    if info.kind == "timestamp":
+        # The default time stamp is 1904-01-01 00:00:00 UTC: zero seconds.
+        return bytes(16) if value is None else _flatten_timestamp(value, ">")
     if info.kind in ("number", "enum"):
         name = _number_name(info)
         if name not in _FLAT_NUMBERS:
@@ -80,7 +96,7 @@ def _flatten_value(value: Any, lv_type: LVType) -> bytes:
             parts.append(_flatten_value(item, info.element))
         return b"".join(parts)
     if info.kind == "cluster":
-        members = list(value)
+        members = cluster_members(value)
         if len(members) != len(info.fields):
             raise ValueError(
                 f"a cluster of {len(info.fields)} members was given "
@@ -91,9 +107,6 @@ def _flatten_value(value: Any, lv_type: LVType) -> bytes:
             for item, member in zip(members, info.fields)
         )
     raise _unwritable(lv_type)
-
-
-_NAME_FLAG = $NAME_FLAG
 
 
 def _labelled(numbers: tuple[int, ...], label: str) -> list[int]:
@@ -133,4 +146,10 @@ def variant_to_flattened(variant: Variant) -> tuple[list[int], str]:
 
 def flat_writer_source() -> str:
     """The writer's source, the name flag written from the encoder's."""
-    return _WRITER_SOURCE.replace("$NAME_FLAG", hex(NAME_FLAG))
+    timestamp_writer = FLATTEN_TIMESTAMP.format(
+        name="_flatten_timestamp",
+        order="order",
+        params=", order",
+        setup=LAZY_HIGHTIME_SETUP,
+    ).rstrip()
+    return _WRITER_SOURCE.replace("$TIMESTAMP_WRITER", timestamp_writer)

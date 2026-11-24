@@ -278,6 +278,67 @@ class Integer(Layout):
 
 
 @dataclass(frozen=True)
+class RefnumInteger(Layout):
+    """A reference (``kind`` names it) flattened as the 32-bit integer LabVIEW
+    writes for a refnum. A reference whose Python value is an integer (a handle
+    the program got as an integer, e.g. from a DLL) converts as that integer both
+    ways; Not a Refnum (``None``) is 0 and the integer 0 is Not a Refnum. Any
+    other object (a function, a queue, a file object) has no integer value and
+    raises where it runs, its message composed at run time."""
+
+    kind: str = "refnum"
+    code: str = "I"
+    width: int = 4
+
+    def fixed_size(self) -> int | None:
+        return self.width
+
+    def helper_label(self) -> str:
+        return f"{self.kind}_refnum"
+
+    def to_integer(self, fns: Functions) -> str:
+        """The name of the function that gives a reference's integer."""
+
+        def source(name: str) -> str:
+            return (
+                f"def {name}(reference):\n"
+                f"    kind = {self.kind!r}\n"
+                "    if reference is None:\n"
+                "        return 0\n"
+                "    if isinstance(reference, int):\n"
+                "        return reference\n"
+                "    raise NotImplementedError(\n"
+                '        f"Flatten of a {kind}: only Not a Refnum or an integer "\n'
+                '        f"handle has an integer value; a live reference has none"\n'
+                "    )\n"
+            )
+
+        return fns.named("refnum_to_integer", self.kind, (self.kind,), source)
+
+    def from_integer(self, fns: Functions) -> str:
+        """The name of the function that gives the reference an integer was read
+        as."""
+
+        def source(name: str) -> str:
+            return (
+                f"def {name}(value):\n"
+                "    if value == 0:\n"
+                "        return None\n"
+                "    return value\n"
+            )
+
+        return fns.named("integer_to_refnum", self.kind, (self.kind,), source)
+
+    def flatten(self, value, prefix, depth, fns):
+        return [Fixed(self.code, (f"{self.to_integer(fns)}({value})",))]
+
+    def unflatten(self, target, prefix, out, fns):
+        read = f"struct.unpack_from({fns.order + self.code!r}, data, pos)[0]"
+        out.add(f"{target} = {self.from_integer(fns)}({read})")
+        out.add(f"pos += {self.width}")
+
+
+@dataclass(frozen=True)
 class Real(Layout):
     """A floating-point number, a Boolean or a complex number: the values
     ``struct`` packs as they are."""
@@ -379,7 +440,9 @@ class TimeStamp(Layout):
             kind,
             "timestamp",
             ("timestamp",),
-            lambda name: template.format(name=name, order=fns.order),
+            lambda name: template.format(
+                name=name, order=repr(fns.order), params="", setup=""
+            ),
         )
 
     def flatten(self, value, prefix, depth, fns):
@@ -881,7 +944,7 @@ def layout_of(lv_type: LVType | None, ctx: CodeGenContext | None = None) -> Layo
 
         return collection_layout(lv_type, ctx)
     if underlying == "Refnum" and lv_type.ref_type not in _STRING_REFNUMS:
-        return Integer("I", "c_uint32", 4)
+        return RefnumInteger(lv_type.type_descriptor())
     if underlying == "Refnum":
         return Text()
     if is_string_type_name(underlying):

@@ -75,6 +75,7 @@ from urllib.parse import unquote, urlparse
 
 from ... import __version__, primitive_resolver, vilib_resolver
 from ...cache_paths import store_root
+from ...console import use_utf8_output
 from ...graph import InMemoryVIGraph, load_vi_by_path
 from ...graph.netlist import netlist_to_dict
 from ...index import sql as isql
@@ -220,6 +221,7 @@ def main(roots: list[str] | None = None) -> None:
     clients that send no workspace roots (Claude Desktop). Empty/omitted falls
     back to the ``LVKIT_PROJECT_ROOT`` env, then cwd (see ``_default_roots``)."""
     global _DEFAULT_ROOTS
+    use_utf8_output()
     if roots:
         _DEFAULT_ROOTS = [_win_to_wsl_path(r) for r in roots]
     mcp.run("stdio")

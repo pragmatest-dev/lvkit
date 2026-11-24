@@ -19,8 +19,8 @@ from .lvnet_parse import (
     ParsedDrive,
     ParsedFrame,
     ParsedScope,
-    _unescape_lvnet_string,
 )
+from .lvnet_quoted import unescape_lvnet_string
 from .lvnet_reconstruct_common import (
     HandleTarget,
     LvnetReconstructError,
@@ -58,7 +58,7 @@ def disabled_frame_value(label: str, kind: DisableStructureKind) -> str:
     """A Disable frame's value from its header label: a Conditional Disable
     frame's label is its symbol condition, a string literal."""
     if kind is DisableStructureKind.CONDITIONAL and label.startswith('"'):
-        return _unescape_lvnet_string(label)
+        return unescape_lvnet_string(label)
     return label
 
 
@@ -98,7 +98,7 @@ def _sequence_local_unreadable_reason(source: str) -> str | None:
     text = source.lstrip()
     if not (text.startswith(prefix) and text.endswith(")")):
         return None
-    return _unescape_lvnet_string(text[len(prefix) - 1 : -1])
+    return unescape_lvnet_string(text[len(prefix) - 1 : -1])
 
 
 def sequence_outputs(

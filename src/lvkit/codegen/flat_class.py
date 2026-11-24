@@ -57,11 +57,9 @@ def class_family(graph: InMemoryVIGraph, key: str | None) -> list[str]:
     """The keys of the classes a wire of the class at ``key`` can hold: the class,
     its ancestors and its loaded descendants, sorted; every loaded class for
     ``None`` (a LabVIEW Object wire)."""
-    everything = graph.list_class_keys()
     if key is None:
-        return sorted(everything)
-    keys = {key, *graph.class_ancestor_keys(key)}
-    keys.update(k for k in everything if key in graph.class_ancestor_keys(k))
+        return sorted(graph.list_class_keys())
+    keys = {key, *graph.class_ancestor_keys(key), *graph.class_descendant_keys(key)}
     return sorted(keys)
 
 

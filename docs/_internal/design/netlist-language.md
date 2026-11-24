@@ -195,7 +195,7 @@ The other core line is the **node-declaration line** — the header that names a
 node and (for most kinds) owns a block of terminal lines:
 
 ```
-<kind> <handle> [ : <more-specific-type> ] [ (<attributes>) ] [; <annotation>]
+<kind> <handle> [ : <more-specific-type> ] [ (<settings>) ] [; <annotation>]
 ```
 
 - **`<kind>`** — the node category (`subVI`/`function`/`constant`/`property-node`/
@@ -207,9 +207,48 @@ node and (for most kinds) owns a block of terminal lines:
   `subVI` calls, the primitive an `Add` is, a `constant`'s data type, the object a
   `property-node` acts on (§7). A **state register** (`shift-register`,
   `feedback-node`) has none, so its `:` simply opens the block.
-- **`(<attributes>)`** — OPTIONAL parenthetical settings that are *not* an identity
-  — a feedback node's `(1 iteration)`, a boundary control's notable default
-  `(no error)`.
+- **`(<settings>)`** — OPTIONAL: the node's or structure's settings, the last thing
+  on the header before the block-opening ` :` or a `;` annotation (a verbose
+  `(id <uid>)`, §8, sits between the settings and the ` :`). The rule below.
+
+**Settings.** `(<settings>)` is `name=value` items joined by `, `, with NO spaces
+around the `=` (the spaced ` = ` stays the binding/driver operator, §4; `enum{m = 2}`
+already uses a bare `=`).
+
+- Every item is name plus value (no bare flags). The `=` in every item is what makes
+  a trailing group the settings slot BY SHAPE: a reader takes a header's trailing
+  parenthesised group (outside quotes, balanced, after a space) as the settings when
+  every item has the shape `<lowercase-hyphenated name>=<value>`, and as part of the
+  name otherwise (`Wait (ms)`, `Random Number (0-1)`).
+- `name` is a lowercase hyphenated word from the settings table of that header's kind.
+  `value` is a §4 literal: `True`/`False`, a number, a quoted string, a bare enum
+  item (name-safety rule, §4), or `?` when the file's value could not be read.
+- A setting at its default is omitted and restored by the reader; a setting with no
+  default always prints. Order is the table's order.
+- An unknown name, a repeated name, or a value of the wrong type is a parse error that
+  names the kind's allowed settings. A header name whose bare spelling would END in a
+  group of that shape is quoted (§4), so the shape never reads a name as settings.
+
+| Header | Setting | Value (default) | Public NI term |
+|---|---|---|---|
+| `function` (Compound Arithmetic) | `mode` | `add`/`multiply`/`and`/`or`/`xor`/`?`; no default | Compound Arithmetic modes |
+| `while-loop` | `stop` | `if-true` (Stop if True) / `if-false` (Continue if True); no default | While Loop: "Stop if True" / "Continue if True" |
+| `for-loop` | `stop` | as a While Loop; set only with a conditional terminal | For Loop conditional terminal |
+| | `parallel` | bool (`False`) | "parallel For Loop iterations" |
+| | `parallel-instances` | int (unset until the file records one) | "Number of generated parallel loop instances" |
+| `case` | `case-insensitive` | bool (`False`) | "Case Insensitive Match", Creating a Case Structure to Execute Conditional Code |
+| `feedback-node` | `delay` | int or `?`; no default | Feedback Node: how many iterations the value is held |
+| | `initialized` | bool (`True`) | Feedback Node initializer terminal |
+| `shift-register` | `initialized` | bool (`True`) | Shift register initialization |
+| `shared-variable` | `path` | quoted string (unset for a single-process variable) | Shared Variable Node Properties, "Path" |
+
+Examples: `function Compound_Arithmetic_203 : Compound Arithmetic (mode=or)`,
+`while-loop (stop=if-true) :`, `for-loop (parallel=True, parallel-instances=4) :`,
+`feedback-node fb0 (delay=1, initialized=False) :`,
+`shift-register loop_146::shift0 (initialized=False) :`,
+`shared-variable h : Lib::Var : read (path="<path>")`, `case sel (case-insensitive=True) :`.
+A problem with a node, `(unreadable "<reason>")`, is not a setting: it comes before the
+settings (`shared-variable h : Lib::Var : read (unreadable "<reason>")`).
 
 Its indented `in`/`out` terminal lines (or `init`/`each`) follow.
 
@@ -262,7 +301,10 @@ U+0000–U+001F: a line break, a tab…), (b) contains a column-delimiter
 line on) — or (c) carries an **UNBALANCED** quote or brace/bracket. Crucially,
 a bare `:` / `,` / `=` with **no surrounding spaces** stays bare (`error in
 (None: Create New)`, `Not::0`), and a name with **BALANCED** embedded quotes or
-parens stays bare (`methodName ("runTest")`) — the parser's quote/depth
+parens stays bare (`methodName ("runTest")`, `Wait (ms)`, `Random Number (0-1)`); a
+name that would END in a group whose every item is `name=value` (`Foo (a=b)`) is
+quoted (d), because a reader takes such a trailing group for the header's settings
+(§3) — the parser's quote/depth
 tracking still lands on the real separator, so quoting there would be noise.
 When a name *is* unsafe it is double-quoted and backslash-escaped exactly like a
 string literal (same escapes as above), so a control named `Image Parameters :
@@ -337,8 +379,8 @@ connector-pane slot and is not written. One with a wire is a real terminal whose
 the file does not record (a DAQmx Task property's value, say): it keeps its line
 (`out  NumChans : Void`) so every net a reader names is declared. A type the file
 records but lvnet cannot read is not `Void` either: it keeps its own descriptor
-followed by `(unreadable "<reason>")` -- the reason a §4 quoted literal, like
-`(library unreadable "<reason>")` -- in lvnet, describe and JSON alike (the `type`
+followed by `(unreadable "<reason>")` -- the reason a §4 quoted literal, the same mark a
+Shared Variable node whose library link could not be read carries -- in lvnet, describe and JSON alike (the `type`
 string, and `lv_type.unreadable` in verbose JSON). That differs from `?`, which is
 written where a type is *not loaded* (a VI or type definition that was not read at
 all): `(unreadable "…")` says the file was read and this one descriptor could not be.
@@ -458,12 +500,12 @@ longer pending here. No node kind with a node row below is pending.
 | Primitive | `function <handle> : <LabVIEW name>` | Rendered **exactly like a subVI** — `function Add_1 : Add`, `function Index_Array_1 : Index Array`, `function Bundle_By_Name_1 : Bundle By Name` — handle left of `:`, faithful primitive name right of it, then typed terminals wired by nets. Interface from `primitives.json` **plus per-call parsed types** (primitives are polymorphic); variadic ones (Compound Arithmetic, Build Array) show their actual per-call terminals. **No inline operators** — LabVIEW has an `Add` *node*, so we show a node (keeps fidelity and diffs cleanly). |
 | Property Node | `property-node <handle> : <ObjectClass>` | a property's value terminal IS a terminal: a **read** renders as an `out` (value flows out), a **write** as an `in` (`= <driver>`), each named by the property; drawer order = line order (top-to-bottom sequential). No special syntax — the standard terminal block carries it. |
 | Invoke Node | `invoke-node <handle> : <ObjectClass>.<Method>` | the method IS the node's identity, so it sits in the component; parameters render **by index** (`in  0 : <Type> = <net>`, `out 1 : <Type>`) because LabVIEW stores no param names in the VI (only the VI-server signature does). |
-| Feedback Node | `feedback-node <handle> (<N> iteration[s]) :` | a state **register** — no more-specific-type (like a shift register), so the `:` just opens its `init = <src>` (first iteration) / `each = <src>` (fed back next) block. The count — how many iterations back the value is handed — rides as a parenthetical **attribute**: `(1 iteration)` / `(3 iterations)`. **Not** `delay` (reads as time) or `z^-N` (DSP glyph). Handle is its own `fbK` net — a small sequential id, one per feedback node in the VI, unlike every other node's `_<uid>` handle suffix (a feedback node has no separate "declared name" for a base to attach a uid to; the net name doubles as the handle); `(? iterations)` when the depth didn't parse (LabVIEW enforces ≥1). |
+| Feedback Node | `feedback-node <handle> (delay=<N>) :` | a state **register** — no more-specific-type (like a shift register), so the `:` just opens its `init = <src>` (first iteration) / `each = <src>` (fed back next) block. The count — how many iterations back the value is handed — rides in the settings (§3) as `delay=<N>`; an unwired initializer adds `initialized=False`: `(delay=1, initialized=False)`. **Not** `z^-N` (DSP glyph). Handle is its own `fbK` net — a small sequential id, one per feedback node in the VI, unlike every other node's `_<uid>` handle suffix (a feedback node has no separate "declared name" for a base to attach a uid to; the net name doubles as the handle); `delay=?` when the depth did not parse (LabVIEW enforces ≥1). |
 | Constant | `constant` | `constant <handle> : <Type> = <value>` (handle `<name>_<uid>`, e.g. `constant GUID_142 : String = "TC-001"`). A one-off literal stays inline on the terminal; a shared/named constant becomes a `constant` node referenced by net (`= GUID_142`). |
 | Local Variable | `local-variable` | a TAP on a control/indicator's named net, not a computation — but it still gets its own handle (§9) since a read is a genuine producer. A **read** is a SOURCE: `local-variable <handle> : read`, with no component and no terminal block (the tapped control's own type is already spelled at its `front-panel :` row); a downstream reader references its value as `<handle>::<terminal>`, exactly like any other node-terminal net. A **write** is a SINK: `local-variable <handle> : write = <source>`, terminating its one driven source into the control — no output of its own. The netlist does not resolve which write a given read observes (stateful/runtime); reads and writes are independent access points linked only by tapping the same control. |
 | VI Server Reference | `vi-server-reference` | a Control Reference constant (`ctlRefConst`): `vi-server-reference <handle> : <target>`, one line, no terminal block. It is a SOURCE whose single output is the reference itself (a refnum), not the value of a control; a reader references it as `<handle>::<port>` like any node's output, and the consumer's terminal line spells the refnum type. `<target>` is read from decoded fields, never from the constant's label: `This VI` / `This Application` when the reference's type records that VI Server class (`CtlFlags` 0x0002 / 0x0001, `labview-binary-format.md`) and the constant names no control; the referenced control as a §4 control-name token when the constant's `ddo` resolves to a front-panel control (`Tree`; a control named `This VI`, `This Application` or `?` is quoted); `?` when neither is decoded (a VI saved before the type records its class). A reference constant is never a `local-variable`, which taps a control's value. |
 | Global Variable | `global-variable` | a TAP on one control of a Global VI, shaped like a local variable but naming its target: a **read** is a SOURCE, `global-variable <handle> : read <Global VI>::<control>`; a **write** is a SINK, `global-variable <handle> : write <Global VI>::<control> = <source>`. The handle base is the control name (`Debug_18698`). `<Global VI>` is the qualified name the calling VI's block-diagram link table records for the VI, `<control>` the control of it that the node's connector cluster names at the node's control index; both halves follow the §4 name-safety rule, and the Global VI half is also quoted when it contains `::`. The Global VI additionally appears under `uses :` as a `global` entry. The node has no wire to any control of the calling VI. |
-| Shared Variable | `shared-variable` | a node reading or writing a variable of a project library: `shared-variable <handle> : <library>::<variable name> : read|write`, then the standard terminal block (`Variable` — an output on a read, an input on a write — `error in (no error)`, `error out`, and on a read node that shows it `timestamp`; a terminal whose ID is not a confirmed one shows its number). `<library>` is the qualified name the calling VI's block-diagram link table records for the variable's library (found by the node's uid, never from the node's label text); both halves are §4 name tokens, and a half that contains `::` or opens with a quote is quoted. When the link table holds no record for the node, the `<library>::` half is absent: `shared-variable <handle> : <variable name> : read|write`. The library additionally appears under `uses :` as a `library` entry. A trailing parenthetical **attribute** after `read`/`write` (like a Feedback Node's `(N iterations)`) carries the rest: `(network-published "<path>")` for a variable published to the network (the path the link table records, a §4 quoted literal; a single-process variable carries none), and `(library unreadable "<reason>")` for a node whose link-table record could not be decoded (the library is then absent and the reason is the decoder's, a quoted literal) -- at most one. The first ` : ` outside a quoted name ends the target; `read`/`write` and the attribute follow it. |
+| Shared Variable | `shared-variable` | a node reading or writing a variable of a project library: `shared-variable <handle> : <library>::<variable name> : read|write`, then the standard terminal block (`Variable` — an output on a read, an input on a write — `error in (no error)`, `error out`, and on a read node that shows it `timestamp`; a terminal whose ID is not a confirmed one shows its number). `<library>` is the qualified name the calling VI's block-diagram link table records for the variable's library (found by the node's uid, never from the node's label text); both halves are §4 name tokens, and a half that contains `::` or opens with a quote is quoted. When the link table holds no record for the node, the `<library>::` half is absent: `shared-variable <handle> : <variable name> : read|write`. The library additionally appears under `uses :` as a `library` entry. After `read`/`write` come an optional `(unreadable "<reason>")` for a node whose link-table record could not be decoded (the library is then absent and the reason is the decoder's, a quoted literal) and the settings (§3): `path="<path>"` for a variable published to the network (the path the link table records, a §4 quoted literal; a single-process variable has none). The first ` : ` outside a quoted name ends the target; `read`/`write`, the mark and the settings follow it. |
 | Formula Node | `formula-node` | `formula-node <handle> : "<script>"`, then its terminal block. The script is the node's whole text as ONE §4 quoted literal (the one string-literal rule: `\"`, `\\`, `\n`, `\r`, `\t`, other control characters `\xHH`), so a multi-line script stays on one physical line and reads back to the same text. A node whose VI stores no script has no component: `formula-node <handle>`. Designed 2026-11-10 (maintainer: "Quoted text on the node"). |
 | Expression Node | `expression-node` | `expression-node <handle> : "2*x+3"`: the same form as the Formula Node, the formula as one §4 quoted literal, then its terminal block; no component when the VI stores no formula text where lvkit reads it. Designed 2026-11-10. |
 | Free label / comment | `comment` | non-executing text. |
@@ -498,8 +540,8 @@ uses :
   version, culture and public key token as .NET spells them
   (`MccDaq, Version=3.0.0.0, Culture=neutral, PublicKeyToken=a37eefcf5c6ca10a`) and
   it has no `; ./path` (no file: it comes from the GAC). A .NET node's terminal type
-  is `DotNet refnum{MccDaq.ErrorInfo}` (the .NET type name inside braces; an array
-  keeps its own `[]`: `DotNet refnum{MccDaq.DaqDeviceDescriptor[]}`), or the bare
+  is `.NET refnum{MccDaq.ErrorInfo}` (the .NET type name inside braces; an array
+  keeps its own `[]`: `.NET refnum{MccDaq.DaqDeviceDescriptor[]}`), or the bare
   type name for a non-refnum parameter such as a .NET enum (`MccDaq.DaqDeviceInterface`).
   A `DNDA`/`DNVA` link record that could not be read is an `assembly` entry with no
   identity and the attribute form the `shared-variable` node uses:
@@ -561,8 +603,8 @@ frame** (never hoisted to a bottom-of-block merge).
 | LabVIEW structure | keyword | frames |
 |---|---|---|
 | Case Structure | `case <selector-net> :` | `frame "<value>"[, default] :` per case (`default` appended as the header's own comma-list entry when the frame is the default; `frame default :` when it carries no specific value of its own) |
-| For Loop | `for-loop :` / `for-loop (stop if true) :` | single implicit body (index `i`); the block opens with the wires into the loop that nothing in the body reads (`loop_<uid>::inK = <src>`), then the wire into the count terminal, `loop_<uid>::N = <src>`; a For Loop that shows a conditional terminal carries the setting like a While Loop; a reader of the iteration terminal references `loop_<uid>::i` (§9) |
-| While Loop | `while-loop (stop if true) :` / `while-loop (continue if true) :` | single implicit body; the header always says how the conditional terminal reads its Boolean, and the line `loop_<uid>::condition = <src>` (`?` when unwired) follows the body |
+| For Loop | `for-loop :` / `for-loop (stop=if-true) :` / `for-loop (parallel=True, parallel-instances=4) :` | single implicit body (index `i`); the block opens with the wires into the loop that nothing in the body reads (`loop_<uid>::inK = <src>`), then the wire into the count terminal, `loop_<uid>::N = <src>`; a For Loop that shows a conditional terminal carries the setting like a While Loop; a reader of the iteration terminal references `loop_<uid>::i` (§9) |
+| While Loop | `while-loop (stop=if-true) :` / `while-loop (stop=if-false) :` | single implicit body; the header's settings always say how the conditional terminal reads its Boolean, and the line `loop_<uid>::condition = <src>` (`?` when unwired) follows the body |
 | Flat Sequence | `flat-sequence :` | `frame [0] :`, `frame [1] :`, …; the frame that wires an output tunnel ends with `sequence_<uid>::outK = <source>` (no line in a frame that does not: data leaves each frame as it finishes). A tunnel that hands a value from one frame to the next is the same net: the producing frame ends with `sequence_<uid>::outK = <source>` and a reader in a later frame references `sequence_<uid>::outK`; there is no `sequence_<uid>::inK` line, since the value does not come from outside |
 | Stacked Sequence | `stacked-sequence :` | numbered frames, one drawn at a time. A **sequence local** (a value one frame writes and later frames read) is the structure net `sequence_<uid>::localK` (§9); the writing frame ends with the drive line `sequence_<uid>::localK = <source>` (the same `net = source` form a case frame uses for its outputs), and a reader in a later frame references `sequence_<uid>::localK`. A frame that wires an output tunnel ends with `sequence_<uid>::outK = <source>`, as a Flat Sequence does (none in a frame that does not). A local wired in a way LabVIEW does not allow (read but never written, written more than once, read in a frame that does not come after its write) still loads: its drive line, in the first frame where it has a wired terminal, carries an attribute in place of a source, `sequence_<uid>::localK = (sequence local unreadable "<reason>")` (the same attribute-with-reason form as a Shared Variable's `(library unreadable "<reason>")`), and its readers still reference `sequence_<uid>::localK`. |
 | Event Structure | `event-structure :` | `frame "<event>" :` per event case; the label is a §4 string literal (`frame "[1] \"stop\": Value Change" :`). Each frame ends with the values it drives onto the structure's output tunnels, `event_<uid>::outK = <source>` (an unwired frame: `(default <Type>)`), like a case frame. The dynamic terminal pair is one net, `event_<uid>::dynamic`: readers use it, a block line `event_<uid>::dynamic = <src>` is the wire into the left terminal, and a frame that wires the inside right terminal drives it (`event_<uid>::dynamic = <src>`); a frame that does not passes the left value through, so it is never `(default …)`. |
@@ -671,7 +713,7 @@ only when its frame runs) and a control is read there.
 
 ### Border constructs
 
-An unwired shift-register initializer is written `shift-register loop_146::shift0 (uninitialized) :` with no `init` line (the register keeps the value it held when the VI last ran); a Feedback Node is `feedback-node fb0 (1 iteration, uninitialized) :`. `init` is absent exactly when the attribute is present; a mismatch is a parse error. Header settings share one parenthesis, comma-separated; `(id <uid>)` stays separate.
+An unwired shift-register initializer is written `shift-register loop_146::shift0 (initialized=False) :` with no `init` line (the register keeps the value it held when the VI last ran); a Feedback Node is `feedback-node fb0 (delay=1, initialized=False) :`. `init` is absent exactly when `initialized=False`; a mismatch is a parse error. Header settings share one parenthesis (§3); a verbose `(id <uid>)` follows it.
 
 ```
 shift-register loop_879::shift0 :
@@ -763,7 +805,10 @@ Faithful LVType on every terminal, **never a Python type**:
   item carries its value (`ring{verify = 2, commit = 3}`) only when the values are not
   0, 1, 2, … A name needing quotes is quoted (§4). With no items loaded: `enum{?}`.
 - Class: `MyClass.lvclass` (qualified).
-- Refnum: `refnum{…}` — `Queue refnum{Error}`. A **User Event** leads its braces with the event name (the label of its data type), written as a name token and `:` like a cluster field: `UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, `UserEvent refnum{"Drive Status" : Network Endpoint}`. The name is quoted by the same name-safety rule as every other name (§4); a user event whose data type is unlabeled has no name part.
+- Refnum: `<kind words> refnum{<carried type>}`, or `<kind words> refnum` when it carries no type — `Queue refnum{Error}`, `Notifier refnum{DBL}`, `VI refnum`. The keyword `refnum` (lower case) is always present. The kind words are LabVIEW's own: Application, VI, Control, Occurrence, Menu, DataSocket, Byte Stream File, Data Log File, TCP / UDP / IrDA / Bluetooth Network Connection, .NET, Automation, Event Callback, IMAQ Session, TDMS File, Queue, Notifier, Data Value Reference, User Event, Event Registration, VISA Resource Name and IVI (`refnum_kinds.REFNUM_KINDS`, each row citing the NI page that gives the words). A generic VI Server reference prints by its class (`VI refnum`, `Application refnum`, otherwise `Control refnum`); a reference of no particular kind prints bare `refnum`; a class reference prints its class name alone; a kind NI's public documentation gives no name for prints its binary name (`FIFORef refnum`). Reading back, the words before ` refnum` name the kind; words that are not in the table are kept as written. A **User Event** leads its braces with the event name (the label of its data type), written as a name token and `:` like a cluster field: `User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, `User Event refnum{"Drive Status" : Network Endpoint}`. The name is quoted by the same name-safety rule as every other name (§4); a user event whose data type is unlabeled has no name part.
+- Set and map: `set{T}` and `map{key: value}` — the member types in braces; an unknown member type is `?`.
+- A named type expanded (verbose, §11): `Name{f1, f2}`, the type's name and its members' names.
+- **Braces.** A type word followed by `{…}` lists what the type contains: its members' names (an anonymous `cluster{…}`, `enum{…}`, `ring{…}`, a named type's expanded `Name{…}`), or the type it carries (`<kind> refnum{…}`, `set{…}`, `map{key: value}`). Arrays are `[T]`. The verbose `types :` entry's `Cluster{…}` lists each field with its type.
 - Typedefs referenced by qualified name, never expanded inline (full field
   expansion is verbose-only).
 - **A NAMED enum/ring/cluster/typedef renders by name alone in terse** (the
@@ -821,10 +866,10 @@ The lossless def grammar, keyed to the same closed set of `LVType` kinds:
   else faithful to show); a scalar as its own token.
 - **array**: `[<type-ref>]`, nested once per `dimensions` (`[[DBL]]` for a 2D
   array of `DBL`).
-- **refnum**: a class refnum shows its class name verbatim; a parametrized
-  refnum shows `<ref_type> refnum{ <type-ref> }` (a User Event:
-  `UserEvent refnum{ <name-token> : <type-ref> }`, its event name leading);
-  otherwise `<ref_type> refnum` / `"refnum"`.
+- **refnum**: a class refnum shows its class name verbatim; a refnum that
+  carries a type shows `<kind words> refnum{ <type-ref> }` (a User Event:
+  `User Event refnum{ <name-token> : <type-ref> }`, its event name leading);
+  otherwise `<kind words> refnum` / `"refnum"` (the words are §10's).
 - **typedef wrapping something with no enum/cluster shape of its own** (e.g.
   a `.ctl` typedef of a bare scalar): falls out of the same dispatch as its
   own underlying kind — there is no separate "typedef" keyword, the footnote
@@ -936,7 +981,7 @@ The same model, serialized. Top level: `vi`, `connector_pane.terminals[]`
 `kind` is `"instance"` or `"scope"`. An `"instance"` carries `node_kind`
 (`subVI`/`function`/`constant`/…), `handle` (the `_N` instance label), the
 fully-qualified `component`, and its `inputs[]`/`outputs[]` ports each with a
-faithful `type` (plus any per-node annotations). A scope carries `scope_kind`
+faithful `type` (plus any per-node annotations). An instance, a scope, a feedback node and a shift register each carry `settings`, an object of the same `name: value` items as the header's `(<settings>)` (§3), every setting by its lvnet name with defaults included (`{}` for a node with none). A scope carries `scope_kind`
 (`case`/`for`/`while`/`sequence`/`disabled`/`event`), `selector`, `frames[]`
 (`label`, `value` stable key, `is_default`, `passthrough`, `body[]`), and
 `outputs[]` carrying the merge syntheses with **internal** `kind` tags —
@@ -1042,7 +1087,7 @@ the document is wrapped in the `front-panel :` (connector-pane `pattern :`
 id + boundary terminals, each with its own `@<index>` pane-slot column) /
 `block-diagram :` (body + boundary-output-drive lines at the end) section
 layout (§2); `testSuiteStatusChanged EventRef`'s refnum collapses to its
-inner cluster's NAME (`UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, §10)
+inner cluster's NAME (`User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster}`, §10)
 instead of expanding its fields; `TestSuite in`/that same refnum terminal
 render the bare word `default` (no literal to show, §4); and the block's own
 column width is capped, so that one refnum type doesn't stretch the
@@ -1097,7 +1142,7 @@ vi loadTestsFromTestCase.vi :
         subVI TestSuite_Init_115 : TestSuite.lvclass:TestSuite_Init.vi
           in   TestSuite in                    : TestSuite.lvclass default
           in   tests (none)                    : [LabVIEW Object]  = loop_879::out0
-          in   testSuiteStatusChanged EventRef : UserEvent refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
+          in   testSuiteStatusChanged EventRef : User Event refnum{suiteStatusChanged : suiteStatusChanged--Cluster} default
           in   GUID ("")                       : String            default ""
           in   error in (no error)             : Error             = loop_879::shift0
           out  TestSuite out                   : TestSuite.lvclass

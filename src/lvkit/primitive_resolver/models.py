@@ -41,6 +41,11 @@ class PrimitiveTerminal(TerminalDefault):
     # when it failed (TCP Read's bytes so far on a timeout); the operation's code
     # assigns the output before it can fail, and a failure leaves it as it is.
     keeps_on_failure: bool = False
+    # On an output: the catalog index of the input this output passes on (NI's
+    # page says "returns refnum unchanged"). When the node fails, the output still
+    # gives that input's value, if the wired input has the output's type
+    # (``codegen/native_failure.py``).
+    passes_input: int | None = None
     # NI's page says that when an error cluster is wired to this input, only
     # the error cluster's status passes to it.
     error_cluster_status: bool = False
@@ -95,6 +100,10 @@ class NativeError(BaseModel):
     module: str | None = None
     code: int | None = None
     since_python: str | None = None
+    # The generated package module that defines the class for every Python
+    # version (the shared ``queues`` module), imported from there wherever the
+    # package has it.
+    package_module: str | None = None
     base: str | None = None
     # The attribute of the exception that holds the LabVIEW error code, for a
     # class that carries its own code (pyvisa's ``VisaIOError.error_code``, the
@@ -108,6 +117,12 @@ class NativeError(BaseModel):
     # The failure is listed only for a node whose terminals hold a class object
     # (the failure of reading class data).
     only_with_class: bool = False
+    # The ``python_param`` of the catalog input that holds a reference the
+    # operation uses (``exception`` is then a class of its own, ``base``). A
+    # reference is an object in Python, so a wired number (the default of the
+    # control: a reference that refers to nothing) raises ``exception`` before
+    # the operation runs (``codegen/native_failure.py``).
+    invalid_input: str | None = None
 
 
 class LiveIOWhenInput(BaseModel):

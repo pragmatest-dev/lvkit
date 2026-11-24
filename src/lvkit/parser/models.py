@@ -57,6 +57,7 @@ class ParsedType:
     fields: list[ClusterField] | None = None  # Recursive cluster fields
     enum_values: dict | None = None  # {name: EnumValue} from VCTP
     element_type: ParsedType | None = None  # Array element type (recursive)
+    value_type: ParsedType | None = None  # Map value type (recursive)
     dimensions: int | None = None  # Array dimension count
     measure_flavor: str | None = None  # MeasureData flavor (waveform/digital data)
     user_event_name: str | None = None  # User Event refnum: its data type label
@@ -64,6 +65,7 @@ class ParsedType:
     dotnet_type: DotNetType | None = None  # .NET node terminal: its .NET type
     unreadable: str | None = None  # Why the type's descriptor could not be read
     pane: tuple[PaneSlot, ...] | None = None  # A Function type: its connector pane
+    descriptor_label: str | None = None  # The label its type descriptor records
     type_id: int | None = None  # The type's position in its VI's type table
 
 

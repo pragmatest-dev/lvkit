@@ -550,56 +550,62 @@ needs_shutdown = pytest.mark.skipif(
 )
 
 
-def _released() -> Queue[int]:
-    queue: Queue[int] = Queue()
+def _queue_package(project: Project, prim_id: int) -> Package:  # noqa: F811
+    """A package whose VI uses the queue function ``prim_id`` and also obtains a
+    queue, so it has the ``queues`` module: its ``Queue`` shuts down on every
+    Python version, and the VI catches that module's ``ShutDown``."""
+    return generate(
+        project, lambda p: C.queue_function(p, prim_id, obtains_a_queue=True)
+    )
+
+
+def _released(package: Package) -> Any:  # noqa: F811
+    queue = package.queues.Queue()
     queue.shutdown()
     return queue
 
 
-def _released_soon() -> Queue[int]:
+def _released_soon(package: Package) -> Any:  # noqa: F811
     """A queue released while a node waits on it."""
-    queue: Queue[int] = Queue()
+    queue = package.queues.Queue()
     threading.Timer(0.05, queue.shutdown).start()
     return queue
 
 
-@needs_shutdown
 @pytest.mark.parametrize("make_queue", [_released, _released_soon])
 @pytest.mark.parametrize("prim_id", [C.DEQUEUE, C.PREVIEW])
 def test_taking_from_a_released_queue_is_error_1122(
     project: Project,  # noqa: F811
     prim_id: int,
-    make_queue: Callable[[], Queue[int]],
+    make_queue: Callable[[Package], Any],  # noqa: F811
 ) -> None:
     """NI: if the queue becomes invalid (released) the function stops waiting and
     returns error 1122; ``timed out?`` is TRUE on an error."""
-    package = generate(project, lambda p: C.queue_function(p, prim_id))
-    result = package.function(queue=make_queue())
+    package = _queue_package(project, prim_id)
+    result = package.function(queue=make_queue(package))
     assert (result.element, result.timed_out) == (0, True)
     assert (result.error_out.code, result.error_out.status) == (1122, True)
     assert result.error_out.message
 
 
-@needs_shutdown
 @pytest.mark.parametrize("prim_id", [C.ENQUEUE, C.ENQUEUE_FRONT])
 def test_adding_to_a_released_queue_is_error_1122(
     project: Project,  # noqa: F811
     prim_id: int,
 ) -> None:
-    package = generate(project, lambda p: C.queue_function(p, prim_id))
-    queue = _released()
+    package = _queue_package(project, prim_id)
+    queue = _released(package)
     result = package.function(queue=queue, element=3)
     assert result.timed_out is True
     assert result.error_out.code == 1122
     assert list(queue.queue) == []
 
 
-@needs_shutdown
 def test_flushing_a_released_queue_is_the_generic_error_42(
     project: Project,  # noqa: F811
 ) -> None:
-    package = generate(project, lambda p: C.queue_function(p, C.FLUSH))
-    assert package.function(queue=_released()).error_out.code == 42
+    package = _queue_package(project, C.FLUSH)
+    assert package.function(queue=_released(package)).error_out.code == 42
 
 
 @pytest.mark.parametrize("prim_id", [C.DEQUEUE, C.PREVIEW])

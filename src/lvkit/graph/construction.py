@@ -186,17 +186,21 @@ def _control_ring_type(lv_type: LVType | None, ctrl: Any) -> LVType | None:
     return _ring_type(lv_type, ctrl.enum_values, ctrl.ring_values)
 
 
-def _default_for(ctrl: ParsedFPControl | None, lv_type: LVType | None) -> str | None:
-    """A control's default value. A default holding a class instance is read again
-    with the class's private-data fields, which are known only once the class is
-    loaded (``lv_type`` carries them); every other default is as the parse read it."""
+def _default_for(
+    ctrl: ParsedFPControl | None, lv_type: LVType | None
+) -> tuple[str | None, object]:
+    """A control's default value and, for a cluster or array, its decoded parts
+    (``Terminal.default_structured``). A default holding a class instance is read
+    again with the class's private-data fields, which are known only once the class
+    is loaded (``lv_type`` carries them); every other default is as the parse read
+    it."""
     if ctrl is None:
-        return None
+        return None, None
     if ctrl.default_raw is not None and lv_type is not None:
-        value, _, _ = _decode_element(ctrl.default_raw, lv_type)
+        value, _, structured = _decode_element(ctrl.default_raw, lv_type)
         if value is not None:
-            return value
-    return ctrl.default_value
+            return value, structured
+    return ctrl.default_value, None
 
 
 class DecodedConstant(NamedTuple):
@@ -462,6 +466,7 @@ class ConstructionMixin:
         iuse_to_qname: dict[str, str] | None = None,
         iuse_to_qpath: dict[str, str] | None = None,
         iuse_to_callee_key: dict[str, str] | None = None,
+        instance_call_uids: set[str] | None = None,
         poly_to_callee_key: dict[str, str] | None = None,
         iuse_refs: dict[str, ParsedDependencyRef] | None = None,
         shared_variable_links: dict[str, SharedVariableLink] | None = None,
@@ -558,6 +563,7 @@ class ConstructionMixin:
                     vi_key, ctrl.unwritable, f"the control {ctrl.name or fp_term.uid!r}"
                 )
             q_term_uid = self._qid(vi_key, fp_term.uid)
+            default_value, default_structured = _default_for(ctrl, lv_type)
             terminal = FPTerminal(
                 id=q_term_uid,
                 index=slot_index,
@@ -579,7 +585,8 @@ class ConstructionMixin:
                 fp_dco_uid=fp_term.fp_dco_uid,
                 tab_index=fp.tab_index(fp_term.fp_dco_uid) if fp else None,
                 control_type=ctrl.control_type if ctrl else None,
-                default_value=_default_for(ctrl, lv_type),
+                default_value=default_value,
+                default_structured=default_structured,
                 unwritable=ctrl.unwritable if ctrl else None,
                 enum_values=ctrl.enum_values if ctrl else [],
                 undecoded_strings=ctrl.undecoded_strings if ctrl else 0,
@@ -752,6 +759,7 @@ class ConstructionMixin:
             iuse_to_qname=iuse_to_qname or {},
             iuse_to_qpath=iuse_to_qpath,
             iuse_to_callee_key=iuse_to_callee_key or {},
+            instance_call_uids=instance_call_uids or set(),
             poly_to_callee_key=poly_to_callee_key or {},
             iuse_refs=iuse_refs or {},
             shared_variable_links=shared_variable_links or {},
@@ -1341,6 +1349,7 @@ class ConstructionMixin:
             lv_type = control_type_to_lvtype(ctrl.control_type)
         lv_type = _control_ring_type(lv_type, ctrl)
         lv_type = self.with_class_levels(lv_type)
+        default_value, default_structured = _default_for(ctrl, lv_type)
         return FPTerminal(
             id=self._qid(vi_key, f"fp{ctrl.uid}"),
             index=None,
@@ -1359,7 +1368,8 @@ class ConstructionMixin:
             fp_dco_uid=ctrl.uid,
             tab_index=tab_index,
             control_type=ctrl.control_type,
-            default_value=_default_for(ctrl, lv_type),
+            default_value=default_value,
+            default_structured=default_structured,
             unwritable=ctrl.unwritable,
             enum_values=ctrl.enum_values,
             undecoded_strings=ctrl.undecoded_strings,
@@ -1571,6 +1581,19 @@ class ConstructionMixin:
         # made a 487-VI build 11x a 106-VI one. Intra-VI wires have both ends in
         # vi_node_uids, so out-edges of vi_node_uids cover this VI's wires exactly
         # once; other VIs' wires were already propagated in their own calls.
+        # A terminal on an ordinary subVI call's connector pane is the type the
+        # called VI declares; a call of an embedded instance (a malleable VI)
+        # takes the wired types, so only the ordinary call's terminals are kept.
+        declared: set[int] = set()
+
+        def _keeps_declared_type(node_id: str) -> bool:
+            node = g.nodes.get(node_id, {}).get("node")
+            return (
+                isinstance(node, VINode)
+                and node.id != node.vi_path
+                and not node.is_embedded_instance
+            )
+
         pairs: list[tuple[Terminal, Terminal]] = []
         for nid in vi_node_uids:
             for _u, _v, _k, d in g.out_edges(nid, data=True, keys=True):
@@ -1582,6 +1605,9 @@ class ConstructionMixin:
                 dst_term = _term(dst.node_id, dst.terminal_id)
                 if src_term is not None and dst_term is not None:
                     pairs.append((src_term, dst_term))
+                    for end, term in ((src, src_term), (dst, dst_term)):
+                        if _keeps_declared_type(end.node_id):
+                            declared.add(id(term))
 
         # Propagate: if one side of a wire has lv_type and the other doesn't
         changed = True
@@ -1603,7 +1629,32 @@ class ConstructionMixin:
                     == dst_term.lv_type.kind
                     == LVTypeKind.CLUSTER
                 ):
-                    if src_term.lv_type.fields and not dst_term.lv_type.fields:
+                    src_type, dst_type = src_term.lv_type, dst_term.lv_type
+                    # A wire is one value: a cluster saved without its typedef
+                    # on one end (a Bundle's output, an unlinked copy) is the
+                    # typedef the other end names, so both ends write and read
+                    # it the same way (an attribute object, not a tuple).
+                    if (
+                        id(src_term) not in declared
+                        and dst_type.typedef_name
+                        and not src_type.typedef_name
+                        and not src_type.classname
+                        and len(src_type.fields or ()) == len(dst_type.fields or ())
+                        and src_type.fields
+                    ):
+                        src_term.lv_type = dst_type
+                        changed = True
+                    elif (
+                        id(dst_term) not in declared
+                        and src_type.typedef_name
+                        and not dst_type.typedef_name
+                        and not dst_type.classname
+                        and len(src_type.fields or ()) == len(dst_type.fields or ())
+                        and dst_type.fields
+                    ):
+                        dst_term.lv_type = src_type
+                        changed = True
+                    elif src_term.lv_type.fields and not dst_term.lv_type.fields:
                         dst_term.lv_type.fields = src_term.lv_type.fields
                         changed = True
                     elif dst_term.lv_type.fields and not src_term.lv_type.fields:

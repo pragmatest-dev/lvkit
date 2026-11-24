@@ -5,8 +5,9 @@ against an older typedef reads the loaded typedef's field names. The saved copy
 keeps its own fields in its own order; each maps to a loaded field:
 
 1. every saved field name exists in the loaded typedef: each saved field is the
-   loaded field of the same name (covers fields appended to the typedef and
-   fields reordered);
+   loaded field of the same name (covers fields reordered), and a loaded field
+   the copy lacks (one appended to the typedef) follows them at its default
+   value;
 2. else, the saved copy and the loaded typedef have as many fields: each saved
    field is the loaded field at its position (covers a renamed field: NI forum
    reports say a Bundle/Unbundle By Name relinks to the element at its saved
@@ -33,7 +34,9 @@ def saved_as_loaded(
     correspond."""
     loaded_names = {field.name for field in loaded}
     if all(field.name in loaded_names for field in saved):
-        return list(saved)
+        saved_names = {field.name for field in saved}
+        appended = [field for field in loaded if field.name not in saved_names]
+        return [*saved, *appended]
     if len(saved) == len(loaded):
         return [
             dataclasses.replace(s, name=n.name, labelled=n.labelled)

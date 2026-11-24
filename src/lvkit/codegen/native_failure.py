@@ -29,11 +29,11 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from lvkit.graph.models import AnyGraphNode
-from lvkit.models import ScalarValue, contains_class_instance
+from lvkit.models import ScalarValue, TerminalDirection, contains_class_instance
 from lvkit.primitive_resolver import NativeError, PrimitiveEntry
 from lvkit.vilib_resolver import VIEntry
 
@@ -47,6 +47,7 @@ from .error_flow import (
 )
 from .errors_module import LABVIEW_ERROR_NAME
 from .fragment import CodeFragment
+from .import_resolver import ImportResolver
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -61,12 +62,15 @@ class CatalogFailures:
     caught in order; ``on_failure``, the value NI documents for an output (by
     terminal index) when the operation fails; ``source``, the node's name;
     ``kept``, the outputs (by terminal index) that keep what the operation had
-    assigned when it failed."""
+    assigned when it failed; ``passes``, the outputs (by terminal index) that
+    still give an input's value when it failed, each with that input's terminal
+    index."""
 
     failures: tuple[NativeError, ...]
     on_failure: dict[int, ScalarValue]
     source: str
     kept: frozenset[int] = frozenset()
+    passes: dict[int, int] = field(default_factory=dict)
 
     @classmethod
     def of_primitive(cls, entry: Mapping[str, Any]) -> CatalogFailures:
@@ -83,6 +87,11 @@ class CatalogFailures:
             },
             parsed.name,
             frozenset(t.index for t in parsed.terminals if t.keeps_on_failure),
+            {
+                t.index: t.passes_input
+                for t in parsed.terminals
+                if t.passes_input is not None
+            },
         )
 
     @classmethod
@@ -96,6 +105,12 @@ class CatalogFailures:
                 if t.index is not None and t.on_failure is not None
             },
             entry.name,
+            frozenset(),
+            {
+                t.index: t.passes_input
+                for t in entry.terminals
+                if t.index is not None and t.passes_input is not None
+            },
         )
 
 
@@ -108,6 +123,83 @@ def own_exception_class(failure: NativeError) -> ast.ClassDef:
     ).body
     assert isinstance(definition, ast.ClassDef)
     return definition
+
+
+def invalid_reference_guards(
+    node: AnyGraphNode, ctx: CodeGenContext, entry: VIEntry
+) -> list[ast.stmt]:
+    """For each failure of ``entry`` that names a reference input
+    (``NativeError.invalid_input``), ``if isinstance(<input>, int): raise <it>``:
+    a reference is an object, and a number there refers to nothing. The message
+    is built when the code runs and names the value. An unwired input has none."""
+    statements: list[ast.stmt] = []
+    for failure in entry.errors:
+        if failure.invalid_input is None:
+            continue
+        catalog_term = next(
+            t
+            for t in entry.terminals
+            if t.python_param == failure.invalid_input
+            and t.direction == TerminalDirection.INPUT
+        )
+        call_term = next(
+            (
+                t
+                for t in getattr(node, "terminals", ())
+                if t.index == catalog_term.index
+                and t.direction == TerminalDirection.INPUT
+            ),
+            None,
+        )
+        value = ctx.wired_input(call_term.id, node) if call_term else None
+        if value is None or value == "None":
+            continue
+        text = f"{entry.name}: the input {catalog_term.name!r} is not a reference: "
+        [guard] = ast.parse(
+            f"if isinstance({value}, int):\n"
+            f"    raise {failure.exception}({text!r} + repr({value}))"
+        ).body
+        statements.append(guard)
+    return statements
+
+
+def passed_inputs(
+    node: AnyGraphNode, ctx: CodeGenContext, passes: Mapping[int, int]
+) -> dict[int, str]:
+    """For each output (by terminal index) of ``passes`` the expression of the
+    input it passes on: the wired input, when it has the output's type (a path
+    wired to Read from Text File's ``file`` input is not the refnum its output
+    gives). An unwired input, or one that is a gap, passes nothing."""
+    terminals = getattr(node, "terminals", ())
+    values: dict[int, str] = {}
+    for out_index, in_index in passes.items():
+        out = next(
+            (
+                t
+                for t in terminals
+                if t.index == out_index and t.direction == TerminalDirection.OUTPUT
+            ),
+            None,
+        )
+        source = next(
+            (
+                t
+                for t in terminals
+                if t.index == in_index and t.direction == TerminalDirection.INPUT
+            ),
+            None,
+        )
+        if out is None or source is None or out.lv_type is None:
+            continue
+        if source.lv_type is None or (
+            source.lv_type.underlying_type,
+            source.lv_type.ref_type,
+        ) != (out.lv_type.underlying_type, out.lv_type.ref_type):
+            continue
+        value = ctx.wired_input(source.id, node)
+        if value is not None and value != "None":
+            values[out_index] = value
+    return values
 
 
 def catch_failures(
@@ -161,20 +253,22 @@ def catch_failures(
                 fragment.bindings[term.id] = error
     elif automatic_error_handling(ctx):
         return fragment
+    values = {index: repr(value) for index, value in catalog.on_failure.items()}
+    values.update(passed_inputs(node, ctx, catalog.passes))
     defaults = output_defaults(
         node,
         ctx,
         fragment.bindings,
         assigned_names(fragment.statements),
         None,
-        {index: repr(value) for index, value in catalog.on_failure.items()},
+        values,
         catalog.kept,
     )
     exception = ctx.make_output_var("exception", node.id)
     handlers = []
     for failure in failures:
         if failure.module is not None:
-            fragment.imports.add(exception_import(failure))
+            fragment.imports.add(exception_import(failure, ctx))
         body = list(defaults)
         if error is not None:
             error_value = _labview_error(failure, catalog.source, exception)
@@ -271,14 +365,23 @@ def exception_name(failure: NativeError) -> str:
     return f"{failure.module.replace('.', '_')}_{failure.exception}"
 
 
-def exception_import(failure: NativeError) -> str:
-    """The import of the exception class of ``failure`` from its module, as
-    ``exception_name``. An exception Python has only from version
-    ``since_python`` on is imported where it exists; before it nothing can
-    raise it, so the module defines a class of that name that is never
-    raised."""
+def exception_import(failure: NativeError, ctx: CodeGenContext) -> str:
+    """The import of the exception class of ``failure``, as ``exception_name``.
+    A class the package defines (``package_module``) is imported from that module
+    where the package has it. Otherwise it comes from its Python module: an
+    exception Python has only from version ``since_python`` on is imported where
+    it exists; before it nothing can raise it, so the module defines a class of
+    that name that is never raised."""
     assert failure.module is not None
     name = exception_name(failure)
+    if failure.package_module is not None and isinstance(
+        ctx.import_resolver, ImportResolver
+    ):
+        shared = ctx.import_resolver.shared_names_import(
+            failure.package_module, f"{failure.exception} as {name}"
+        )
+        if shared is not None:
+            return shared
     statement = f"from {failure.module} import {failure.exception} as {name}"
     if failure.since_python is None:
         return statement

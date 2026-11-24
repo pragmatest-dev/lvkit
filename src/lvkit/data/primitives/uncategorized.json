@@ -3,6 +3,7 @@
     "1056": {
       "name": "Quotient & Remainder",
       "op": "QUOTIENT_REMAINDER",
+      "elementwise": true,
       "terminals": [
         {
           "index": 0,

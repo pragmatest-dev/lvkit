@@ -276,13 +276,22 @@ ENQUEUE, ENQUEUE_FRONT, PREVIEW, DEQUEUE, FLUSH = 9111, 9129, 9112, 9113, 9114
 
 
 def queue_function(
-    project: Project, prim_id: int, *, timeout: bool = False, timed_out: bool = True
+    project: Project,
+    prim_id: int,
+    *,
+    timeout: bool = False,
+    timed_out: bool = True,
+    obtains_a_queue: bool = False,
 ) -> str:
     """The queue function ``prim_id`` on the queue ``queue``: an enqueue adds the
     I32 ``element``; Preview and Dequeue give ``element``. With ``timeout`` the
     VI has a ``timeout_ms`` control; with ``timed_out`` the node's ``timed out?``
-    is wired to an indicator (not for Flush Queue)."""
+    is wired to an indicator (not for Flush Queue). With ``obtains_a_queue`` the VI
+    also has an Obtain Queue node (its queue unused), so the package defines its
+    ``queues`` module."""
     vi = Vi(NAME)
+    if obtains_a_queue:
+        vi.primitive(9108, [("queue", 8, QUEUE, True)])
     queue = vi.control("queue", QUEUE, REQUIRED)
     adds = prim_id in (ENQUEUE, ENQUEUE_FRONT)
     gives = prim_id in (PREVIEW, DEQUEUE)

@@ -23,12 +23,14 @@ from .lvnet_grammar import (
 from .lvnet_scalar import lvnet_literal_token
 from .netlist_models import (
     DefaultValue,
+    ForLoopSettings,
     FrameOutputDrive,
     GammaMerge,
     NetlistScope,
     NetRef,
     SequenceLocalDrive,
     SequenceLocalUnreadable,
+    WhileLoopSettings,
 )
 
 SourceText = Callable[[NetRef | DefaultValue], str]
@@ -67,7 +69,9 @@ def loop_condition_drives(
     """The ``(net, source)`` line for the wire on a loop's conditional terminal
     (``loop_<uid>::condition = <source>``, ``?`` when it is unwired); none for a
     loop with no conditional terminal."""
-    if scope.condition_mode is None:
+    if not isinstance(scope.settings, ForLoopSettings | WhileLoopSettings):
+        return []
+    if scope.settings.stop is None:
         return []
     source = (
         render_source(scope.selector)

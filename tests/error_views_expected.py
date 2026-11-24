@@ -65,14 +65,14 @@ Bundle/Unbundle By Name""",
         "lvnet": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   file      : ByteStream refnum required @0
-    in   error in  : Error             recommended @1
-    out  path      : Path              recommended @2
-    out  error out : Error             recommended @3
+    in   file      : Byte Stream File refnum required @0
+    in   error in  : Error                   recommended @1
+    out  path      : Path                    recommended @2
+    out  error out : Error                   recommended @3
   block-diagram :
     function Close_File_120 : Close File
-      in   error in  : Error             = error in
-      in   refnum    : ByteStream refnum = file
+      in   error in  : Error                   = error in
+      in   refnum    : Byte Stream File refnum = file
       out  error out : Error
       out  path      : Path
     path = Close_File_120::path
@@ -80,27 +80,27 @@ Bundle/Unbundle By Name""",
         "terse": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   file      : ByteStream refnum @0
-    in   error in  : Error             @1
-    out  path      : Path              @2
-    out  error out : Error             @3
+    in   file      : Byte Stream File refnum @0
+    in   error in  : Error                   @1
+    out  path      : Path                    @2
+    out  error out : Error                   @3
   block-diagram :
     function Close_File_120 : Close File
-      in   error in  : Error             = error in
-      in   refnum    : ByteStream refnum = file
+      in   error in  : Error                   = error in
+      in   refnum    : Byte Stream File refnum = file
       out  error out : Error
       out  path      : Path
     path = Close_File_120::path
     error out = Close_File_120::error out""",
         "describe": r"""# Err.vi
 
-  err(file: ByteStream refnum, error in: Error) -> path: Path, error out: Error
+  err(file: Byte Stream File refnum, error in: Error) -> path: Path, error out: Error
 
 ## Properties
   lock_state: unlocked
 
 ## Inputs
-  file: ByteStream refnum (required)
+  file: Byte Stream File refnum (required)
   error in: Error
 
 ## Outputs
@@ -115,44 +115,44 @@ Close File [prim 8052]""",
         "lvnet": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   file      : ByteStream refnum required @0
-    in   error in  : Error             recommended @1
-    out  size      : I64               recommended @2
-    out  error out : Error             recommended @3
+    in   file      : Byte Stream File refnum required @0
+    in   error in  : Error                   recommended @1
+    out  size      : I64                     recommended @2
+    out  error out : Error                   recommended @3
   block-diagram :
     function Get_File_Size_122 : Get File Size
-      in   error in        : Error             = error in
-      in   file            : ByteStream refnum = file
+      in   error in        : Error                   = error in
+      in   file            : Byte Stream File refnum = file
       out  error out       : Error
       out  size (in bytes) : I64
-      out  refnum out      : ByteStream refnum
+      out  refnum out      : Byte Stream File refnum
     size = Get_File_Size_122::size (in bytes)
     error out = Get_File_Size_122::error out""",
         "terse": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   file      : ByteStream refnum @0
-    in   error in  : Error             @1
-    out  size      : I64               @2
-    out  error out : Error             @3
+    in   file      : Byte Stream File refnum @0
+    in   error in  : Error                   @1
+    out  size      : I64                     @2
+    out  error out : Error                   @3
   block-diagram :
     function Get_File_Size_122 : Get File Size
-      in   error in        : Error             = error in
-      in   file            : ByteStream refnum = file
+      in   error in        : Error                   = error in
+      in   file            : Byte Stream File refnum = file
       out  error out       : Error
       out  size (in bytes) : I64
-      out  refnum out      : ByteStream refnum
+      out  refnum out      : Byte Stream File refnum
     size = Get_File_Size_122::size (in bytes)
     error out = Get_File_Size_122::error out""",
         "describe": r"""# Err.vi
 
-  err(file: ByteStream refnum, error in: Error) -> size: I64, error out: Error
+  err(file: Byte Stream File refnum, error in: Error) -> size: I64, error out: Error
 
 ## Properties
   lock_state: unlocked
 
 ## Inputs
-  file: ByteStream refnum (required)
+  file: Byte Stream File refnum (required)
   error in: Error
 
 ## Outputs
@@ -435,7 +435,7 @@ Case Structure (3 frames)
     (unnamed): I32 = 100
   Frame "Default":
     (unnamed): I32 = 200""",
-        "json": '[{"inputs":[{"net":{"bare":"x","terminal":"x"},"terminal":"x"},{"net":{"bare":"error in","terminal":"error in"},"terminal":"error in"}],"kind":"instance","name":"Step A.vi","outputs":[{"bare":"r","node":"Step A.vi","terminal":"r"},{"bare":"error out","node":"Step A.vi","terminal":"error out"}],"qualified_name":"Step A.vi","uid":"120"},{"frames":[{"label":"No Error","passthrough":true,"value":"0"},{"label":"Error 7","passthrough":true,"value":"7"},{"is_default":true,"label":"Default","passthrough":true,"value":"Default"}],"kind":"scope","outputs":[{"cases":[{"frame":"No Error","source":{"bare":"1","terminal":"1"}},{"frame":"Error 7","source":{"bare":"100","terminal":"100"}},{"frame":"default","source":{"bare":"200","terminal":"200"}}],"kind":"tunnel","net":"case_121.out0","selector":{"bare":"error out","node":"Step A.vi","terminal":"error out"}}],"scope_kind":"case","selector":{"bare":"error out","node":"Step A.vi","terminal":"error out"},"uid":"121"}]',
+        "json": '[{"inputs":[{"net":{"bare":"x","terminal":"x"},"terminal":"x"},{"net":{"bare":"error in","terminal":"error in"},"terminal":"error in"}],"kind":"instance","name":"Step A.vi","outputs":[{"bare":"r","node":"Step A.vi","terminal":"r"},{"bare":"error out","node":"Step A.vi","terminal":"error out"}],"qualified_name":"Step A.vi","uid":"120"},{"frames":[{"label":"No Error","passthrough":true,"value":"0"},{"label":"Error 7","passthrough":true,"value":"7"},{"is_default":true,"label":"Default","passthrough":true,"value":"Default"}],"kind":"scope","outputs":[{"cases":[{"frame":"No Error","source":{"bare":"1","terminal":"1"}},{"frame":"Error 7","source":{"bare":"100","terminal":"100"}},{"frame":"default","source":{"bare":"200","terminal":"200"}}],"kind":"tunnel","net":"case_121.out0","selector":{"bare":"error out","node":"Step A.vi","terminal":"error out"}}],"scope_kind":"case","selector":{"bare":"error out","node":"Step A.vi","terminal":"error out"},"settings":{},"uid":"121"}]',
     },
     "error_case_panel_fed": {
         "lvnet": r"""vi Err.vi :
@@ -498,7 +498,7 @@ Case Structure (2 frames)
     Increment [prim 1057]
   Frame "Default":
     (unnamed): I32 = 100""",
-        "json": '[{"frames":[{"body":[{"inputs":[{"net":{"bare":"x","terminal":"x"},"terminal":"x"}],"kind":"instance","name":"Increment","outputs":[{"bare":"x+1","node":"Increment","terminal":"x+1"}],"qualified_name":"Increment","uid":"133"}],"label":"No Error","passthrough":true,"value":"0"},{"is_default":true,"label":"Default","passthrough":true,"value":"Default"}],"kind":"scope","outputs":[{"cases":[{"frame":"No Error","source":{"bare":"x+1","node":"Increment","terminal":"x+1"}},{"frame":"default","source":{"bare":"100","terminal":"100"}}],"kind":"tunnel","net":"case_112.out0","selector":{"bare":"error in","terminal":"error in"}}],"scope_kind":"case","selector":{"bare":"error in","terminal":"error in"},"uid":"112"}]',
+        "json": '[{"frames":[{"body":[{"inputs":[{"net":{"bare":"x","terminal":"x"},"terminal":"x"}],"kind":"instance","name":"Increment","outputs":[{"bare":"x+1","node":"Increment","terminal":"x+1"}],"qualified_name":"Increment","uid":"133"}],"label":"No Error","passthrough":true,"value":"0"},{"is_default":true,"label":"Default","passthrough":true,"value":"Default"}],"kind":"scope","outputs":[{"cases":[{"frame":"No Error","source":{"bare":"x+1","node":"Increment","terminal":"x+1"}},{"frame":"default","source":{"bare":"100","terminal":"100"}}],"kind":"tunnel","net":"case_112.out0","selector":{"bare":"error in","terminal":"error in"}}],"scope_kind":"case","selector":{"bare":"error in","terminal":"error in"},"settings":{},"uid":"112"}]',
     },
     "error_cluster_from_error_code": {
         "lvnet": r"""vi Err.vi :
@@ -855,7 +855,7 @@ For Loop
     in  count terminal
     in  tunnel (error in)
     out last value tunnel (error out)""",
-        "json": '[{"count":{"bare":"1","terminal":"1"},"frames":[{"body":[{"inputs":[{"net":{"bare":"1","terminal":"1"},"terminal":"x"},{"net":{"bare":"error in","terminal":"error in"},"terminal":"error in"}],"kind":"instance","name":"Step A.vi","outputs":[{"bare":"r","node":"Step A.vi","terminal":"r"},{"bare":"error out","node":"Step A.vi","terminal":"error out"}],"qualified_name":"Step A.vi","uid":"134"}],"label":"","passthrough":true,"value":""}],"kind":"scope","outputs":[{"kind":"tunnel","mode":"last_value","net":"loop_112.out0","value":{"bare":"error out","node":"Step A.vi","terminal":"error out"}}],"scope_kind":"for","tunnels":[{"direction":"input","kind":"count_terminal"},{"direction":"input","kind":"tunnel","mode":"passthrough"},{"direction":"output","kind":"tunnel","mode":"last_value"}],"uid":"112"}]',
+        "json": '[{"count":{"bare":"1","terminal":"1"},"frames":[{"body":[{"inputs":[{"net":{"bare":"1","terminal":"1"},"terminal":"x"},{"net":{"bare":"error in","terminal":"error in"},"terminal":"error in"}],"kind":"instance","name":"Step A.vi","outputs":[{"bare":"r","node":"Step A.vi","terminal":"r"},{"bare":"error out","node":"Step A.vi","terminal":"error out"}],"qualified_name":"Step A.vi","uid":"134"}],"label":"","passthrough":true,"value":""}],"kind":"scope","outputs":[{"kind":"tunnel","mode":"last_value","net":"loop_112.out0","value":{"bare":"error out","node":"Step A.vi","terminal":"error out"}}],"scope_kind":"for","settings":{},"tunnels":[{"direction":"input","kind":"count_terminal"},{"direction":"input","kind":"tunnel","mode":"passthrough"},{"direction":"output","kind":"tunnel","mode":"last_value"}],"uid":"112"}]',
     },
     "error_shift_register": {
         "lvnet": r"""vi Err.vi :
@@ -938,7 +938,7 @@ For Loop
     in  count terminal
     in  shift register (error in)
     out shift register (error out)""",
-        "json": '[{"count":{"bare":"3","terminal":"3"},"frames":[{"body":[{"inputs":[{"net":{"bare":"1","terminal":"1"},"terminal":"x"},{"net":{"bare":"loop_112.shift0","terminal":"loop_112.shift0"},"terminal":"error in"}],"kind":"instance","name":"Step A.vi","outputs":[{"bare":"r","node":"Step A.vi","terminal":"r"},{"bare":"error out","node":"Step A.vi","terminal":"error out"}],"qualified_name":"Step A.vi","uid":"134"}],"label":"","passthrough":true,"value":""}],"kind":"scope","outputs":[{"initial_value":{"bare":"error in","terminal":"error in"},"kind":"shift_register","net":"loop_112.shift0","next_value":{"bare":"error out","node":"Step A.vi","terminal":"error out"}}],"scope_kind":"for","tunnels":[{"direction":"input","kind":"count_terminal"},{"direction":"input","kind":"shift_register","sr_initialized":true},{"direction":"output","kind":"shift_register"}],"uid":"112"}]',
+        "json": '[{"count":{"bare":"3","terminal":"3"},"frames":[{"body":[{"inputs":[{"net":{"bare":"1","terminal":"1"},"terminal":"x"},{"net":{"bare":"loop_112.shift0","terminal":"loop_112.shift0"},"terminal":"error in"}],"kind":"instance","name":"Step A.vi","outputs":[{"bare":"r","node":"Step A.vi","terminal":"r"},{"bare":"error out","node":"Step A.vi","terminal":"error out"}],"qualified_name":"Step A.vi","uid":"134"}],"label":"","passthrough":true,"value":""}],"kind":"scope","outputs":[{"initial_value":{"bare":"error in","terminal":"error in"},"kind":"shift_register","net":"loop_112.shift0","next_value":{"bare":"error out","node":"Step A.vi","terminal":"error out"},"settings":{"initialized":true}}],"scope_kind":"for","settings":{},"tunnels":[{"direction":"input","kind":"count_terminal"},{"direction":"input","kind":"shift_register","sr_initialized":true},{"direction":"output","kind":"shift_register"}],"uid":"112"}]',
     },
     "forked_error": {
         "lvnet": r"""vi Err.vi :
@@ -1044,7 +1044,7 @@ Step B.vi(x, error in) -> r, error out""",
     out  result    : I32   recommended @2
     out  error out : Error recommended @3
   block-diagram :
-    while-loop (stop if true) (id 112) :
+    while-loop (stop=if-true) (id 112) :
       subVI Step_A_128 : Step A.vi
         in   x         : I32   = 1
         in   error in  : Error default
@@ -1064,7 +1064,7 @@ Step B.vi(x, error in) -> r, error out""",
     out  result    : I32   @2
     out  error out : Error @3
   block-diagram :
-    while-loop (stop if true) :
+    while-loop (stop=if-true) :
       subVI Step_A_128 : Step A.vi
         in   x         : I32   = 1
         in   error in  : Error default
@@ -1101,7 +1101,7 @@ While Loop
   (unnamed): I32 = 1
   Tunnels:
     out last value tunnel (error out)""",
-        "json": '[{"condition":"stop_if_true","frames":[{"body":[{"inputs":[{"net":{"bare":"1","terminal":"1"},"terminal":"x"}],"kind":"instance","name":"Step A.vi","outputs":[{"bare":"r","node":"Step A.vi","terminal":"r"},{"bare":"error out","node":"Step A.vi","terminal":"error out"}],"qualified_name":"Step A.vi","uid":"128"}],"label":"","passthrough":true,"value":""}],"kind":"scope","outputs":[{"kind":"tunnel","mode":"last_value","net":"loop_112.out0","value":{"bare":"error out","node":"Step A.vi","terminal":"error out"}}],"scope_kind":"while","selector":{"bare":"error out","node":"Step A.vi","terminal":"error out"},"tunnels":[{"direction":"output","kind":"tunnel","mode":"last_value"}],"uid":"112"}]',
+        "json": '[{"frames":[{"body":[{"inputs":[{"net":{"bare":"1","terminal":"1"},"terminal":"x"}],"kind":"instance","name":"Step A.vi","outputs":[{"bare":"r","node":"Step A.vi","terminal":"r"},{"bare":"error out","node":"Step A.vi","terminal":"error out"}],"qualified_name":"Step A.vi","uid":"128"}],"label":"","passthrough":true,"value":""}],"kind":"scope","outputs":[{"kind":"tunnel","mode":"last_value","net":"loop_112.out0","value":{"bare":"error out","node":"Step A.vi","terminal":"error out"}}],"scope_kind":"while","selector":{"bare":"error out","node":"Step A.vi","terminal":"error out"},"settings":{"stop":"if-true"},"tunnels":[{"direction":"output","kind":"tunnel","mode":"last_value"}],"uid":"112"}]',
     },
     "merge_errors": {
         "lvnet": r"""vi Err.vi :
@@ -1213,38 +1213,38 @@ Step C.vi(x, error in) -> r, error out""",
         "lvnet": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   path      : Path              required @0
-    in   error in  : Error             recommended @1
-    out  refnum    : ByteStream refnum recommended @2
-    out  error out : Error             recommended @3
+    in   path      : Path                    required @0
+    in   error in  : Error                   recommended @1
+    out  refnum    : Byte Stream File refnum recommended @2
+    out  error out : Error                   recommended @3
   block-diagram :
     function Open/Create/Replace_File_122 : Open/Create/Replace File
-      in   error in               : Error             = error in
-      in   file path (use dialog) : Path              = path
+      in   error in               : Error                   = error in
+      in   file path (use dialog) : Path                    = path
       out  error out              : Error
       out  cancelled              : TF
-      out  refnum out             : ByteStream refnum
+      out  refnum out             : Byte Stream File refnum
     refnum = Open/Create/Replace_File_122::refnum out
     error out = Open/Create/Replace_File_122::error out""",
         "terse": r"""vi Err.vi :
   front-panel :
     pattern : 4800
-    in   path      : Path              @0
-    in   error in  : Error             @1
-    out  refnum    : ByteStream refnum @2
-    out  error out : Error             @3
+    in   path      : Path                    @0
+    in   error in  : Error                   @1
+    out  refnum    : Byte Stream File refnum @2
+    out  error out : Error                   @3
   block-diagram :
     function Open/Create/Replace_File_122 : Open/Create/Replace File
-      in   error in               : Error             = error in
-      in   file path (use dialog) : Path              = path
+      in   error in               : Error                   = error in
+      in   file path (use dialog) : Path                    = path
       out  error out              : Error
       out  cancelled              : TF
-      out  refnum out             : ByteStream refnum
+      out  refnum out             : Byte Stream File refnum
     refnum = Open/Create/Replace_File_122::refnum out
     error out = Open/Create/Replace_File_122::error out""",
         "describe": r"""# Err.vi
 
-  err(path: Path, error in: Error) -> refnum: ByteStream refnum, error out: Error
+  err(path: Path, error in: Error) -> refnum: Byte Stream File refnum, error out: Error
 
 ## Properties
   lock_state: unlocked
@@ -1254,7 +1254,7 @@ Step C.vi(x, error in) -> r, error out""",
   error in: Error
 
 ## Outputs
-  refnum: ByteStream refnum
+  refnum: Byte Stream File refnum
   error out: Error
 
 ## Operations
@@ -1384,7 +1384,7 @@ Case Structure (2 frames)
     (unnamed): I32 = 1
   Frame "True":
     (unnamed): I32 = 100""",
-        "json": '[{"inputs":[{"net":{"bare":"error in","terminal":"error in"},"terminal":"0"}],"kind":"instance","name":"Bundle/Unbundle By Name","outputs":[{"bare":"status","node":"Bundle/Unbundle By Name","terminal":"status"}],"qualified_name":"Bundle/Unbundle By Name","uid":"106"},{"frames":[{"label":"False","passthrough":true,"value":"False"},{"label":"True","passthrough":true,"value":"True"}],"kind":"scope","outputs":[{"cases":[{"frame":"False","source":{"bare":"1","terminal":"1"}},{"frame":"True","source":{"bare":"100","terminal":"100"}}],"kind":"tunnel","net":"case_111.out0","selector":{"bare":"status","node":"Bundle/Unbundle By Name","terminal":"status"}}],"scope_kind":"case","selector":{"bare":"status","node":"Bundle/Unbundle By Name","terminal":"status"},"uid":"111"}]',
+        "json": '[{"inputs":[{"net":{"bare":"error in","terminal":"error in"},"terminal":"0"}],"kind":"instance","name":"Bundle/Unbundle By Name","outputs":[{"bare":"status","node":"Bundle/Unbundle By Name","terminal":"status"}],"qualified_name":"Bundle/Unbundle By Name","uid":"106"},{"frames":[{"label":"False","passthrough":true,"value":"False"},{"label":"True","passthrough":true,"value":"True"}],"kind":"scope","outputs":[{"cases":[{"frame":"False","source":{"bare":"1","terminal":"1"}},{"frame":"True","source":{"bare":"100","terminal":"100"}}],"kind":"tunnel","net":"case_111.out0","selector":{"bare":"status","node":"Bundle/Unbundle By Name","terminal":"status"}}],"scope_kind":"case","selector":{"bare":"status","node":"Bundle/Unbundle By Name","terminal":"status"},"settings":{},"uid":"111"}]',
     },
     "subvi_call": {
         "lvnet": r"""vi Err.vi :

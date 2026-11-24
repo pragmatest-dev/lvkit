@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -480,17 +481,21 @@ def test_a_named_queue_is_one_queue_in_the_queues_module(
     tmp_path: Path, imported
 ) -> None:
     root = package(tmp_path, named_producer_and_consumer())
-    assert (root / "queues.py").read_text(encoding="utf-8") == (
-        '"""Named queues shared by the package. Releasing a queue shuts it down '
-        '(queue.ShutDown), which needs Python 3.13 or later."""\n'
+    queues_source = (root / "queues.py").read_text(encoding="utf-8")
+    assert queues_source.startswith(
+        '"""Named queues shared by the package, and the Queue they are made from. '
+        'Releasing a queue shuts it down (Queue.shutdown, ShutDown)."""\n'
         "from __future__ import annotations\n"
-        "from queue import Queue\n"
-        "work_items: Queue = Queue(maxsize=0)"
+        "import time\n"
     )
+    assert queues_source.endswith("work_items: Queue = Queue(maxsize=0)")
+    assert "lvkit" not in queues_source
     producer_source = (root / "producer.py").read_text(encoding="utf-8")
     assert "from . import queues as shared_queues\n" in producer_source
     assert "queue = shared_queues.work_items\n" in producer_source
-    assert "lvkit" not in producer_source + (root / "consumer.py").read_text(encoding="utf-8")
+    assert "lvkit" not in producer_source + (root / "consumer.py").read_text(
+        encoding="utf-8"
+    )
     produce = imported("pkg.producer").producer
     consume = imported("pkg.consumer").consumer
     produce(11)
@@ -591,12 +596,12 @@ def test_a_name_computed_at_run_time_is_an_entry_of_by_name(
     assert (
         (root / "queues.py")
         .read_text(encoding="utf-8")
-        .endswith("from queue import Queue\nby_name: dict[str, Queue] = {}")
+        .endswith("by_name: dict[str, Queue] = {}")
     )
     producer_source = (root / "producer.py").read_text(encoding="utf-8")
     assert (
-        "queue = shared_queues.by_name.setdefault(label, Queue(maxsize=0))\n"
-        in producer_source
+        "queue = shared_queues.by_name.setdefault"
+        "(label, shared_queues.Queue(maxsize=0))\n" in producer_source
     )
     assert "lvkit" not in producer_source
     produce = imported("pkg.producer").producer
@@ -644,10 +649,9 @@ def test_created_is_true_only_the_first_time_a_name_is_obtained(
     source = (root / "by_constant.py").read_text(encoding="utf-8")
     assert "created = 'Work Items' not in shared_queues.obtained\n" in source
     assert "shared_queues.obtained.add('Work Items')" in source
-    assert (
-        "created = label not in shared_queues.by_name\n"
-        in (root / "by_label.py").read_text(encoding="utf-8")
-    )
+    assert "created = label not in shared_queues.by_name\n" in (
+        root / "by_label.py"
+    ).read_text(encoding="utf-8")
     constant = imported("pkg.by_constant").byconstant
     computed = imported("pkg.by_label").bylabel
     assert [constant().created, constant().created] == [True, False]
@@ -656,11 +660,6 @@ def test_created_is_true_only_the_first_time_a_name_is_obtained(
         False,
         True,
     ]
-
-
-needs_shutdown = pytest.mark.skipif(
-    sys.version_info < (3, 13), reason="queue.shutdown needs Python 3.13"
-)
 
 
 def release_vi(force: bool | None) -> Vi:
@@ -689,11 +688,9 @@ def test_release_shuts_the_queue_down_and_force_destroy_does_it_immediately() ->
     assert generated(True).endswith("queue.shutdown(immediate=True)")
 
 
-@needs_shutdown
 def test_releasing_the_queue_ends_a_consumer_waiting_on_it(
     tmp_path: Path, imported
 ) -> None:
-    import queue
     import threading
 
     consumer = Vi("Consumer.vi")
@@ -707,7 +704,9 @@ def test_releasing_the_queue_ends_a_consumer_waiting_on_it(
         tmp_path,
         {"consumer": consumer, "closer": release_vi(True)},
     )
-    assert "shutdown(immediate=True)" in (root / "closer.py").read_text(encoding="utf-8")
+    assert "shutdown(immediate=True)" in (root / "closer.py").read_text(
+        encoding="utf-8"
+    )
     consume = imported("pkg.consumer").consumer
     close = imported("pkg.closer").closer
     outcome: list[BaseException] = []
@@ -725,4 +724,112 @@ def test_releasing_the_queue_ends_a_consumer_waiting_on_it(
     close()
     thread.join(timeout=5)
     assert not thread.is_alive()
-    assert [type(e) for e in outcome] == [queue.ShutDown]
+    assert [type(e) for e in outcome] == [imported("pkg.queues").ShutDown]
+
+
+@pytest.fixture(params=["generated", "backport"])
+def queues_module(request: pytest.FixtureRequest) -> SimpleNamespace:
+    """The ``queues`` module a package writes, run as it is on this Python, and
+    (``backport``) with the ``Queue`` subclass chosen whatever the Python, so the
+    subclass is run on 3.13 too. On 3.11 and 3.12 both are the subclass."""
+    _, modules = package_of([obtain_named("Work Items", "A.vi")])
+    source = modules.queues.build_module()
+    assert source is not None
+    marker = "hasattr(_StdQueue, 'shutdown')"
+    assert marker in source
+    if request.param == "backport":
+        source = source.replace(marker, "False")
+    namespace: dict = {"__name__": "queues"}
+    exec_generated(source, namespace, "queues")  # noqa: S102
+    return SimpleNamespace(**namespace)
+
+
+def test_the_queues_module_has_a_queue_that_shuts_down(
+    queues_module: SimpleNamespace,
+) -> None:
+    """Python docs, Queue.shutdown: after a shutdown ``put`` raises ShutDown; with
+    ``immediate`` false the queue winds down with ``get`` until empty, then
+    ``get`` raises ShutDown."""
+    queue = queues_module.Queue()
+    queue.put(1)
+    queue.put(2)
+    queue.shutdown()
+    assert queue.is_shutdown
+    with pytest.raises(queues_module.ShutDown):
+        queue.put(3)
+    assert [queue.get(), queue.get(timeout=0.1)] == [1, 2]
+    with pytest.raises(queues_module.ShutDown):
+        queue.get()
+    with pytest.raises(queues_module.ShutDown):
+        queue.get(block=False)
+
+
+def test_an_immediate_shutdown_drains_the_queue(
+    queues_module: SimpleNamespace,
+) -> None:
+    """Python docs: with ``immediate`` the queue is drained to be empty, the count
+    of unfinished tasks falls by the number drained, and ``get`` raises."""
+    queue = queues_module.Queue()
+    queue.put(1)
+    queue.put(2)
+    queue.shutdown(immediate=True)
+    assert queue.qsize() == 0
+    assert queue.unfinished_tasks == 0
+    with pytest.raises(queues_module.ShutDown):
+        queue.get(timeout=0.1)
+
+
+def test_a_shutdown_wakes_a_blocked_get_and_a_blocked_put(
+    queues_module: SimpleNamespace,
+) -> None:
+    import threading
+
+    empty = queues_module.Queue()
+    full = queues_module.Queue(maxsize=1)
+    full.put(0)
+    outcomes: dict[str, BaseException | None] = {}
+
+    def attempt(name: str, queue, call) -> None:
+        try:
+            call(queue)
+        except BaseException as exc:  # noqa: BLE001
+            outcomes[name] = exc
+        else:
+            outcomes[name] = None
+
+    threads = [
+        threading.Thread(target=attempt, args=("get", empty, lambda q: q.get())),
+        threading.Thread(target=attempt, args=("put", full, lambda q: q.put(1))),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=0.3)
+        assert thread.is_alive()
+    empty.shutdown()
+    full.shutdown()
+    for thread in threads:
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+    assert {n: type(e) for n, e in outcomes.items()} == {
+        "get": queues_module.ShutDown,
+        "put": queues_module.ShutDown,
+    }
+
+
+def test_the_timeouts_of_the_queue_are_still_empty_and_full(
+    queues_module: SimpleNamespace,
+) -> None:
+    import queue
+
+    queue_ = queues_module.Queue(maxsize=1)
+    with pytest.raises(queue.Empty):
+        queue_.get(timeout=0.01)
+    queue_.put(1)
+    with pytest.raises(queue.Full):
+        queue_.put(2, timeout=0.01)
+    with pytest.raises(queue.Full):
+        queue_.put_nowait(2)
+    assert queue_.get_nowait() == 1
+    with pytest.raises(queue.Empty):
+        queue_.get_nowait()

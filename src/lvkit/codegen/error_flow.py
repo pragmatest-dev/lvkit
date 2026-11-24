@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING
 
 from lvkit.graph.models import AnyGraphNode, PrimitiveNode, StructureNode
 from lvkit.graph.vi_reference import CALL_ERROR_IN, CALL_ERROR_OUT
-from lvkit.models import Terminal
+from lvkit.models import LVTypeKind, Terminal, _is_error_cluster
 from lvkit.parser.constants import NODE_CLASS_CALL_BY_REF
 
 from .ast_utils import build_assign, parse_expr, to_var_name
@@ -214,12 +214,47 @@ def incoming_error_wins(
         fragment.bindings[term.id] = var
 
 
-def merge_errors(node: AnyGraphNode, ctx: CodeGenContext) -> CodeFragment:
+def _is_error_array(term: Terminal) -> bool:
+    """Whether ``term`` carries an array of error clusters."""
+    lv_type = term.lv_type
+    element = lv_type.element_type if lv_type is not None else None
+    return (
+        lv_type is not None
+        and lv_type.kind == LVTypeKind.ARRAY
+        and element is not None
+        and _is_error_cluster(element)
+    )
+
+
+def merge_errors(
+    node: AnyGraphNode, ctx: CodeGenContext, *, vi_pane: bool = False
+) -> CodeFragment:
     """Merge Errors: its error out is the first of its wired inputs, in input
-    order, on which an error occurred; else the first warning; else ``None``."""
+    order, on which an error occurred; else the first warning; else ``None``.
+
+    The function's inputs are ``error in 0``, ``error in 1``, ... in order (NI,
+    "Merge Errors": "looks for errors beginning with the error in 0 parameter and
+    reports the first error found"). The vi.lib VI ``Merge Errors.vi`` has the
+    connector pane error in 1 to 3 and ``error array in`` (pane indices 4 to 7);
+    its priority runs from the highest pane index down, an array's errors in
+    array order: JKI VI Tester's Merge Errors TestCase wires the constants
+    ``error 1``, ``error 2`` and ``error 3`` to indices 7, 6 and 5 and its tests
+    expect ``error in 1`` to win over ``error in 2``, and that over ``error in 3``."""
+    if vi_pane:
+        terms = sorted(
+            (
+                t
+                for t in node.terminals
+                if t.direction == "input" and (t.is_error_cluster or _is_error_array(t))
+            ),
+            key=lambda t: t.index,
+            reverse=True,
+        )
+    else:
+        terms = error_terminals(node, "input")
     errors = [
-        value
-        for term in error_terminals(node, "input")
+        f"*{value}" if _is_error_array(term) else value
+        for term in terms
         if (value := ctx.wired_input(term.id, node)) not in (None, "None")
     ]
     if not errors:

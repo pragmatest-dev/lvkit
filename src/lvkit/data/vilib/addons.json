@@ -466,6 +466,14 @@
       "status": "complete",
       "op": "GRPC_CLOSE_CLIENT",
       "inline": true,
+      "errors": [
+        {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        }
+      ],
       "imports": []
     },
     {
@@ -576,6 +584,12 @@
       "inline": true,
       "errors": [
         {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        },
+        {
           "exception": "RpcError",
           "module": "grpc",
           "code_expression": "-(1000 + {exception}.code().value[0])",
@@ -682,6 +696,14 @@
       "status": "complete",
       "op": "GRPC_CLIENT_BEGIN_SERVER_STREAMING_CALL",
       "inline": true,
+      "errors": [
+        {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        }
+      ],
       "imports": []
     },
     {
@@ -750,6 +772,14 @@
       "status": "complete",
       "op": "GRPC_CLIENT_READ_FROM_STREAM",
       "inline": true,
+      "errors": [
+        {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        }
+      ],
       "imports": []
     },
     {
@@ -803,6 +833,12 @@
       "op": "GRPC_CLIENT_COMPLETE_STREAMING_CALL",
       "inline": true,
       "errors": [
+        {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        },
         {
           "exception": "RpcError",
           "module": "grpc",
@@ -862,6 +898,14 @@
       "status": "complete",
       "op": "GRPC_CLIENT_CANCEL_CALL",
       "inline": true,
+      "errors": [
+        {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        }
+      ],
       "imports": []
     },
     {
@@ -1572,6 +1616,12 @@
       "runs_on_error": true,
       "errors": [
         {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        },
+        {
           "exception": "RpcError",
           "module": "grpc",
           "code_attribute": "labview_code"
@@ -1632,6 +1682,12 @@
       "runs_on_error": true,
       "errors": [
         {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        },
+        {
           "exception": "RpcError",
           "module": "grpc",
           "code_attribute": "labview_code"
@@ -1674,6 +1730,14 @@
       "op": "GRPC_COMPLETE_CALL",
       "inline": true,
       "runs_on_error": true,
+      "errors": [
+        {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        }
+      ],
       "imports": []
     },
     {
@@ -1735,6 +1799,14 @@
       "op": "GRPC_SET_CALL_STATUS",
       "inline": true,
       "runs_on_error": true,
+      "errors": [
+        {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        }
+      ],
       "imports": []
     },
     {
@@ -1788,6 +1860,14 @@
       "op": "GRPC_IS_CALL_CANCELLED",
       "inline": true,
       "runs_on_error": true,
+      "errors": [
+        {
+          "exception": "InvalidGrpcIdError",
+          "code": -1,
+          "base": "ValueError",
+          "invalid_input": "grpcid_in"
+        }
+      ],
       "imports": []
     }
   ]

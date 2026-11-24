@@ -44,7 +44,9 @@ from LabVIEW itself):
   has one bit per pixel in raster order, the first pixel in the high bit of the
   first byte; a 0 bit is transparent and a missing bit is opaque. An empty
   ``colors`` for a depth below 24 is NI's default color palette, which NI does not
-  publish: that case raises ``NotImplementedError`` when it runs.
+  publish: that case raises ``NotImplementedError`` when it runs. The templates
+  write and read the tuple; a call whose image data wire has a typedef is given
+  the typedef's attribute object instead (``nodes/picture.py``).
 
 The Python of each VI is a template of ``{terminal}`` placeholders the catalog
 call machinery fills (``nodes/picture.py``); it uses only ``PIL`` and builtins.
@@ -88,9 +90,10 @@ _SHAPE = (
 
 # Reads {image_data}: _depth, _w, _h, _colors, _mask, _rect and _rows (the pixel
 # values of each row: 0xRRGGBB for 24 bits, else an index into _colors).
+IMAGE_DATA_UNPACK = "_kind, _depth, _bytes, _mask, _colors, _rect = {image_data}\n"
+IMAGE_DATA_PARAMS = ("image_data", "image_subset", "image_data_out")
 _READ = (
-    "_kind, _depth, _bytes, _mask, _colors, _rect = {image_data}\n"
-    "_w = max(_rect[2] - _rect[0], 0)\n"
+    IMAGE_DATA_UNPACK + "_w = max(_rect[2] - _rect[0], 0)\n"
     "_h = max(_rect[3] - _rect[1], 0)\n"
     "if _depth not in (1, 4, 8, 24):\n"
     "    raise NotImplementedError('image depth ' + str(_depth)"
