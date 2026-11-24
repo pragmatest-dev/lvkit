@@ -245,13 +245,11 @@ def _generate_release(
         arguments.append(f"default={_default(last_term, ctx)}")
     call = f"{notifier}.release({', '.join(arguments)})"
     # NI runs Release Notifier even when an error came in, so the Obtain Notifier
-    # before it may have been skipped; there is then no notifier to release.
-    if name_term is None and last_term is None:
-        source = f"if {notifier} is not None:\n    {call}\n"
-    else:
-        none = _default(last_term, ctx) if last_term is not None else "None"
-        source = (
-            f"if {notifier} is not None:\n    {name}, {last} = {call}\n"
-            f"else:\n    {name}, {last} = '', {none}\n"
-        )
+    # before it may have been skipped; the notifier is then Not a Refnum, which
+    # the catalog's ``invalid_input`` makes an error that the error in wins over.
+    source = (
+        f"{call}\n"
+        if name_term is None and last_term is None
+        else f"{name}, {last} = {call}\n"
+    )
     return CodeFragment(statements=ast.parse(source).body, bindings=bindings)

@@ -65,6 +65,14 @@
     },
     "9109": {
       "name": "Release Queue",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "queue"
+        }
+      ],
       "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-queue.html",
       "verified": true,
@@ -113,6 +121,14 @@
     },
     "9110": {
       "name": "Get Queue Status",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "queue"
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/get-queue-status.html",
       "verified": true,
       "terminals": [
@@ -195,6 +211,12 @@
       "name": "Enqueue Element",
       "errors": [
         {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "queue"
+        },
+        {
           "exception": "ShutDown",
           "module": "queue",
           "code": 1122,
@@ -260,6 +282,12 @@
       "name": "Preview Queue Element",
       "errors": [
         {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "queue"
+        },
+        {
           "exception": "ShutDown",
           "module": "queue",
           "code": 1122,
@@ -323,6 +351,12 @@
     "9113": {
       "name": "Dequeue Element",
       "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "queue"
+        },
         {
           "exception": "ShutDown",
           "module": "queue",
@@ -389,6 +423,12 @@
       "name": "Flush Queue",
       "errors": [
         {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "queue"
+        },
+        {
           "exception": "ShutDown",
           "module": "queue",
           "since_python": "3.13",
@@ -438,6 +478,12 @@
     "9129": {
       "name": "Enqueue Element At Opposite End",
       "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "queue"
+        },
         {
           "exception": "ShutDown",
           "module": "queue",
@@ -502,6 +548,14 @@
     },
     "9130": {
       "name": "Lossy Enqueue Element",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "queue"
+        }
+      ],
       "terminals": [
         {
           "index": 0,

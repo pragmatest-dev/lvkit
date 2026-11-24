@@ -1316,6 +1316,7 @@
   "1542": "You must set the drawable of the object before you configure billboard parameters.",
   "1543": "Cannot pass an empty position list for billboarding.",
   "1555": "Property or invoke node is corrupt. To correct this error, delete the node and re-add it to the",
+  "1556": "The reference is invalid. This error might occur because the reference has been deleted.",
   "1572": "The long name of the property is not unique. LabVIEW class properties must have unique",
   "1598": "The requested path does not match a LabVIEW class in memory.",
   "1600": "The specified method was not found on the specified LabVIEW class.",

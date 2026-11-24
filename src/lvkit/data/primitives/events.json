@@ -74,6 +74,14 @@
     },
     "2074": {
       "name": "Generate User Event",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "user event"
+        }
+      ],
       "terminals": [
         {
           "index": 0,
@@ -122,6 +130,14 @@
     },
     "2075": {
       "name": "Destroy User Event",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "user event"
+        }
+      ],
       "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/destroy-user-event.html",
       "verified": true,

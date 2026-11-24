@@ -35,6 +35,8 @@ COPY_MOVE = [
     ("OSError", 6),
 ]
 RELEASED_QUEUE = [("ShutDown", 1122)]
+# A notifier, queue, user event or semaphore that is Not a Refnum: error 1.
+NOT_A_REFNUM = [("InvalidRefnumError", 1)]
 # Windows Registry Access VIs: the OSError's code is computed from its Windows
 # error number (NI's "Windows Registry Access Error Codes").
 REGISTRY_REFNUM = [("RegistryRefnumError", -602), ("OSError", None)]
@@ -171,12 +173,23 @@ PRIMITIVES = {
     "1165:Unflatten From String": [("error", 116), ("FlattenedClassError", 1403)],
     "8202:Flattened String To Variant": [("error", 116)],
     "8083:List Folder": FILE_PATH_OPS,
-    "9111:Enqueue Element": RELEASED_QUEUE,
-    "9112:Preview Queue Element": RELEASED_QUEUE,
-    "9113:Dequeue Element": RELEASED_QUEUE,
-    "9114:Flush Queue": [("ShutDown", None)],
-    "9129:Enqueue Element At Opposite End": RELEASED_QUEUE,
-    "9105:Wait on Notification": [("ReferenceError", 1122)],
+    "9109:Release Queue": NOT_A_REFNUM,
+    "9110:Get Queue Status": NOT_A_REFNUM,
+    "9111:Enqueue Element": [*NOT_A_REFNUM, *RELEASED_QUEUE],
+    "9112:Preview Queue Element": [*NOT_A_REFNUM, *RELEASED_QUEUE],
+    "9113:Dequeue Element": [*NOT_A_REFNUM, *RELEASED_QUEUE],
+    "9114:Flush Queue": [*NOT_A_REFNUM, ("ShutDown", None)],
+    "9129:Enqueue Element At Opposite End": [*NOT_A_REFNUM, *RELEASED_QUEUE],
+    "9130:Lossy Enqueue Element": NOT_A_REFNUM,
+    "9102:Release Notifier": NOT_A_REFNUM,
+    "9103:Get Notifier Status": NOT_A_REFNUM,
+    "9104:Send Notification": NOT_A_REFNUM,
+    "9105:Wait on Notification": [*NOT_A_REFNUM, ("ReferenceError", 1122)],
+    "9107:Cancel Notification": NOT_A_REFNUM,
+    "9131:Wait on Notification with Notifier History": NOT_A_REFNUM,
+    "2074:Generate User Event": NOT_A_REFNUM,
+    "2075:Destroy User Event": NOT_A_REFNUM,
+    "2409:Delete Data Value Reference": [("InvalidDataValueReferenceError", 1556)],
     "3914:Search and Replace String": [
         ("NullCharacterError", -4702),
         ("error", None),
@@ -213,7 +226,8 @@ PRIMITIVES = {
     },
     "file-io:Write File+ (string)": FILE_PATH_OPS,
     "file-io:Close File+": [*FILE_PATH_OPS, ("ValueError", 1)],
-    "synchronization:Release Semaphore_71": [("ValueError", 1111)],
+    "synchronization:Acquire Semaphore": NOT_A_REFNUM,
+    "synchronization:Release Semaphore_71": [*NOT_A_REFNUM, ("ValueError", 1111)],
     "file-io:Unzip": [
         ("ZipPasswordProtectedError", None),
         ("BadZipFile", None),

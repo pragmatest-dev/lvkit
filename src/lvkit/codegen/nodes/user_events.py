@@ -14,16 +14,16 @@ registration is the list ``[queue, rows, registered]`` (``event_register.py``)::
         for registered in registration[2]:
             if registration[0] in registered:
                 registered.remove(registration[0])
-    if stop is not None:                         # Destroy User Event
-        stop.clear()
+    stop.clear()                                 # Destroy User Event
 
 A message is the shape of ``event_kinds``: the user event itself (the list, not a
 name) first, then its data, the kind ``'User Event'`` and no old value. The kind is
 written as its text, so a VI with no Event Structure needs no enum for it. A user
 event passes between VIs as the list. Unregister and Destroy run when an error came
-in; a user event or registration that an earlier node did not make is ``None`` then,
-and they do nothing for it. Unregister removes the queue only where it still is
-(Destroy empties the list).
+in; a user event or registration that an earlier node did not make is ``None`` then
+(Not a Refnum). Unregister does nothing for it; Destroy and Generate give error 1 on
+their error out, which the error that came in wins over (``native_failure``).
+Unregister removes the queue only where it still is (Destroy empties the list).
 
 Priority: NI's Generate User Event documents ``0`` high and ``1`` normal (the
 default); unwired or a constant ``1`` is converted, anything else is a gap.
@@ -168,7 +168,7 @@ def _destroy(
     node: PrimitiveNode, by_index: dict[int, Terminal], ctx: CodeGenContext
 ) -> CodeFragment:
     event = _required(node, by_index, ctx, "user event")
-    statements = [parse_stmt(f"if {event} is not None:\n    {event}.clear()")]
+    statements = [parse_stmt(f"{event}.clear()")]
     return CodeFragment(statements=statements)
 
 
