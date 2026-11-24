@@ -158,14 +158,9 @@ def _unflatten_value(
         return tuple(values), pos
     if info.kind == "refnum" and info.refnum == _CLASS_REFNUM_KIND:
         # An object of a class is read into the class its data names (the
-        # package's ``lv_classes`` module), written big-endian.
-        if order != ">":
-            raise NotImplementedError(
-                "flattened data of a class object is read big-endian only, not "
-                f"{order!r}"
-            )
+        # package's ``lv_classes`` module), in the byte order given.
         return importlib.import_module(".lv_classes", __package__).unflatten_class(
-            data, pos
+            data, pos, None, order
         )
     raise _unreadable(lv_type)
 

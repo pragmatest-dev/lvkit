@@ -88,13 +88,13 @@ def _levels(cls):
     ]
 
 
-def flatten_class(value):
+def flatten_class(value, order='>'):
     """The flattened form of the class object ``value``: a LabVIEW Object (no class
     of this package) is level zero."""
     cls = type(value)
     chain = _levels(cls)
     if not chain:
-        return struct.pack('>I', 0)
+        return struct.pack(order + 'I', 0)
     section = b''.join(
         bytes([len(raw)]) + raw
         for raw in (part.encode('latin-1') for part in cls.__lv_class_name__.split(':'))
@@ -102,21 +102,21 @@ def flatten_class(value):
     section = bytes([len(section)]) + section
     section += b'\\x00' * (-len(section) % 4)
     versions = b''.join(
-        struct.pack('>HHHH', *c.__lv_version__) for c in reversed(chain)
+        struct.pack(order + 'HHHH', *c.__lv_version__) for c in reversed(chain)
     )
     private = b''
     for c in chain:
-        data = c.__lv_flatten__(value)
-        private += struct.pack('>i', len(data)) + data
-    return struct.pack('>I', len(chain)) + section + versions + private
+        data = c.__lv_flatten__(value, order)
+        private += struct.pack(order + 'i', len(data)) + data
+    return struct.pack(order + 'I', len(chain)) + section + versions + private
 
 
-def unflatten_class(data, pos, within=None):
+def unflatten_class(data, pos, within=None, order='>'):
     """``(object, position after it)`` for the flattened class object at ``pos`` of
     ``data``. ``within`` is the qualified name of the class the reader is typed
     for: the data must hold that class, a class derived from it or one it derives
     from."""
-    (levels,) = struct.unpack_from('>I', data, pos)
+    (levels,) = struct.unpack_from(order + 'I', data, pos)
     pos += 4
     if levels == 0:
         return object(), pos
@@ -131,7 +131,7 @@ def unflatten_class(data, pos, within=None):
             cursor += 1 + size
         pos += 1 + length + (-(1 + length) % 4)
         versions = [
-            struct.unpack_from('>HHHH', data, pos + 8 * k) for k in range(levels)
+            struct.unpack_from(order + 'HHHH', data, pos + 8 * k) for k in range(levels)
         ]
     except (IndexError, struct.error):
         raise _fail(1403, 'the flattened class has no valid name or version list')
@@ -169,10 +169,10 @@ def unflatten_class(data, pos, within=None):
         return value, pos
     for c in chain:
         try:
-            (size,) = struct.unpack_from('>i', data, pos)
+            (size,) = struct.unpack_from(order + 'i', data, pos)
             pos += 4
             if size:
-                end = c.__lv_unflatten__(value, data, pos)
+                end = c.__lv_unflatten__(value, data, pos, order)
                 if end != pos + size:
                     raise struct.error('the private data has another size')
                 pos = end

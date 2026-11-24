@@ -24,8 +24,6 @@ from .classes_module import (
 )
 from .context import CodeGenContext
 from .flat import (
-    BYTE_ORDER_PREFIX,
-    Functions,
     Layout,
     LineWriter,
     Part,
@@ -60,17 +58,9 @@ class ClassLayout(Layout):
     def helper_label(self) -> str:
         return self.label
 
-    def _require_big_endian(self, fns: Functions) -> None:
-        if fns.order != BYTE_ORDER_PREFIX[0]:
-            raise UnsupportedLayout(
-                f"a LabVIEW class value ({self.label}) in a byte order other than "
-                "big-endian: a class is flattened in LabVIEW's big-endian form"
-            )
-
     def flatten(self, value, prefix, depth, fns) -> list[Part]:
-        self._require_big_endian(fns)
         _import_classes(fns.ctx, FLATTEN_CLASS_NAME)
-        return [Raw(f"{FLATTEN_CLASS_NAME}({value})")]
+        return [Raw(f"{FLATTEN_CLASS_NAME}({value}, {fns.order!r})")]
 
     def unflatten(self, target, prefix, out: LineWriter, fns) -> None:
         out.add(f"{target}, pos = {self.reader(fns, prefix)}(data, pos)")
@@ -79,17 +69,16 @@ class ClassLayout(Layout):
         """The function ``(data, pos) -> (object, pos)`` that reads this class's
         value: any class for a LabVIEW Object wire, else the class, its ancestors
         and its descendants."""
-        self._require_big_endian(fns)
         _import_classes(fns.ctx, UNFLATTEN_CLASS_NAME)
-        if self.key is None:
-            return UNFLATTEN_CLASS_NAME
+        within = None if self.key is None else self.label
         return fns.named(
             "unflatten",
             self.label,
             ("class", self.key),
             lambda n: (
                 f"def {n}(data, pos):\n"
-                f"    return {UNFLATTEN_CLASS_NAME}(data, pos, {self.label!r})\n"
+                f"    return {UNFLATTEN_CLASS_NAME}"
+                f"(data, pos, {within!r}, {fns.order!r})\n"
             ),
         )
 

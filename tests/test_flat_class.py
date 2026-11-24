@@ -15,12 +15,13 @@ from pathlib import Path
 import pytest
 
 from lvkit.codegen.gaps import Gap
-from lvkit.graph.models import GraphNode, PrimitiveNode, VIContext
+from lvkit.graph.models import Constant, GraphNode, PrimitiveNode, VIContext
 from lvkit.models import ClusterField, LVType, LVTypeKind, Terminal
 from lvkit.parser.vi import read_class_object
 from tests.class_graphs import INT, Project, Recipe, class_type, pane, wire
 
 STRING = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="String")
+U16 = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt16")
 VARIANT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="LVVariant")
 PICTURE = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Picture")
 ERROR = LVType(
@@ -56,10 +57,25 @@ def _node(vi: str, tag: str, prim_id: int, terminals: list[tuple]) -> PrimitiveN
     )
 
 
-def round_trip(declared: LVType) -> Recipe:
-    """A VI whose ``obj`` is flattened to ``data`` and unflattened to ``back``."""
+def round_trip(declared: LVType, order: int | None = None) -> Recipe:
+    """A VI whose ``obj`` is flattened to ``data`` and unflattened to ``back``;
+    ``order`` is the ``byte order`` constant (0, 1, 2) wired to both nodes."""
 
     def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        flatten = [(11, "input", declared), (3, "output", STRING)]
+        unflatten = [(11, "input", STRING), (2, "output", declared)]
+        flows = [
+            wire(vi, "obj", "fl.11"),
+            wire(vi, "fl.3", "data"),
+            wire(vi, "fl.3", "un.11"),
+            wire(vi, "un.2", "back"),
+        ]
+        constants = []
+        if order is not None:
+            flatten.append((9, "input", U16))
+            unflatten.append((9, "input", U16))
+            constants = [Constant(id=f"{vi}:c9", value=order, lv_type=U16)]
+            flows += [wire(vi, "c9", "fl.9"), wire(vi, "c9", "un.9")]
         return (
             VIContext(
                 name=vi,
@@ -68,21 +84,12 @@ def round_trip(declared: LVType) -> Recipe:
                     pane(vi, "output", "data", STRING, "data", 1),
                     pane(vi, "output", "back", declared, "back", 2),
                 ],
-                data_flow=[
-                    wire(vi, "obj", "fl.11"),
-                    wire(vi, "fl.3", "data"),
-                    wire(vi, "fl.3", "un.11"),
-                    wire(vi, "un.2", "back"),
-                ],
+                constants=constants,
+                data_flow=flows,
             ),
             [
-                _node(vi, "fl", 1164, [(11, "input", declared), (3, "output", STRING)]),
-                _node(
-                    vi,
-                    "un",
-                    1165,
-                    [(11, "input", STRING), (2, "output", declared)],
-                ),
+                _node(vi, "fl", 1164, flatten),
+                _node(vi, "un", 1165, unflatten),
             ],
         )
 
@@ -199,6 +206,36 @@ def test_a_class_with_fields_round_trips_in_nis_layout(tmp_path: Path) -> None:
             + private
         )
         assert type(result.back) is module("base").Base
+        assert (result.back._Base__count, result.back._Base__name) == (7, "hello")
+
+
+@pytest.mark.parametrize(
+    ("order", "prefix"), [(0, ">"), (1, "="), (2, "<")]
+)
+def test_a_class_flattens_in_the_byte_order_of_the_node(
+    tmp_path: Path, order: int, prefix: str
+) -> None:
+    """NI, "Flatten To String", byte order: 0 "big-endian, network order", 1
+    "native, host order", 2 "little-endian". Every number of the object (the levels,
+    the versions, the size of the private data, its fields) is in that order, and
+    the same object reads back."""
+    project = classes(tmp_path)
+    project.add_vi("RoundTrip", round_trip(BASE, order))
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        obj = module("base").Base()
+        obj._Base__count = 7
+        obj._Base__name = "hello"
+        result = module("roundtrip").roundtrip(obj=obj)
+        private = struct.pack(prefix + "i", 7) + struct.pack(prefix + "i", 5) + b"hello"
+        assert result.data.encode("latin-1") == (
+            struct.pack(prefix + "I", 1)
+            + pascal_name("Base.lvclass")
+            + struct.pack(prefix + "HHHH", 1, 0, 0, 0)
+            + struct.pack(prefix + "i", len(private))
+            + private
+        )
         assert (result.back._Base__count, result.back._Base__name) == (7, "hello")
 
 
