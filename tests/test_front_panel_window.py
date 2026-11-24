@@ -1,8 +1,9 @@
 """FP.Open and FP.Close on the VI's own front panel
 (``codegen/nodes/front_panel_window.py``): the function calls ``live_io.open_panel``
 and ``live_io.close_panel``, which do nothing without a ``live_io`` that shows
-windows. On the reference of another VI both stay a gap. Each case is a handmade
-diagram whose generated package is imported and run."""
+windows, and keep the window's state on the panel. On the reference of another VI
+both are calls on that VI's panel. Each case is a handmade diagram whose generated
+package is imported and run."""
 
 from __future__ import annotations
 
@@ -108,7 +109,7 @@ def test_unwired_inputs_take_nis_defaults(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("method", "code"), [("FP.Open", FP_OPEN), ("FP.Close", FP_CLOSE)]
 )
-def test_on_another_vis_reference_stays_a_gap(
+def test_on_another_vis_reference_it_is_a_call_on_that_vis_panel(
     tmp_path: Path, method: str, code: int
 ) -> None:
     project = Project(tmp_path)
@@ -117,11 +118,15 @@ def test_on_another_vis_reference_stays_a_gap(
     project.graph._dep_graph.add_edge(runner_key, target_key)  # noqa: SLF001
     gaps: list[Gap] = []
     package = project.generate(gaps)
-    reason = f"Invoke Node method '{method}' on a VI reference has no Python equivalent"
-    assert [(g.node_name, g.kind, g.reason) for g in gaps] == [
-        ("Invoke Node", "unsupported_node", reason)
-    ]
+    assert gaps == []
     assert "live_io" not in package.sources["runner"]
+    call = "open_window(False, 1)" if method == "FP.Open" else "close_window()"
+    assert f"panel_of(target).{call}" in package.sources["runner"]
+    with package.use() as module:
+        assert module("runner").runner().out is module("target").target
+        assert module("target").target.panel.window_state == (
+            1 if method == "FP.Open" else 2
+        )
 
 
 def test_a_run_through_the_panel_goes_on_past_the_window_calls(tmp_path: Path) -> None:

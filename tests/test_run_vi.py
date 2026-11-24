@@ -355,7 +355,9 @@ def abort_runner(target_key: str, method: str, code: int) -> Recipe:
     return build
 
 
-@pytest.mark.parametrize(("method", "code"), [("Abort VI", 1002), ("FP.Open", 1080)])
+@pytest.mark.parametrize(
+    ("method", "code"), [("Abort VI", 1002), ("Front Panel:Get Image", 1090)]
+)
 def test_an_invoke_node_method_with_no_python_equivalent_is_a_gap(
     tmp_path: Path, method: str, code: int
 ) -> None:
