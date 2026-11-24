@@ -1,6 +1,7 @@
 """The VI Server properties of the VI class that are facts the VI's file records:
-Execution:Is Reentrant, Execution:Priority, VI Type, Help:Document Web URL, and
-the two that follow from reentrancy, Is Clone VI and VI Clone Name.
+Execution:Is Reentrant, Execution:Reentrancy Type, Execution:Priority, VI Type,
+Help:Document Web URL, and the two that follow from reentrancy, Is Clone VI and VI
+Clone Name.
 
 Each generated function carries them as attributes set right after its ``def``
 beside ``function.vi_name`` (``vi_file_property_statements``), with the values NI's
@@ -11,6 +12,15 @@ file (a write of Help:Document Web URL sets its attribute, NI: "Settable when th
 VI is running: Yes"; the others are "No", so a write stays a gap).
 
 - ``is_reentrant``: True for a VI saved as reentrant (``ExecutionProps.reentrancy``).
+- ``reentrancy_type``: NI's number (reentrancytype.html: "Indicates the type of
+  reentrancy LabVIEW uses for a reentrant VI"): 0 Share clones between instances
+  (``Reentrancy.SHARED_CLONE``), 1 Preallocate clone for each instance
+  (``Reentrancy.PREALLOCATED_CLONE``). NI gives no value for a VI that is not
+  reentrant (the page, LAVA, the LabVIEW Wiki and the NI forums, searched
+  2026-11-24), so the attribute is ``None`` there and a read of it raises
+  ``NotImplementedError`` naming the VI (``read_guard``). The property is not
+  settable while the VI runs ("Settable when the VI is running: No"), so a write
+  stays a gap.
 - ``priority``: NI's number, 1 background, 2 normal, 3 above normal, 4 high,
   5 time critical, 6 subroutine (execpriority.html).
 - ``vi_type``: NI's number (vitype.html), set on every function. NI's list is
@@ -53,6 +63,7 @@ CLONE_NAME_ERROR_CODE = GENERIC_ERROR_CODE
 
 IS_REENTRANT_ATTRIBUTE = "is_reentrant"
 PRIORITY_ATTRIBUTE = "priority"
+REENTRANCY_TYPE_ATTRIBUTE = "reentrancy_type"
 VI_TYPE_ATTRIBUTE = "vi_type"
 HELP_URL_ATTRIBUTE = "help_url"
 CLONE_NAME_ATTRIBUTE = "clone_name"
@@ -65,6 +76,12 @@ _PRIORITY_NUMBER = {
     Priority.HIGH: 4,
     Priority.TIME_CRITICAL: 5,
     Priority.SUBROUTINE: 6,
+}
+
+# NI's value of each type of reentrancy (reentrancytype.html).
+_REENTRANCY_TYPE_NUMBER = {
+    Reentrancy.SHARED_CLONE: 0,
+    Reentrancy.PREALLOCATED_CLONE: 1,
 }
 
 # NI's value of each kind of file ``VIKind`` has (vitype.html: "Standard VI 1,
@@ -90,6 +107,7 @@ class FileProperty:
 FILE_PROPERTIES = (
     FileProperty(525, IS_REENTRANT_ATTRIBUTE),  # Exec.IsReentrant
     FileProperty(526, PRIORITY_ATTRIBUTE),  # Exec.Priority
+    FileProperty(648, REENTRANCY_TYPE_ATTRIBUTE),  # Exec.ReentrancyType
     FileProperty(562, VI_TYPE_ATTRIBUTE),  # VIType
     FileProperty(645, CLONE_NAME_ATTRIBUTE),  # Clone Name
     FileProperty(646, IS_REENTRANT_ATTRIBUTE),  # IsCloneVI
@@ -127,6 +145,12 @@ def read_guard(
             CLONE_NAME_ERROR_CODE, "VI Clone Name", message
         )
         return [_raise_if_none(value, raised)]
+    if row.attribute == REENTRANCY_TYPE_ATTRIBUTE:
+        text = (
+            f"'Execution:Reentrancy Type: ' + {name} + ' is not reentrant, and "
+            "NI gives the type of reentrancy for a reentrant VI only'"
+        )
+        return [_raise_if_none(value, parse_expr(f"NotImplementedError({text})"))]
     if row.attribute == VI_TYPE_ATTRIBUTE:
         text = f"'VI Type: the file kind of ' + {name} + ' is not in the NI list'"
         return [_raise_if_none(value, parse_expr(f"NotImplementedError({text})"))]
@@ -164,8 +188,17 @@ def vi_file_property_statements(
         and properties.execution.reentrancy is not Reentrancy.NON_REENTRANT
     )
     priority = Priority.NORMAL if properties is None else properties.execution.priority
+    reentrancy = (
+        Reentrancy.NON_REENTRANT
+        if properties is None
+        else properties.execution.reentrancy
+    )
     values: list[tuple[str, ast.expr]] = [
         (IS_REENTRANT_ATTRIBUTE, ast.Constant(value=reentrant)),
+        (
+            REENTRANCY_TYPE_ATTRIBUTE,
+            ast.Constant(value=_REENTRANCY_TYPE_NUMBER.get(reentrancy)),
+        ),
         (PRIORITY_ATTRIBUTE, ast.Constant(value=_PRIORITY_NUMBER[priority])),
     ]
     kind = None if properties is None else _vi_kind(properties.vi_type)

@@ -326,7 +326,7 @@ def test_this_application_feeds_a_property_with_no_python_value_as_its_own_gap()
     None
 ):
     reference, application = _application_reference()
-    prop = _application_property(3, "App.Kind", STRING)
+    prop = _application_property(131, "App.LVTarget", STRING)
     prop.terminals[0].lv_type = application
     gaps: list[Gap] = []
     generate(
@@ -338,4 +338,5 @@ def test_this_application_feeds_a_property_with_no_python_value_as_its_own_gap()
     )
     (gap,) = gaps
     assert gap.node_name == "pn"
-    assert "'App.Kind' of the default App object has no Python equivalent" in gap.reason
+    expected = "'App.LVTarget' of the default App object has no Python equivalent"
+    assert expected in gap.reason

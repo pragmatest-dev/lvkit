@@ -127,6 +127,9 @@ the ``vi_name`` of every VI function on it, the VI it is called from first. It l
 here because it reports the VIs as run (the function objects that carry ``panel``,
 ``window_title`` and ``vi_name``), which is what this module's ``panel_of`` reaches.
 
+The module ends with ``application`` and ``loaded_vis()``, the application the VIs
+run in and Application:All VIs In Memory (``codegen/panels_application.py``).
+
 The tags of a VI (Tag.Get Tag, Tag.Set Tag and Tag.Remove Tag on its reference) are
 a third attribute the VI's function carries, ``function.tags``, a ``Tags``: the tags
 the VI's file saves (its ``VITS`` block) and what the program sets. A VI that saves
@@ -145,6 +148,7 @@ from lvkit.control_properties import (
     undecoded_saved_members,
 )
 
+from .panels_application import APPLICATION_SOURCE
 from .tree_items_module import TREE_ITEMS_SOURCE
 
 PANELS_MODULE_NAME = "panels"
@@ -180,6 +184,7 @@ import copy
 import dataclasses
 import inspect
 import locale
+import os
 import sys
 import threading
 import time
@@ -1538,4 +1543,5 @@ PANELS_MODULE_SOURCE = (
     .replace("__PROPERTY_DEFAULTS__", repr(property_defaults()))
     .replace("__UNDECODED_SAVED__", repr(sorted(undecoded_saved_members())))
     .replace("__TREE_ITEMS__", TREE_ITEMS_SOURCE.strip("\n"))
+    + APPLICATION_SOURCE
 )

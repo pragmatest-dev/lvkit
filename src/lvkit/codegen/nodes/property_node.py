@@ -13,7 +13,12 @@ from lvkit.control_properties import (
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
-from lvkit.graph.vi_reference import VI_CLASS, is_on_vi_reference
+from lvkit.graph.vi_reference import (
+    APPLICATION_CLASS,
+    VI_CLASS,
+    is_on_application_reference,
+    is_on_vi_reference,
+)
 from lvkit.models import FPTerminal, PropertyDef, Terminal
 
 from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name
@@ -30,9 +35,11 @@ from ..errors import CodeGenError
 from ..errors_module import LABVIEW_ERROR_NAME
 from ..fragment import CodeFragment
 from ..panel_hooks import get_property_stmt, property_stmt
+from ..panels_application import APPLICATION_NAME
 from ..panels_module import PANEL_ERROR_NAME, PANEL_OF_NAME
 from ..variant_values import is_variant_type
 from . import (
+    application_properties,
     class_property_node,
     front_panel_bounds,
     front_panel_title,
@@ -82,9 +89,14 @@ def _callees(ctx: CodeGenContext) -> str:
 
 
 def _default_object_expression(
-    ctx: CodeGenContext, value: DefaultObjectProperty
+    ctx: CodeGenContext,
+    value: DefaultObjectProperty,
+    node: PrimitiveNode,
+    application: str = APPLICATION_NAME,
 ) -> str:
-    """``value.python`` with the generating VI's function and callees written in."""
+    """``value.python`` with the generating VI's function and callees written in,
+    and the Application object it is read on (``application``) and the VI's saved
+    LabVIEW version (``application_properties.fill``)."""
     expression = value.python.replace("{function}", ctx.this_vi_expression())
     if "{in_packed_library}" in expression:
         packed = ctx.graph is not None and ctx.graph.is_in_packed_library(
@@ -93,7 +105,7 @@ def _default_object_expression(
         expression = expression.replace("{in_packed_library}", repr(packed))
     if "{callees}" in expression:
         expression = expression.replace("{callees}", _callees(ctx))
-    return expression
+    return application_properties.fill(value, expression, application, ctx, node)
 
 
 def _default_object_read(
@@ -464,7 +476,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             statements.append(
                 ast.Assign(
                     targets=[ast.Name(id=var_name, ctx=ast.Store())],
-                    value=parse_expr(_default_object_expression(ctx, value_expr)),
+                    value=parse_expr(
+                        _default_object_expression(ctx, value_expr, node)
+                    ),
                 )
             )
             imports.update(value_expr.imports)
@@ -484,6 +498,26 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
+            if is_on_application_reference(node):
+                # the program's one application: the rows of the default
+                # Application object, read on the reference
+                app_value = default_object_property(
+                    APPLICATION_CLASS, tuple(seg.code for seg in prop.segments)
+                )
+                if app_value is None:
+                    raise _no_python_equivalent(node, prop)
+                expression = _default_object_expression(
+                    ctx, app_value, node, ref_var
+                )
+                statements.append(
+                    ast.Assign(
+                        targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                        value=parse_expr(expression),
+                    )
+                )
+                imports.update(app_value.imports)
+                bindings[term.id] = var_name
+                continue
             row = panel_reference.panel_row(node, prop)
             listed = panel_reference.property_row(node, prop)
             window = window_rows.window_row(prop) if is_on_vi_reference(node) else None

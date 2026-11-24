@@ -1,7 +1,70 @@
 {
-  "_comment": "Properties of the default object of a VI Server class, the object a Property Node uses when its reference input is unwired. Entries are keyed by the property code path (the codes of the property's segments joined by '.'), because a Property Node row stores either the short or the long name. 'name' is NI's name for the property. A property is listed only when NI's public documentation says what its value is and that value is available to a Python process. 'python' is the expression generated code reads in place of the property; '{function}' is the name of the function the VI generates and '{callees}' a tuple of the functions of the VIs it calls and '{in_packed_library}' True or False as the VI's own file records it; 'imports' are the statements the expression needs.",
+  "_comment": "Properties of the default object of a VI Server class, the object a Property Node uses when its reference input is unwired (a row of the App class is read the same on a wired Application reference). Entries are keyed by the property code path (the codes of the property's segments joined by '.'), because a Property Node row stores either the short or the long name; a row whose file records no code is code 0 (Application:Name). 'name' is NI's name for the property. A property is listed only when NI's public documentation says what its value is and that value is available to a Python process. 'python' is the expression generated code reads in place of the property; '{function}' is the name of the function the VI generates and '{callees}' a tuple of the functions of the VIs it calls and '{in_packed_library}' True or False as the VI's own file records it; '{application}' is the Application object the row is read on and '{lv_version}' and '{lv_year}' the LabVIEW version and year the VI was saved in (nodes/application_properties.py); 'imports' are the statements the expression needs and 'panels' the names it uses from the package's panels module.",
   "classes": {
     "App": {
+      "0": {
+        "name": "Application:Name",
+        "python": "{application}.name",
+        "imports": [],
+        "panels": [
+          "application"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/appname.html"
+      },
+      "2": {
+        "name": "Application:Version Number",
+        "python": "{lv_version}",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/version.html"
+      },
+      "3": {
+        "name": "Application:Kind",
+        "python": "2",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/appkind.html"
+      },
+      "28": {
+        "name": "Application:All VIs In Memory",
+        "python": "loaded_vis()",
+        "imports": [],
+        "panels": [
+          "loaded_vis"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/allvisinmemory.html"
+      },
+      "104": {
+        "name": "App.AllContexts",
+        "python": "{application}.all_contexts",
+        "imports": [],
+        "panels": [
+          "application"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/allvisinmemory.html"
+      },
+      "122": {
+        "name": "App.ContextName",
+        "python": "{application}.context_name",
+        "imports": [],
+        "panels": [
+          "application"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/allvisinmemory.html"
+      },
+      "144": {
+        "name": "Application:Default:Application",
+        "python": "application",
+        "imports": [],
+        "panels": [
+          "application"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/appdefaultapplication.html"
+      },
+      "265": {
+        "name": "Application:Version Year",
+        "python": "{lv_year}",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/application/versionyear.html"
+      },
       "1": {
         "name": "Application:User Name",
         "python": "getpass.getuser()",
@@ -76,6 +139,21 @@
         "python": "{function}.help_url",
         "imports": [],
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/helpdocumenturl.html"
+      },
+      "623": {
+        "name": "Owning Application",
+        "python": "application",
+        "imports": [],
+        "panels": [
+          "application"
+        ],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/owningapp.html"
+      },
+      "648": {
+        "name": "Execution:Reentrancy Type",
+        "python": "{function}.reentrancy_type",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/reentrancytype.html"
       },
       "545": {
         "name": "Callees' Names",

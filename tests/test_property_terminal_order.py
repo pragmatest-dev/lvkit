@@ -298,8 +298,10 @@ def test_unwired_app_user_name_is_the_account_running_the_process():
 
 
 def test_an_undocumented_default_object_property_stops_generation():
-    with pytest.raises(ConversionGap, match="'App.Kind' of the default App object"):
-        _generate_unwired_app([("Value", "output")], "App.Kind", 3)
+    with pytest.raises(
+        ConversionGap, match="'App.LVTarget' of the default App object"
+    ):
+        _generate_unwired_app([("Value", "output")], "App.LVTarget", 131)
 
 
 def test_writing_a_default_object_property_stops_generation():
@@ -326,26 +328,28 @@ def test_wired_reference_without_a_value_is_an_error():
 
 def test_an_undocumented_default_object_property_becomes_a_raise():
     node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
-    node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=3)])]
+    node.properties = [
+        PropertyDef(segments=[PropertySegment(name="App.LVTarget", code=131)])
+    ]
     fragment = generate_node(node, ctx)
     module = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
     source = ast.unparse(module)
     assert source.splitlines()[-1] == (
-        "raise NotImplementedError(\"Property 'App.Kind' of the default App "
+        "raise NotImplementedError(\"Property 'App.LVTarget' of the default App "
         "object has no Python equivalent\\ngap kind: unsupported_node\\nVI: \\n"
         'node: Property Node")'
     )
     assert fragment.imports == set()
     assert [g.reason for g in ctx.gaps] == [
-        "Property 'App.Kind' of the default App object has no Python equivalent"
+        "Property 'App.LVTarget' of the default App object has no Python equivalent"
     ]
 
 
 def test_the_property_code_decides_not_the_stored_name():
     with pytest.raises(ConversionGap, match="'App.UserName' of the default App"):
-        _generate_unwired_app([("Value", "output")], "App.UserName", 3)
+        _generate_unwired_app([("Value", "output")], "App.UserName", 131)
 
 
 def test_an_unwired_app_directory_path_by_its_long_name():
@@ -441,8 +445,12 @@ def test_a_property_read_on_this_application_is_the_default_object_property():
 def test_an_undocumented_property_on_this_application_is_its_own_gap():
     node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
     _wire_from_this_application(ctx)
-    node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=3)])]
-    with pytest.raises(ConversionGap, match="'App.Kind' of the default App object"):
+    node.properties = [
+        PropertyDef(segments=[PropertySegment(name="App.LVTarget", code=131)])
+    ]
+    with pytest.raises(
+        ConversionGap, match="'App.LVTarget' of the default App object"
+    ):
         property_node.generate(node, ctx)
 
 

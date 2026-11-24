@@ -56,6 +56,7 @@ _REF = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum")
 _ROWS = {
     "Exec.IsReentrant": (525, "Boolean"),
     "Exec.Priority": (526, "NumInt32"),
+    "Exec.ReentrancyType": (648, "NumInt32"),
     "VIType": (562, "NumInt32"),
     "Clone Name": (645, "String"),
     "IsCloneVI": (646, "Boolean"),
@@ -225,6 +226,7 @@ def test_priority_is_nis_number(
     [
         ("Exec.IsReentrant", True),
         ("Exec.Priority", 5),
+        ("Exec.ReentrancyType", 0),
         ("VIType", 3),
         ("Help.URL", "https://example.com/help"),
         ("IsCloneVI", True),
@@ -236,8 +238,26 @@ def test_the_default_vi_object_reads_its_own_function(
 ) -> None:
     source = _own(name, _REENTRANT)
     assert "lvkit" not in source
-    assert source.count("NotImplementedError") == (name == "VIType")
+    guarded = name in {"VIType", "Exec.ReentrancyType"}
+    assert source.count("NotImplementedError") == guarded
     assert _run(source, tmp_path)().out == expected
+
+
+@pytest.mark.parametrize(
+    ("reentrancy", "number"),
+    [
+        (Reentrancy.SHARED_CLONE, 0),
+        (Reentrancy.PREALLOCATED_CLONE, 1),
+        (Reentrancy.NON_REENTRANT, None),
+    ],
+)
+def test_the_reentrancy_type_is_nis_number_of_a_reentrant_vi(
+    tmp_path: Path, reentrancy: Reentrancy, number: int | None
+) -> None:
+    function = _run(
+        _own("Exec.ReentrancyType", _properties(reentrancy=reentrancy)), tmp_path
+    )
+    assert function.reentrancy_type == number
 
 
 def test_a_non_reentrant_vi_is_no_clone(tmp_path: Path) -> None:
@@ -320,6 +340,7 @@ def _callee_with_attributes() -> str:
         _CALLEE
         + "callee.is_reentrant = True\n"
         + "callee.priority = 4\n"
+        + "callee.reentrancy_type = 1\n"
         + "callee.vi_type = 2\n"
         + "callee.help_url = 'http://help'\n"
         + "callee.clone_name = 'Callee.vi'\n"
@@ -347,13 +368,15 @@ def test_a_vi_reference_reads_the_referenced_functions_attribute(
     attribute = {
         525: "is_reentrant",
         526: "priority",
+        648: "reentrancy_type",
         562: "vi_type",
         645: "clone_name",
         646: "is_reentrant",
         698: "help_url",
     }[code]
     assert f"= callee.{attribute}\n" in source
-    assert source.count("NotImplementedError") == (name == "VIType")
+    guarded = name in {"VIType", "Exec.ReentrancyType"}
+    assert source.count("NotImplementedError") == guarded
     for refs in _package(tmp_path, source, _callee_with_attributes()):
         refs.refs()  # type: ignore[attr-defined]
         assert "generated_refs.callee" in sys.modules

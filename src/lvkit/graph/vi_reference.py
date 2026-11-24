@@ -44,6 +44,8 @@ CALL_ERROR_OUT = -4
 # the Path property (the same codes pair with those names in every Property Node
 # of the VI class in the corpus).
 VI_CLASS = "VI"
+# The class a Property Node of the Application records as its object.
+APPLICATION_CLASS = "App"
 VI_NAME_PROPERTY_CODE = 500
 VI_PATH_PROPERTY_CODE = 501
 # The Execution:State property (NI: properties-and-methods/vi-server/vi/execstate.html):
@@ -509,6 +511,20 @@ def _input_at(node: AnyGraphNode, index: int) -> Terminal | None:
     return next(
         (t for t in node.terminals if t.direction == "input" and t.index == index),
         None,
+    )
+
+
+def is_on_application_reference(node: PrimitiveNode) -> bool:
+    """Whether ``node``, a Property Node, is on an Application reference: a node
+    whose heap class is ``App``, or whose reference input is a VI Server reference
+    of class Application (``ServerClass.APPLICATION``)."""
+    if node.object_name == APPLICATION_CLASS:
+        return True
+    reference = _input_at(node, _PROPERTY_REFERENCE_INDEX)
+    return (
+        reference is not None
+        and reference.lv_type is not None
+        and reference.lv_type.server_class is ServerClass.APPLICATION
     )
 
 

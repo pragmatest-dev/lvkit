@@ -80,8 +80,10 @@ from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..native_failure import labview_error
 from ..pane_candidates import CallForm, candidates
+from ..panels_application import APPLICATION_NAME
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
 from . import (
+    application_properties,
     front_panel_bounds,
     front_panel_title,
     method_call,
@@ -798,9 +800,10 @@ def vi_property_read(
     Window:Title its ``window_title`` (``front_panel_title``), Front Panel
     Window:Window Bounds its ``window_bounds`` as the cluster ``lv_type`` of the
     property's terminal (``front_panel_bounds``), and the properties the VI's file
-    records (Exec.IsReentrant, Exec.Priority, VI Type, Help:Document Web URL, Is
-    Clone VI, VI Clone Name) are its attributes of those names
-    (``vi_file_properties``).
+    records (Exec.IsReentrant, Exec.ReentrancyType, Exec.Priority, VI Type,
+    Help:Document Web URL, Is Clone VI, VI Clone Name) are its attributes of those
+    names (``vi_file_properties``), and Owning Application is the package's one
+    ``application`` (``application_properties``).
     None for a property of another class, or one with no such reading. The
     imports the read needs are added to ``ctx``."""
     if not is_on_vi_reference(node) or len(prop.segments) != 1:
@@ -813,6 +816,9 @@ def vi_property_read(
     if file_row is not None:
         return vi_file_properties.read(file_row, reference)
     code = prop.segments[0].code
+    if code == application_properties.OWNING_APP_PROPERTY_CODE:
+        ctx.import_panels(APPLICATION_NAME)
+        return application_properties.owning_app()
     if code == VI_NAME_PROPERTY_CODE:
         return parse_expr(f"{reference}.{VI_NAME_ATTRIBUTE}")
     if code == VI_PATH_PROPERTY_CODE:
