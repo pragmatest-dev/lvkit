@@ -1030,6 +1030,9 @@ class VIProperties:
     # ``models.VIKind``: "VI", "Global VI", "Control", "Polymorphic VI", or
     # "unknown (code N)" for a code that is not a known kind.
     vi_type: str | None = None
+    # The Documentation page's Help Website URL, from the ``HLPW`` block ('' when
+    # the VI records none).
+    help_url: str = ""
     lock_state: LockState = LockState.UNLOCKED
     execution: ExecutionProps = field(default_factory=ExecutionProps)
     window: WindowProps = field(default_factory=WindowProps)

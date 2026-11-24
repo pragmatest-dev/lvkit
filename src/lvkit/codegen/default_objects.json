@@ -41,6 +41,42 @@
         "imports": [],
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/isinpackedlibrary.html"
       },
+      "525": {
+        "name": "Execution:Is Reentrant",
+        "python": "{function}.is_reentrant",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/isreentrant.html"
+      },
+      "526": {
+        "name": "Execution:Priority",
+        "python": "{function}.priority",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/execpriority.html"
+      },
+      "562": {
+        "name": "VI Type",
+        "python": "{function}.vi_type",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/vitype.html"
+      },
+      "645": {
+        "name": "VI Clone Name",
+        "python": "{function}.clone_name",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/clonename.html"
+      },
+      "646": {
+        "name": "Is Clone VI",
+        "python": "{function}.is_reentrant",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/isclonevi.html"
+      },
+      "698": {
+        "name": "Help:Document Web URL",
+        "python": "{function}.help_url",
+        "imports": [],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/vi/helpdocumenturl.html"
+      },
       "545": {
         "name": "Callees' Names",
         "python": "[callee.vi_name for callee in {callees}]",

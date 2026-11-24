@@ -227,6 +227,7 @@ def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
     return VIProperties(
         lv_version=cast("str | None", poly_metadata.get("lv_version")),
         vi_type=cast("str | None", poly_metadata.get("vi_type")),
+        help_url=cast("str", poly_metadata.get("help_url", "")),
         lock_state=LockState(poly_metadata.get("lock_state", LockState.UNLOCKED.value)),
         execution=ExecutionProps(**execution),
         window=WindowProps(**window),

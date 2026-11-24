@@ -35,6 +35,7 @@ from . import (
     front_panel_title,
     own_window_properties,
     panel_reference,
+    vi_file_properties,
     vi_reference,
 )
 from .base import (
@@ -321,7 +322,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     reference's Name, Path, Description and Exec.State
     (``vi_reference.vi_property_read``), its Front Panel Window:Title (a read
     and a write: ``front_panel_title``), its Front Panel Window:Window Bounds
-    (``front_panel_bounds``) and the rows of the front panel's own
+    (``front_panel_bounds``), the properties its file records
+    (``vi_file_properties``, Help:Document Web URL also a write) and the rows of
+    the front panel's own
     references (``panel_reference``: Panel, Controls[], a control's Value,
     Indicator and Label.Text, and a write of a control's Value; and a Combo Box's
     Strings[], read and written through the panel); every other read,
@@ -436,9 +439,17 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             bounds = is_on_vi_reference(node) and front_panel_bounds.is_bounds_row(
                 prop
             )
+            file_row = (
+                vi_file_properties.file_property(prop)
+                if is_on_vi_reference(node)
+                else None
+            )
+            if file_row is not None and not file_row.writable:
+                file_row = None
             if (
                 not title
                 and not bounds
+                and file_row is None
                 and listed is None
                 and (row is None or not panel_reference.is_writable(row))
             ):
@@ -451,6 +462,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     panel_reference.write_property(listed, ref_var, value, ctx)
                 )
                 panel_read = True
+                continue
+            if file_row is not None:
+                statements.append(vi_file_properties.write(file_row, ref_var, value))
                 continue
             if title:
                 statements.append(front_panel_title.write(ref_var, value))

@@ -81,7 +81,14 @@ from ..import_resolver import ImportResolver
 from ..native_failure import labview_error
 from ..pane_candidates import CallForm, candidates
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
-from . import front_panel_bounds, front_panel_title, method_call, primitive, subvi
+from . import (
+    front_panel_bounds,
+    front_panel_title,
+    method_call,
+    primitive,
+    subvi,
+    vi_file_properties,
+)
 from .call_chain import VI_NAME_ATTRIBUTE
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
@@ -783,7 +790,10 @@ def vi_property_read(
     (``Panel.state``: 1 Idle, 2 Run top level while it runs), Front Panel
     Window:Title its ``window_title`` (``front_panel_title``), Front Panel
     Window:Window Bounds its ``window_bounds`` as the cluster ``lv_type`` of the
-    property's terminal (``front_panel_bounds``).
+    property's terminal (``front_panel_bounds``), and the properties the VI's file
+    records (Exec.IsReentrant, Exec.Priority, VI Type, Help:Document Web URL, Is
+    Clone VI, VI Clone Name) are its attributes of those names
+    (``vi_file_properties``).
     None for a property of another class, or one with no such reading. The
     imports the read needs are added to ``ctx``."""
     if not is_on_vi_reference(node) or len(prop.segments) != 1:
@@ -792,6 +802,9 @@ def vi_property_read(
         return front_panel_title.read(reference)
     if front_panel_bounds.is_bounds_row(prop):
         return front_panel_bounds.read(reference, lv_type, node, ctx)
+    file_row = vi_file_properties.file_property(prop)
+    if file_row is not None:
+        return vi_file_properties.read(file_row, reference)
     code = prop.segments[0].code
     if code == VI_NAME_PROPERTY_CODE:
         return parse_expr(f"{reference}.{VI_NAME_ATTRIBUTE}")

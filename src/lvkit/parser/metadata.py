@@ -30,6 +30,7 @@ from .link_table import (
     unwrap_link_names,
 )
 from .models import ParsedDependencyRef
+from .td_pool import block_sidecar_path
 from .type_resolution import parse_typedef_refs
 from .utils import clean_labview_string
 
@@ -213,6 +214,8 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     if hlpt is not None and hlpt.text:
         metadata["help_tag"] = hlpt.text
 
+    metadata["help_url"] = _help_url(root, xml_path)
+
     # User-settable VI Properties (Protection/Execution/…) from <LVSR>.
     metadata.update(_parse_lvsr_properties(root))
 
@@ -227,6 +230,21 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
         metadata["poly_selectors"] = poly_info["selectors"]
 
     return metadata
+
+
+def _help_url(root: ET.Element, xml_path: Path | str) -> str:
+    """The VI's Help Website URL (the Documentation page's web address for its
+    help), the ``HLPW`` block: a 4-byte big-endian length and that many bytes of
+    text, in the raw ``*_HLPW.bin`` sidecar beside the main XML (a block pylabview
+    leaves undecoded). A VI that records none has an empty block, and gives ''."""
+    sidecar = block_sidecar_path(xml_path, "HLPW")
+    if not sidecar.exists():
+        return ""
+    data = sidecar.read_bytes()
+    if len(data) < 4:
+        return ""
+    (length,) = struct.unpack(">I", data[:4])
+    return decode_labview_text(data[4 : 4 + length], xml_text_encoding(root))
 
 
 def _bool_attr(elem: ET.Element | None, attr: str) -> bool:
