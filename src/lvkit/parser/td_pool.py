@@ -503,6 +503,24 @@ def _read_class_items(body: bytes, old_field: bool) -> tuple[list[str], int]:
     return items, end + ((total + 1) % 2)
 
 
+def class_refnum_body(items: list[str], old_field: bool = False) -> bytes:
+    """The body of a class refnum descriptor naming the class ``items`` (the parts
+    of its qualified name): the layout ``_read_class_items`` reads, written as
+    pylabview writes a multi-item name: the 2-byte kind, a 2-byte field of zero,
+    (``old_field``) the old 4-byte field, a length byte covering the parts, each
+    part behind its own length byte, a zero length that ends them, and a pad byte
+    that makes the whole an even size."""
+    raw = [item.encode("latin1") for item in items]
+    total = sum(1 + len(part) for part in raw) + 1
+    if total > 0xFF:
+        raise PoolError("a class name is longer than 255 bytes")
+    body = struct.pack(">HH", REFNUM_TYPE.UDClassInst, 0)
+    if old_field:
+        body += bytes(_CLASS_REFNUM_OLD_FIELD_BYTES)
+    body += bytes([total]) + b"".join(bytes([len(p)]) + p for p in raw) + b"\x00"
+    return body + bytes((total + 1) % 2)
+
+
 def _control_reference_end(body: bytes) -> int:
     """Where a control reference's body ends: the kind, a client count and that
     many client indexes, a flags word, a has-item word and, when it has an item,

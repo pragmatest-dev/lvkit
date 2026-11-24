@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
 from lvkit.type_string import TypeStringError, decode, encode
+from tests.corpus_graphs import load_corpus_vi
 from tests.native_vi import array, scalar
 
 I16 = scalar("NumInt16")
@@ -239,3 +242,96 @@ def test_names_round_trip_through_decode() -> None:
     ]
     assert (decoded.fields or [])[3].labelled is False
     assert encode(decoded) == encode(original)
+
+
+def class_type(qualified: str) -> LVType:
+    return LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
+        classname=qualified,
+        class_file=qualified.split(":")[-1],
+    )
+
+
+# A class refnum as the VI file stores it (kind 30, field 0, the length of the name
+# parts, each part behind its length, a zero length, no pad byte for 19):
+# ``TestSuite.lvclass`` in JKI VI Tester's Set Front Panel TestSuite Object Control
+# Value.vi.
+TEST_SUITE_WORDS = words(
+    0x001C, 0x0070, 0x001E, 0x0000, 0x1311, 0x5465, 0x7374, 0x5375, 0x6974,
+    0x652E, 0x6C76, 0x636C, 0x6173, 0x7300,
+)  # fmt: skip
+
+
+def test_a_class_is_the_descriptor_a_vi_file_stores_for_its_refnum() -> None:
+    assert encode(class_type("TestSuite.lvclass")) == TEST_SUITE_WORDS
+
+
+def test_decode_reads_a_class_back() -> None:
+    decoded = decode(TEST_SUITE_WORDS)
+    assert decoded.ref_type == "UDClassInst"
+    assert decoded.classname == "TestSuite.lvclass"
+    assert decoded.class_file == "TestSuite.lvclass"
+
+
+@pytest.mark.parametrize(
+    "qualified",
+    [
+        "TestSuite.lvclass",
+        "Lib.lvlib:Thing.lvclass",
+        "Outer.lvlib:Inner.lvlib:Deep.lvclass",
+        "A.lvclass",
+    ],
+)
+def test_a_class_round_trips_with_its_qualified_name(qualified: str) -> None:
+    original = class_type(qualified)
+    decoded = decode(encode(original))
+    assert decoded.classname == qualified
+    assert encode(decoded) == encode(original)
+    named = encode(original, "reference in")
+    assert named[1] == 0x4070
+    assert encode(decode(named), "reference in") == named
+
+
+def test_a_class_member_of_a_cluster_round_trips() -> None:
+    original = cluster(class_type("Lib.lvlib:Thing.lvclass"), I32)
+    decoded = decode(encode(original))
+    assert (decoded.fields or [])[0].type.classname == "Lib.lvlib:Thing.lvclass"
+    assert encode(decoded) == encode(original)
+
+
+def test_a_refnum_that_is_not_a_class_has_no_type_string() -> None:
+    queue = LVType(
+        kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="Queue"
+    )
+    with pytest.raises(TypeStringError):
+        encode(queue)
+    with pytest.raises(TypeStringError):
+        encode(
+            LVType(
+                kind=LVTypeKind.PRIMITIVE,
+                underlying_type="Refnum",
+                ref_type="UDClassInst",
+            )
+        )
+
+
+@pytest.mark.needs_samples
+def test_the_class_constant_of_a_corpus_vi_has_the_stored_descriptor() -> None:
+    path = Path(
+        ".lvkit/cache/samples/JKI-VI-Tester/source/Utilities/"
+        "Set Front Panel TestSuite Object Control Value.vi"
+    )
+    graph, key = load_corpus_vi(path.resolve())
+    classes = [
+        terminal.lv_type
+        for node in graph.iter_nodes(key)
+        for terminal in getattr(node, "terminals", [])
+        if terminal.lv_type is not None
+        and terminal.lv_type.ref_type == "UDClassInst"
+        and terminal.lv_type.classname == "TestSuite.lvclass"
+    ]
+    assert classes
+    assert encode(classes[0]) == TEST_SUITE_WORDS
+    assert decode(TEST_SUITE_WORDS).classname == classes[0].classname
