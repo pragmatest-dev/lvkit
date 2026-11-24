@@ -1808,7 +1808,7 @@ class LoadingMixin:
             # GUID; the file it is an instance of is what the call is to.
             # An Express VI is saved as a VI of its own stored in the caller: its
             # dialog settings are the saved values of that VI's controls, and a
-            # call of it runs it (``wrapper_files``).
+            # call of it runs it (``copy_files``).
             embedded = read_instances(
                 main_xml.parent,
                 metadata.instance_files,
@@ -1816,12 +1816,12 @@ class LoadingMixin:
                 self.vilib_catalog.writes_code,
             )
             instance_sources = embedded.sources
-            wrapper_files = embedded.wrappers
+            copy_files = embedded.copies
             instance_defaults = read_instance_defaults(
                 main_xml.parent,
                 metadata.instance_files,
                 self.cache_roots,
-                skip=wrapper_files,
+                skip=copy_files,
             )
 
             # Sorted: dependency load ORDER decides which same-named candidate
@@ -1836,17 +1836,17 @@ class LoadingMixin:
                 caller_file,
             )
             for qname in sorted(all_dep_qnames):
-                wrapper_file = wrapper_files.get(qname.rsplit(":", 1)[-1])
-                if wrapper_file is not None:
-                    wrapper_key = self._load_wrapper_instance(
+                copy_file = copy_files.get(qname.rsplit(":", 1)[-1])
+                if copy_file is not None:
+                    copy_key = self._load_embedded_copy(
                         qname,
-                        wrapper_file,
+                        copy_file,
                         caller_file,
                         caller_qname=vi_key,
                         mode=mode,
                     )
-                    if wrapper_key is not None:
-                        dep_keys[qname] = wrapper_key
+                    if copy_key is not None:
+                        dep_keys[qname] = copy_key
                     continue
                 instance_source = instance_sources.get(qname.rsplit(":", 1)[-1])
                 if instance_source is not None:
@@ -2361,7 +2361,7 @@ class LoadingMixin:
         cand = redirect_member_beside_container(cand, leaf)
         return cand.resolve()
 
-    def _load_wrapper_instance(
+    def _load_embedded_copy(
         self,
         qualified_name: str,
         bytes_file: Path,

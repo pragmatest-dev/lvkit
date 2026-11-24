@@ -184,7 +184,7 @@ class RenderNode:
     # caller, ``graph.is_embedded_copy``): its box shows no setting, so the
     # drawing adds a caption with the copy's own outputs, which carry the
     # units (output name) and counter size (output type) the dialog saved.
-    saved_copy: bool = False
+    embedded_copy: bool = False
 
 
 @dataclass(frozen=True)
@@ -1981,7 +1981,7 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                     frame_path=fp_path,
                     owned_label=owned_label,
                     subvi_rel=subvi_rel,
-                    saved_copy=(
+                    embedded_copy=(
                         isinstance(node, VINode)
                         and node.callee_key is not None
                         and graph.is_embedded_copy(node.callee_key)

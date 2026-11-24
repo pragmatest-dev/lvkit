@@ -283,3 +283,19 @@ def test_a_method_stub_of_a_known_class_is_named_by_the_class(project: Path) -> 
         class_member=(str(cls), "Do.vi"),
     )  # fmt: skip
     assert graph.key_label(key) == "Classes/Thing.lvclass:Do.vi"
+
+
+def test_an_express_vi_copy_is_named_by_its_qualified_name_not_a_path(
+    project: Path,
+) -> None:
+    """The copy of an Express VI stored in its caller is identified as
+    ``<caller file>/<name>.vi``, which is no file; a view names it as describe
+    does, so no path that exists nowhere is shown."""
+    graph = _graph(project)
+    copy = project / "Caller.vi" / "0.vi"
+    key = str(copy.resolve())
+    graph._embedded_copies[copy.resolve()] = project / "bytes.vi"  # noqa: SLF001
+    graph._vi_display_names[key] = "Caller.vi:Instance:0.vi"  # noqa: SLF001
+    assert graph.key_label(key) == "Caller.vi:Instance:0.vi"
+    # A file is still shown as the path.
+    assert graph.key_label(str((project / "Other.vi").resolve())) == "Other.vi"

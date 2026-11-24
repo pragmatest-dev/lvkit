@@ -445,9 +445,9 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
 
     # An Express VI's saved copy: one line per output of the copy, under the
     # name when the name is drawn there.
-    if node.saved_copy and isinstance(node.node, VINode):
+    if node.embedded_copy and isinstance(node.node, VINode):
         x1, _, x2, _ = node.bounds
-        for line in _saved_copy_caption(node.node):
+        for line in _embedded_copy_caption(node.node):
             backend.text((x1 + x2) / 2, below, line, 8.0, fill=theme.text)
             below += _CAPTION_LINE_H
 
@@ -461,7 +461,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
 _CAPTION_LINE_H = 10.0  # spacing of the text lines drawn under a call's box
 
 
-def _saved_copy_caption(node: VINode) -> list[str]:
+def _embedded_copy_caption(node: VINode) -> list[str]:
     """The caption lines under the call of an Express VI's saved copy: each
     output of the copy as ``label: type`` in connector-pane order, the same text
     the hover lists (``_terminal_text``). Empty when the copy has no informative

@@ -223,7 +223,7 @@ def _iuvi(names: list[str], tokens: list[str]) -> str:
     )
 
 
-_WRAPPER_XML = """<?xml version='1.0' encoding='utf-8'?>
+_COPY_XML = """<?xml version='1.0' encoding='utf-8'?>
 <RSRC Type="LVIN">
   <LVSR><Section Index="0" Name="{name}">
     <Version Major="21" Minor="0" Bugfix="0" Stage="release" Build="0" />
@@ -238,26 +238,26 @@ _WRAPPER_XML = """<?xml version='1.0' encoding='utf-8'?>
 _SHARED = ["vilib", "express", "rvi", "timingcommon", "nirviCommon.vi"]
 
 
-def test_instance_whose_diagram_calls_its_source_is_a_wrapper(
+def test_instance_whose_diagram_calls_its_source_is_an_embedded_copy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     files = _caller(tmp_path, ["0", "aaaa.vi", "1"])
     source = _vivi(["nirviCommon.vi"], _SHARED)
     instance_xmls = {
         # An Express VI's copy: its diagram calls the VI it is an instance of.
-        "vi_VINS1.bin": _WRAPPER_XML.format(
+        "vi_VINS1.bin": _COPY_XML.format(
             name="0",
             links=source + _IVOV,
             calls=_iuvi(["nirviCommon.vi"], _SHARED),
         ),
         # A malleable VI's copy: its diagram calls other VIs, not its source.
-        "vi_VINS2.bin": _WRAPPER_XML.format(
+        "vi_VINS2.bin": _COPY_XML.format(
             name="aaaa.vi",
             links=_IVOV + _vivi(["Adapt.vim"], ["", "", "Adapt.vim"]),
             calls=_iuvi(["Dep.vi"], ["", "", "Dep.vi"]),
         ),
         # The same file name at another path is another VI.
-        "vi_VINS3.bin": _WRAPPER_XML.format(
+        "vi_VINS3.bin": _COPY_XML.format(
             name="1",
             links=source + _IVOV,
             calls=_iuvi(["nirviCommon.vi"], ["", "Other", "nirviCommon.vi"]),
@@ -273,8 +273,8 @@ def test_instance_whose_diagram_calls_its_source_is_a_wrapper(
 
     found = read_instances(tmp_path, files, LibraryRoots())
 
-    assert found.wrappers == {"0": tmp_path / "vi_VINS1.bin"}
-    # A wrapper is the VI that runs, so it is no instance of its source.
+    assert found.copies == {"0": tmp_path / "vi_VINS1.bin"}
+    # An embedded copy is the VI that runs, so it is no instance of its source.
     assert sorted(found.sources) == ["1", "aaaa.vi"]
 
 
@@ -284,7 +284,7 @@ def test_instance_of_a_catalog_vi_is_read_as_that_vi_even_when_it_calls_it(
     files = _caller(tmp_path, ["0"])
     xml = tmp_path / "instance.xml"
     xml.write_text(
-        _WRAPPER_XML.format(
+        _COPY_XML.format(
             name="0",
             links=_vivi(["nirviCommon.vi"], _SHARED) + _IVOV,
             calls=_iuvi(["nirviCommon.vi"], _SHARED),
@@ -302,7 +302,7 @@ def test_instance_of_a_catalog_vi_is_read_as_that_vi_even_when_it_calls_it(
 
     found = read_instances(tmp_path, files, LibraryRoots(), catalog_python)
 
-    assert found.wrappers == {}
+    assert found.copies == {}
     assert list(found.sources) == ["0"]
     assert asked == ["vilib/express/rvi/timingcommon/nirviCommon.vi"]
 

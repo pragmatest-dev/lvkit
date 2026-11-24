@@ -118,6 +118,8 @@ class LoadProblemsMixin:
     if TYPE_CHECKING:
 
         def recorded_path(self, key: str) -> str | None: ...
+        def is_embedded_copy(self, key: str) -> bool: ...
+        def vi_display_name(self, vi_name: str) -> str: ...
         def load_vi(
             self,
             vi_path: Path | str,
@@ -142,11 +144,14 @@ class LoadProblemsMixin:
         return self.run_settings.label(path, self.recorded_path(str(path)))
 
     def key_label(self, key: str) -> str:
-        """How a user sees a graph key: a file path as ``vi_label`` shows it; a
-        method of a class whose file is known but undetermined
+        """How a user sees a graph key: a file path as ``vi_label`` shows it; an
+        Express VI's copy stored in its caller (not a file) by its qualified name;
+        a method of a class whose file is known but undetermined
         (``CLASS_MEMBER_ATTR``) as the class's label and the method's file name;
         another VI that is not a file (a class method no class lists) by the
         qualified name recorded for it, else the key as it is."""
+        if self.is_embedded_copy(key):
+            return self.vi_display_name(key)
         if Path(key).is_absolute():
             return self.vi_label(key)
         if key in self._dep_graph:

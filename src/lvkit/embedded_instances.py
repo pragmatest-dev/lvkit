@@ -84,12 +84,12 @@ def _strings(link: ET.Element, tag: str) -> tuple[str, ...]:
     return tuple(s.text or "" for s in link.findall(f"{tag}/String"))
 
 
-def _is_wrapper(
+def _is_embedded_copy(
     instance_xml: Path,
     link: InstanceSourceLink,
     catalog_python: Callable[[str], bool] | None,
 ) -> bool:
-    """Whether the instance is a wrapper: its own block diagram calls the VI it
+    """Whether the instance is a VI of its own: its own block diagram calls the VI it
     is an instance of (an ``IUVI`` record naming the same file as its source
     link), so it has a diagram and front panel of its own, as an Express VI's
     copy does, and a call to it runs that diagram, not the source. An instance
@@ -97,7 +97,7 @@ def _is_wrapper(
     not one. A source VI the catalog writes the code of (``catalog_python``,
     given the source's recorded path) is called through that code, with the
     settings the instance saves; so a catalog entry added later for a source
-    whose copy is read as a wrapper today makes its calls use the catalog."""
+    whose copy is read as an embedded copy today makes its calls use the catalog."""
     if catalog_python is not None and catalog_python("/".join(link.path_tokens)):
         return False
     root = parsed_xml(instance_xml)
@@ -135,12 +135,12 @@ class EmbeddedInstances:
     keyed by the instance's own name.
 
     ``sources``: a malleable VI's copy, with the VI it is an instance of; a call
-    of it is a call of that VI. ``wrappers``: the copy of an Express VI whose own
+    of it is a call of that VI. ``copies``: the copy of an Express VI whose own
     diagram calls the VI it is an instance of, with the file holding its bytes;
     a call of it runs the copy, a VI of its own stored inside the caller."""
 
     sources: dict[str, ParsedDependencyRef] = field(default_factory=dict)
-    wrappers: dict[str, Path] = field(default_factory=dict)
+    copies: dict[str, Path] = field(default_factory=dict)
 
 
 def read_instances(
@@ -157,7 +157,7 @@ def read_instances(
 
     ``catalog_python`` says, for the recorded path of a source VI, whether the
     vi.lib catalog writes the code for it: an instance of such a VI is a source,
-    even when its own diagram calls it (see ``_is_wrapper``).
+    even when its own diagram calls it (see ``_is_embedded_copy``).
 
     ``instance_files`` are the caller's ``VINS`` sidecar files
     (``ParsedVIMetadata.instance_files``: the name list, then one file per
@@ -178,8 +178,8 @@ def read_instances(
             continue
         if link is None or not link.name_parts or not link.path_tokens:
             continue
-        if _is_wrapper(instance_xml, link, catalog_python):
-            found.wrappers[name] = directory / file_name
+        if _is_embedded_copy(instance_xml, link, catalog_python):
+            found.copies[name] = directory / file_name
             continue
         # The instance's path is <caller>/<instance>, one level below the
         # caller's: one leading empty token (one level up) is consumed.
