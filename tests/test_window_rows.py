@@ -14,7 +14,13 @@ from typing import Any
 import pytest
 
 from lvkit.codegen.gaps import Gap
-from lvkit.graph.models import GraphNode, VIContext
+from lvkit.graph.models import (
+    GraphNode,
+    VIContext,
+    VIProperties,
+    WindowBehavior,
+    WindowProps,
+)
 from lvkit.models import ClusterField, LVType, LVTypeKind
 from tests.class_graphs import INT, Project, Recipe, pane, wire
 from tests.live_io_recorder import Recorder
@@ -250,6 +256,34 @@ def test_a_held_row_reads_its_default_then_the_last_write(
         assert as_value(own(w1=value).r0) == written
         expected = [] if tell is None else [(tell, written)]
         assert without_writes(recorder) == expected
+
+
+@pytest.mark.parametrize(
+    ("behavior", "number"),
+    [
+        (WindowBehavior.DEFAULT, 1),
+        (WindowBehavior.FLOATING, 2),
+        (WindowBehavior.FLOATING_AUTO_HIDE, 3),
+        (WindowBehavior.MODAL, 4),
+    ],
+)
+def test_behavior_starts_at_the_window_behavior_the_file_saves(
+    tmp_path: Path, behavior: WindowBehavior, number: int
+) -> None:
+    project = Project(tmp_path)
+    key = project.add_vi(
+        "Own", window_vi([(BEHAVIOR, "r", INT), (BEHAVIOR, "w", INT)], None)
+    )
+    project.graph._vi_properties[key] = VIProperties(  # noqa: SLF001
+        window=WindowProps(behavior=behavior)
+    )
+    package = project.generate()
+    assert package.gaps == []
+    with package.use() as module:
+        own = module("own").own
+        assert own.window_behavior == number
+        assert own(w1=4).r0 == number
+        assert own.panel.window_value("behavior", None) == 4
 
 
 def test_custom_title_reads_whether_the_title_differs_and_false_removes_it(

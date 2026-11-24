@@ -839,6 +839,23 @@ class Reentrancy(Enum):
     PREALLOCATED_CLONE = "preallocated_clone"
 
 
+class WindowBehavior(Enum):
+    """VI Properties -> Window Appearance -> Customize -> Window Behavior (the
+    ``<Flags12>`` bits ``WndBit0``, ``WndFloatUnk1``, ``WndFloatUnk9`` and
+    ``WndBit10`` of the LVSR block; NI's Front Panel Window:Behavior names the
+    values: 1 Default, 2 Floating, 3 Floating/Auto-Hide, 4 Modal).
+
+    Derived by ``parser.metadata._window_behavior``: ``WndBit0`` set -> modal;
+    else both float bits set -> floating, and auto-hide with ``WndBit10``; else
+    default. See ``docs/_internal/design/labview-binary-format.md``.
+    """
+
+    DEFAULT = "default"
+    FLOATING = "floating"
+    FLOATING_AUTO_HIDE = "floating_auto_hide"
+    MODAL = "modal"
+
+
 class ExecSystem(Enum):
     """VI Properties -> Execution -> Preferred execution system (the LVSR
     ``PrefExecSyst`` attribute, NI-doc + corpus verified).
@@ -940,6 +957,7 @@ class WindowProps:
     can_resize: bool = False  # WndCanResize (<Flags12>)
     can_minimize: bool = False  # WndCanMinimize (<Flags12>)
     transparent: bool = False  # WndTransparent (<Flags12>)
+    behavior: WindowBehavior = WindowBehavior.DEFAULT  # <Flags12>, see the enum
 
 
 @dataclass
@@ -1097,7 +1115,8 @@ def vi_properties_to_dict(p: VIProperties) -> dict:
     (``execution``/``window``/``toolbar``/``instance``/``kind``, each a
     faithful ``dataclasses.asdict`` -- they have no nested Enum/dataclass
     fields of their own EXCEPT ``execution``'s ``priority``/``reentrancy``/
-    ``exec_system`` and ``kind``'s ``typedef_status``), with every Enum field
+    ``exec_system``, ``window``'s ``behavior`` and ``kind``'s
+    ``typedef_status``), with every Enum field
     (``lock_state`` plus those four) unwrapped to its string value
     (``dataclasses.asdict`` alone wouldn't convert them). The ONE converter
     both the render viewer's SVG data attrs (``render/__init__.py``'s
@@ -1109,6 +1128,7 @@ def vi_properties_to_dict(p: VIProperties) -> dict:
     d["execution"]["priority"] = p.execution.priority.value
     d["execution"]["reentrancy"] = p.execution.reentrancy.value
     d["execution"]["exec_system"] = p.execution.exec_system.value
+    d["window"]["behavior"] = p.window.behavior.value
     d["kind"]["typedef_status"] = p.kind.typedef_status.value
     return d
 

@@ -21,6 +21,10 @@ VI is running: Yes"; the others are "No", so a write stays a gap).
   ``NotImplementedError`` naming the VI (``read_guard``). The property is not
   settable while the VI runs ("Settable when the VI is running: No"), so a write
   stays a gap.
+- ``window_behavior``: the Window Behavior of the VI's front panel window as NI's
+  number (fpbehavior.html), read from the file's window flags
+  (``WindowProps.behavior``); the starting value of Front Panel Window:Behavior
+  (``window_rows``), which a write then changes on the panel.
 - ``priority``: NI's number, 1 background, 2 normal, 3 above normal, 4 high,
   5 time critical, 6 subroutine (execpriority.html).
 - ``vi_type``: NI's number (vitype.html), set on every function. NI's list is
@@ -50,7 +54,7 @@ import ast
 from dataclasses import dataclass
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import Priority, Reentrancy
+from lvkit.graph.models import Priority, Reentrancy, WindowBehavior
 from lvkit.models import PropertyDef, VIKind
 
 from ..ast_utils import parse_expr, parse_stmt
@@ -64,6 +68,7 @@ CLONE_NAME_ERROR_CODE = GENERIC_ERROR_CODE
 IS_REENTRANT_ATTRIBUTE = "is_reentrant"
 PRIORITY_ATTRIBUTE = "priority"
 REENTRANCY_TYPE_ATTRIBUTE = "reentrancy_type"
+WINDOW_BEHAVIOR_ATTRIBUTE = "window_behavior"
 VI_TYPE_ATTRIBUTE = "vi_type"
 HELP_URL_ATTRIBUTE = "help_url"
 CLONE_NAME_ATTRIBUTE = "clone_name"
@@ -76,6 +81,15 @@ _PRIORITY_NUMBER = {
     Priority.HIGH: 4,
     Priority.TIME_CRITICAL: 5,
     Priority.SUBROUTINE: 6,
+}
+
+# NI's value of each Window Behavior (fpbehavior.html: 1 Default, 2 Floating, 3
+# Floating/Auto-Hide, 4 Modal).
+_WINDOW_BEHAVIOR_NUMBER = {
+    WindowBehavior.DEFAULT: 1,
+    WindowBehavior.FLOATING: 2,
+    WindowBehavior.FLOATING_AUTO_HIDE: 3,
+    WindowBehavior.MODAL: 4,
 }
 
 # NI's value of each type of reentrancy (reentrancytype.html).
@@ -200,6 +214,16 @@ def vi_file_property_statements(
             ast.Constant(value=_REENTRANCY_TYPE_NUMBER.get(reentrancy)),
         ),
         (PRIORITY_ATTRIBUTE, ast.Constant(value=_PRIORITY_NUMBER[priority])),
+        (
+            WINDOW_BEHAVIOR_ATTRIBUTE,
+            ast.Constant(
+                value=_WINDOW_BEHAVIOR_NUMBER[
+                    WindowBehavior.DEFAULT
+                    if properties is None
+                    else properties.window.behavior
+                ]
+            ),
+        ),
     ]
     kind = None if properties is None else _vi_kind(properties.vi_type)
     if kind is None:

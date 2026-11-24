@@ -25,10 +25,12 @@ VI alike:
   Monitor (``vi/fpmonitor.html``, 0 the primary monitor), Behavior
   (``vi/fpbehavior.html``, 1 Default) and Edit Mode On Open (``vi/editmode.html``):
   the last value written (``window_value``), else the file's: Panel Bounds is the
-  rectangle the file saves for the window (``function.window_bounds``); the file
-  stores no Origin, Monitor, Behavior or Edit Mode that lvkit decodes, so a read
-  before a write is the default of each (Origin (0, 0), Monitor 0, Behavior 1, Edit
-  Mode FALSE, a VI opened to run).
+  rectangle the file saves for the window (``function.window_bounds``) and Behavior
+  is the Window Behavior the file's window flags save (``function.window_behavior``,
+  NI's number; ``vi_file_properties``). No field of the VI's file holds a Monitor or
+  an Edit Mode On Open (``docs/_internal/design/labview-binary-format.md``), so a
+  read of those before a write, and of Origin, is the default of each (Origin
+  (0, 0), Monitor 0 the primary monitor, Edit Mode FALSE, a VI opened to run).
 - Custom Title (``vi/fpwincustomtitle.html``): "Indicates whether the VI has a
   custom title string. Write FALSE to remove the custom title string": a read is
   whether ``function.window_title`` differs from the VI's name, and FALSE written
@@ -65,6 +67,7 @@ from ..ast_utils import LIVE_IO, parse_expr, parse_stmt
 from ..context import CodeGenContext
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
 from . import front_panel_bounds, front_panel_title
+from .vi_file_properties import WINDOW_BEHAVIOR_ATTRIBUTE
 
 _STATE_CLOSED = 2
 _BOUNDS_ELEMENTS = 4
@@ -110,11 +113,14 @@ def _live(target: Target, call: str) -> list[ast.stmt]:
 def _held_value(
     name: str, member: str, default: str, live_method: str | None
 ) -> WindowRow:
-    """A row that holds a number or flag the panel keeps (``window_value``)."""
+    """A row that holds a number or flag the panel keeps (``window_value``);
+    ``default`` is the expression of a read before any write, with ``{function}``
+    the VI's function."""
     code = _CODES[name]
 
     def read(target: Target) -> ast.expr:
-        return parse_expr(f'{target.panel}.window_value("{member}", {default})')
+        held = default.format(function=target.function)
+        return parse_expr(f'{target.panel}.window_value("{member}", {held})')
 
     def write(target: Target, value: str) -> list[ast.stmt]:
         statements = [
@@ -250,7 +256,12 @@ ROWS: tuple[WindowRow, ...] = (
     ),
     _cluster_value("Origin", "origin", "(0, 0)", _ORIGIN_ELEMENTS, "set_panel_origin"),
     _held_value("Monitor", "monitor", "0", "set_window_monitor"),
-    _held_value("Behavior", "behavior", "1", "set_window_behavior"),
+    _held_value(
+        "Behavior",
+        "behavior",
+        f'getattr({{function}}, "{WINDOW_BEHAVIOR_ATTRIBUTE}", 1)',
+        "set_window_behavior",
+    ),
     WindowRow(
         _CODES["Custom Title"],
         "Custom Title",
