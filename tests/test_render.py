@@ -4451,25 +4451,34 @@ def test_string_constant_has_full_text_tooltip():
     assert f"<title>{full}</title>" in svg
 
 
-def _express_call(saved_copy: bool):
+def _express_call(saved_copy: bool, glyph=None, outputs=("Tick Count(uSec)",)):
     from lvkit.graph.models import VINode
     from lvkit.models import Terminal
     from lvkit.render.glyph import WrappedBoxGlyph
     from lvkit.render.scene import RenderNode
 
-    out = Terminal(
-        id="t0",
-        index=0,
-        direction="output",
-        name="Tick Count(uSec)",
-        lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt8"),
-    )
+    terminals = [
+        Terminal(
+            id=f"t{i}",
+            index=i,
+            direction="output",
+            name=name,
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt8"),
+        )
+        for i, name in enumerate(outputs)
+    ]
     return RenderNode(
-        node=VINode(id="n1", vi_path="v", name="Tick Count", terminals=[out]),
+        node=VINode(id="n1", vi_path="v", name="Tick Count", terminals=terminals),
         bounds=(0.0, 0.0, 30.0, 30.0),
-        glyph=WrappedBoxGlyph("Tick Count"),
+        glyph=glyph or WrappedBoxGlyph("Tick Count"),
         saved_copy=saved_copy,
     )
+
+
+def _text_y(svg: str, text: str) -> float:
+    match = re.search(rf'<text [^>]*y="([\d.]+)"[^>]*>{re.escape(text)}</text>', svg)
+    assert match, f"no <text> reading {text!r} in {svg}"
+    return float(match.group(1))
 
 
 def test_call_of_an_express_vi_copy_is_captioned_with_its_outputs():
@@ -4479,6 +4488,24 @@ def test_call_of_an_express_vi_copy_is_captioned_with_its_outputs():
     b = SvgBackend()
     draw_node(_express_call(saved_copy=True), b)
     assert ">Tick Count(uSec): U8</text>" in b.render((0.0, 0.0, 120.0, 60.0))
+
+
+def test_caption_goes_under_the_name_label_when_the_name_is_drawn_below():
+    """A call whose box does not carry its name draws the name below it; the
+    caption starts under that, never on top of it."""
+    from lvkit.render.glyph import ArithGlyph
+
+    b = SvgBackend()
+    draw_node(_express_call(saved_copy=True, glyph=ArithGlyph("+")), b)
+    svg = b.render((0.0, 0.0, 120.0, 80.0))
+    assert _text_y(svg, "Tick Count(uSec): U8") > _text_y(svg, "Tick Count")
+
+
+def test_caption_lists_each_output_on_its_own_line():
+    b = SvgBackend()
+    draw_node(_express_call(saved_copy=True, outputs=("a", "b")), b)
+    svg = b.render((0.0, 0.0, 120.0, 80.0))
+    assert _text_y(svg, "b: U8") > _text_y(svg, "a: U8")
 
 
 def test_call_of_another_vi_gets_no_caption():
