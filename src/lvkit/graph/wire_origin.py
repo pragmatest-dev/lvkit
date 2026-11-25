@@ -14,7 +14,7 @@ import posixpath
 from typing import TYPE_CHECKING
 
 from ..path_value import path_text
-from .models import AnyGraphNode, ConstantNode, PrimitiveNode
+from .models import AnyGraphNode, ConstantNode, PrimitiveNode, StructureNode
 
 if TYPE_CHECKING:
     from ..models import Terminal
@@ -66,7 +66,7 @@ class WireOriginMixin:
             node = self._get_typed_node(source.node_id)
             if node is None:
                 continue
-            if node.kind == "structure":
+            if isinstance(node, StructureNode):
                 origins.extend(self.wire_origins(source.terminal_id, seen))
             else:
                 origins.append((node, source))
@@ -86,7 +86,7 @@ class WireOriginMixin:
             node = self._get_typed_node(dest.node_id)
             if node is None:
                 continue
-            if node.kind == "structure":
+            if isinstance(node, StructureNode):
                 destinations.extend(self.wire_destinations(dest.terminal_id, seen))
             else:
                 destinations.append((node, dest))
