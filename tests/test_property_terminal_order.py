@@ -271,7 +271,41 @@ def test_wired_error_terminals_are_skipped():
     connect(ctx, "error_out", "output")
     fragment = property_node.generate(node, ctx)
     assert "error_out" not in fragment.bindings
-    assert len(fragment.statements) == 2
+    # a wired error out reports a reference that is no VI (error 1026), so the
+    # two reads run in one ``try`` instead of two bare statements
+    [attempt] = fragment.statements
+    assert isinstance(attempt, ast.Try)
+    assert len(attempt.body) == 4
+
+
+class _LabVIEWError(Exception):
+    def __init__(self, *, code, source, message):
+        super().__init__(message)
+        self.code, self.source, self.message = code, source, message
+
+
+@pytest.mark.parametrize("rows", [[("Name", "output")], [("Path", "output")]])
+@pytest.mark.parametrize("flattened", [None, 7])
+def test_a_vi_property_read_of_a_reference_that_is_no_vi_is_error_1026(
+    rows, flattened
+):
+    """Not a Refnum (``None``) and a reference read back from its flattened
+    number (an int) hold no VI: the read gives its default and error 1026 on the
+    error out."""
+    node, ctx, namespace = vi_fixture(rows)
+    connect(ctx, "error_in", "input")
+    ctx.bind("peer_error_in", "error")
+    connect(ctx, "error_out", "output")
+    namespace.update(ref=flattened, LabVIEWError=_LabVIEWError)
+    fragment = property_node.generate(node, ctx)
+    code = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    exec(compile(code, "property-test", "exec"), namespace)
+    error = namespace[fragment.own_error]
+    assert isinstance(error, _LabVIEWError)
+    assert error.code == 1026
+    assert namespace[fragment.bindings["row_0"]] is None
 
 
 def _generate_unwired(rows, class_name, ni_name, code):

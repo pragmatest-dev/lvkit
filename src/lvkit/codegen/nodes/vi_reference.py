@@ -855,6 +855,41 @@ def vi_property_read(
     return None
 
 
+def invalid_reference_guard(
+    node: PrimitiveNode, prop: PropertyDef, reference: str, ctx: CodeGenContext
+) -> list[ast.stmt]:
+    """The guard before ``vi_property_read``'s read of ``prop`` from ``reference``:
+    a reference that holds no VI (Not a Refnum, ``None``, or a reference read back
+    from its flattened number, which is not a function) has no name, path or file
+    properties: error 1026, "VI Reference is invalid." (NI, General LabVIEW Error
+    Codes), which the Property Node reports on its error out. None for Exec.State
+    (the front panel fails with its own error, ``reads_panel``) and for Owning
+    Application (the package's own, read from no reference). A node whose error
+    out is not wired has nowhere to report it, so the read stays what fails, as
+    for Call By Reference (``_made_only_with_a_vi``)."""
+    code = prop.segments[0].code
+    _, error_outs = own_error_terminals(node, ctx)
+    if (
+        reads_panel(node, prop)
+        or code == application_properties.OWNING_APP_PROPERTY_CODE
+        or not any(ctx.is_wired(term.id) for term in error_outs)
+    ):
+        return []
+    ctx.import_labview_error()
+    invalid = labview_error(
+        INVALID_VI_REFERENCE_CODE,
+        _label(node),
+        f"'the VI reference is not a VI: ' + repr({reference})",
+    )
+    return [
+        ast.If(
+            test=parse_expr(f"not callable({reference})"),
+            body=[ast.Raise(exc=invalid, cause=None)],
+            orelse=[],
+        )
+    ]
+
+
 def reads_panel(node: PrimitiveNode, prop: PropertyDef) -> bool:
     """Whether ``vi_property_read`` reads ``prop`` from the referenced VI's front
     panel (Exec.State), which fails with the panel's own error (1026 for a

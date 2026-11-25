@@ -624,6 +624,9 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 )
                 if reflected is None:
                     raise _no_python_equivalent(node, prop)
+                guard = vi_reference.invalid_reference_guard(node, prop, ref_var, ctx)
+                statements.extend(guard)
+                file_error = file_error or bool(guard)
                 panel_read = panel_read or vi_reference.reads_panel(node, prop)
             statements.append(
                 ast.Assign(
