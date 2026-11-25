@@ -38,7 +38,8 @@ from enum import IntEnum
 from pathlib import Path
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import AnyGraphNode, PrimitiveNode, VINode
+from lvkit.graph.models import AnyGraphNode, ConstantNode, PrimitiveNode, VINode
+from lvkit.graph.reference_target import is_reference_constant
 from lvkit.graph.vi_reference import (
     CALL_REFERENCE_IN,
     CALL_REFERENCE_OUT,
@@ -857,37 +858,57 @@ def vi_property_read(
 
 def invalid_reference_guard(
     node: PrimitiveNode, prop: PropertyDef, reference: str, ctx: CodeGenContext
-) -> list[ast.stmt]:
-    """The guard before ``vi_property_read``'s read of ``prop`` from ``reference``:
-    a reference that holds no VI (Not a Refnum, ``None``, or a reference read back
-    from its flattened number, which is not a function) has no name, path or file
-    properties: error 1026, "VI Reference is invalid." (NI, General LabVIEW Error
-    Codes), which the Property Node reports on its error out. None for Exec.State
-    (the front panel fails with its own error, ``reads_panel``) and for Owning
-    Application (the package's own, read from no reference). A node whose error
-    out is not wired has nowhere to report it, so the read stays what fails, as
-    for Call By Reference (``_made_only_with_a_vi``)."""
+) -> tuple[list[ast.stmt], bool]:
+    """The guard before ``vi_property_read``'s read of ``prop`` from ``reference``
+    and whether the Property Node reports its error: a reference that holds no VI
+    (Not a Refnum, ``None``, or a reference read back from its flattened number,
+    which is not a function) has no name, path or file properties: error 1026, "VI
+    Reference is invalid." (NI, General LabVIEW Error Codes). The node reports it
+    on its error out when that is wired, or, with nowhere to put it, when the VI's
+    automatic error handling is off (the outputs take their defaults and the run
+    continues); with it on the error is raised, as LabVIEW stops at the node
+    (``native_failure``). No guard for Exec.State (the front panel fails with its
+    own error, ``reads_panel``), for Owning Application (the package's own, read
+    from no reference) and for a reference that is a constant, which holds a
+    VI."""
     code = prop.segments[0].code
-    _, error_outs = own_error_terminals(node, ctx)
     if (
         reads_panel(node, prop)
         or code == application_properties.OWNING_APP_PROPERTY_CODE
-        or not any(ctx.is_wired(term.id) for term in error_outs)
+        or _is_constant_reference(node, ctx)
     ):
-        return []
+        return [], False
+    _, error_outs = own_error_terminals(node, ctx)
+    reported = any(ctx.is_wired(term.id) for term in error_outs) or (
+        not automatic_error_handling(ctx)
+    )
     ctx.import_labview_error()
     invalid = labview_error(
         INVALID_VI_REFERENCE_CODE,
         _label(node),
         f"'the VI reference is not a VI: ' + repr({reference})",
     )
-    return [
-        ast.If(
-            test=parse_expr(f"not callable({reference})"),
-            body=[ast.Raise(exc=invalid, cause=None)],
-            orelse=[],
-        )
-    ]
+    guard = ast.If(
+        test=parse_expr(f"not callable({reference})"),
+        body=[ast.Raise(exc=invalid, cause=None)],
+        orelse=[],
+    )
+    return [guard], reported
+
+
+def _is_constant_reference(node: PrimitiveNode, ctx: CodeGenContext) -> bool:
+    """Whether every wire into the reference input of the Property Node ``node``
+    starts at a VI reference constant or a Control Reference constant, which
+    always holds an object."""
+    reference = _input_terminal(node, 0)
+    if ctx.graph is None or reference is None:
+        return False
+    origins = ctx.graph.wire_origins(reference.id)
+    return bool(origins) and all(
+        is_reference_constant(origin)
+        or (isinstance(origin, ConstantNode) and bool(origin.value))
+        for origin, _ in origins
+    )
 
 
 def reads_panel(node: PrimitiveNode, prop: PropertyDef) -> bool:

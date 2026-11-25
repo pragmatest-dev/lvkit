@@ -265,7 +265,10 @@ class TestPropertyReads:
         fragment = property_node.generate(op, ctx)
         module = ast.Module(body=fragment.statements, type_ignores=[])
         code = ast.unparse(ast.fix_missing_locations(module)).splitlines()
-        assert code == [
+        # one check that the reference holds a VI (error 1026) before the reads
+        assert code[0] == "if not callable(vi):"
+        assert code[1].startswith("    raise LabVIEWError(code=1026, ")
+        assert code[2:] == [
             "vi_name = vi.vi_name",
             "vi_path = inspect.getfile(vi)",
             "vi_name_2 = vi.vi_name",

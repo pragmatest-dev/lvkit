@@ -492,6 +492,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     attr_names: dict[str, str] = {}
     panel_read = False
     file_error = False
+    guarded = False
     for prop, term in correlate_property_terminals(
         properties, node.terminals, value_ids
     ):
@@ -635,9 +636,13 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 )
                 if reflected is None:
                     raise _no_python_equivalent(node, prop)
-                guard = vi_reference.invalid_reference_guard(node, prop, ref_var, ctx)
-                statements.extend(guard)
-                file_error = file_error or bool(guard)
+                guard, reported = vi_reference.invalid_reference_guard(
+                    node, prop, ref_var, ctx
+                )
+                if guard and not guarded:
+                    statements.extend(guard)
+                    guarded = True
+                file_error = file_error or reported
                 panel_read = panel_read or vi_reference.reads_panel(node, prop)
             statements.append(
                 ast.Assign(

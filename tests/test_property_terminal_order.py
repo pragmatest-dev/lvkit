@@ -13,7 +13,7 @@ from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.gaps import gap_fragment
 from lvkit.codegen.nodes import generate as generate_node
-from lvkit.codegen.nodes import property_node
+from lvkit.codegen.nodes import property_node, vi_reference
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.models import (
@@ -157,7 +157,11 @@ def test_unwired_reads_still_execute_once_and_keep_distinct_snapshots():
     source = ast.unparse(
         ast.fix_missing_locations(ast.Module(body=fragment.statements, type_ignores=[]))
     )
-    assert source.splitlines() == [
+    lines = source.splitlines()
+    # one check that the reference holds a VI (error 1026) before the reads
+    assert lines[0] == "if not callable(ref):"
+    assert lines[1].startswith("    raise LabVIEWError(code=1026, ")
+    assert lines[2:] == [
         "ref_name = ref.vi_name",
         "ref_path = inspect.getfile(ref)",
         "ref_name_2 = ref.vi_name",
@@ -275,7 +279,7 @@ def test_wired_error_terminals_are_skipped():
     # two reads run in one ``try`` instead of two bare statements
     [attempt] = fragment.statements
     assert isinstance(attempt, ast.Try)
-    assert len(attempt.body) == 4
+    assert len(attempt.body) == 3  # one check, then the two reads
 
 
 class _LabVIEWError(Exception):
@@ -305,6 +309,47 @@ def test_a_vi_property_read_of_a_reference_that_is_no_vi_is_error_1026(
     error = namespace[fragment.own_error]
     assert isinstance(error, _LabVIEWError)
     assert error.code == 1026
+    assert namespace[fragment.bindings["row_0"]] is None
+
+
+def _run_unwired_error_out(reference, *, automatic_handling: bool, monkeypatch):
+    """The generated reads of a VI reference whose node has no error out; returns
+    the namespace after running them."""
+    node, ctx, namespace = vi_fixture([("Name", "output")])
+    monkeypatch.setattr(
+        vi_reference, "automatic_error_handling", lambda _ctx: automatic_handling
+    )
+    namespace.update(ref=reference, LabVIEWError=_LabVIEWError)
+    fragment = property_node.generate(node, ctx)
+    code = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    exec(compile(code, "property-test", "exec"), namespace)
+    return namespace, fragment
+
+
+@pytest.mark.parametrize("reference", [None, 7])
+def test_a_reference_that_is_no_vi_stops_a_vi_with_automatic_error_handling(
+    reference, monkeypatch
+):
+    """With no error out the VI's automatic error handling decides: on, the run
+    stops at the node with error 1026."""
+    with pytest.raises(_LabVIEWError) as stopped:
+        _run_unwired_error_out(
+            reference, automatic_handling=True, monkeypatch=monkeypatch
+        )
+    assert stopped.value.code == 1026
+
+
+@pytest.mark.parametrize("reference", [None, 7])
+def test_a_reference_that_is_no_vi_is_dropped_with_automatic_error_handling_off(
+    reference, monkeypatch
+):
+    """Off, the error is dropped: the read gives its default and the run
+    continues."""
+    namespace, fragment = _run_unwired_error_out(
+        reference, automatic_handling=False, monkeypatch=monkeypatch
+    )
     assert namespace[fragment.bindings["row_0"]] is None
 
 
