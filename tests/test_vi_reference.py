@@ -443,7 +443,7 @@ def test_a_computed_name_finds_the_method_of_its_class(tmp_path: Path) -> None:
     loaded = _computed(tmp_path, _STRING_TYPE)
     d.own_by_class(loaded, "Owner.lvclass")
     source = _source(loaded)
-    assert "_vi_owners = {}\n" in source
+    assert "_owned_vis = {}\n" in source
     assert "'Owner.lvclass:Callee.vi': ('.owner', 'Owner', 'callee_bdhbxml')" in source
     for refs in _package(tmp_path, source, _CLASS_CALLEE, "owner"):
         refs.refs("Owner.lvclass:Callee.vi")  # type: ignore[attr-defined]
@@ -487,7 +487,27 @@ def test_a_computed_name_with_no_owner_in_the_project_finds_nothing(
     tmp_path: Path,
 ) -> None:
     loaded = _computed(tmp_path, _STRING_TYPE)
-    assert "_vi_owners = {}\n" in _source(loaded)
+    assert "_owned_vis = {}\n" in _source(loaded)
+
+
+def test_a_computed_name_of_a_vi_a_library_owns_finds_it_without_the_library_file(
+    tmp_path: Path,
+) -> None:
+    """The name Call Chain gives is the VI's own record: no loaded library file
+    is needed to find its module."""
+    loaded = _computed(tmp_path, _STRING_TYPE, (_CALL,), (d.wire(102, 21, 31),), (_X,))
+    d.type_terminal(loaded, 21, d.typed_vi_reference())
+    d.type_terminal(loaded, 31, d.typed_vi_reference())
+    loaded.graph._vi_display_names[loaded.callee] = "Lib.lvlib:Callee.vi"  # noqa: SLF001
+    source = _source(loaded)
+    assert "_owned_vis = {'Lib.lvlib:Callee.vi': '.'}" in source
+    for refs in _package(tmp_path, source, _CALLEE):
+        refs.refs("Lib.lvlib:Callee.vi")  # type: ignore[attr-defined]
+        assert len(sys.modules["generated_refs.callee"].calls) == 1
+        errors = sys.modules["generated_refs.errors"]
+        with pytest.raises(errors.LabVIEWError) as raised:
+            refs.refs("Lib.lvlib:Other.vi")  # type: ignore[attr-defined]
+        assert raised.value.code == 1004
 
 
 def test_open_vi_reference_of_an_untyped_computed_value_is_a_gap(

@@ -358,22 +358,25 @@ class VIReferenceMixin(WireOriginMixin):
             return self._loaded_by_name(text)
         return self._loaded_by_path(text, path_term.id)
 
-    def owner_files(self) -> dict[str, str]:
-        """The file (library or class) that owns the VIs named ``<owner>:<VI>``,
-        for each owner among the loaded VIs: the owner's full delimited name
-        (``Lib.lvlib:Cls.lvclass``) and the key of its file. A name that a diagram
-        computes when it runs is split at its last ``:`` into one of these owners
-        and a VI file name."""
-        owners: dict[str, str] = {}
+    def owned_vi_files(self) -> dict[str, str]:
+        """The file of each loaded VI that a library owns, by its full name
+        (``Lib.lvlib:Name.vi``, ``Lib.lvlib:Sub.lvlib:Name.vi``): the name a
+        diagram computes when it runs (Call Chain gives it) and that has an
+        ``<owner>:``. The name is the VI's own record, so it is found whether or
+        not its library's file was loaded. A class member is found among the
+        class's methods (``class_members``); a name two loaded files share is left
+        out (it names no single VI)."""
+        found: dict[str, list[str]] = {}
         for key in sorted(self._vi_nodes):
             display = self.vi_display_name(key)
-            owner_name, colon, _ = display.rpartition(":")
-            if not colon or self.is_stub(key) or self.node_type(key) != NodeType.VI:
+            if ":" not in display or self.is_stub(key):
                 continue
-            owner_key = self._owner_key(key, NodeType.LIBRARY)
-            if owner_key is not None and self._owner_key(key, NodeType.CLASS) is None:
-                owners[owner_name] = owner_key
-        return owners
+            if (
+                self.node_type(key) == NodeType.VI
+                and self._owner_key(key, NodeType.CLASS) is None
+            ):
+                found.setdefault(display, []).append(key)
+        return {name: keys[0] for name, keys in found.items() if len(keys) == 1}
 
     def unowned_vi_files(self) -> dict[str, str]:
         """The file of each loaded VI that no library or class owns, by its name

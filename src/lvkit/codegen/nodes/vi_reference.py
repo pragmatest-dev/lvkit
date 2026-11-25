@@ -540,7 +540,7 @@ if {up} >= len(__package__.split(".")):
 
 _IMPORT_BY_NAME = """\
 {owner}, _, {stem} = {value}.rpartition(":")
-{package} = {owners}[{owner}] if {owner} else {unowned}[{stem}]
+{package} = {owners}[{value}] if {owner} else {unowned}[{stem}]
 """
 
 # A VI a class lists is a method of the class, found by the name or the path
@@ -761,14 +761,14 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
 
 
 def _owners_tables(ctx: CodeGenContext) -> tuple[str, str]:
-    """The module-level dictionaries from each owner's full delimited name, and from
-    each VI that no library or class owns (its ``Name.vi``), to the package holding
-    the modules of its VIs, as the start of an import spec (the dots, then the
-    dotted package and a final dot)."""
+    """The module-level dictionaries from each VI a library owns (its full
+    ``Lib.lvlib:Name.vi``), and from each VI that no library or class owns (its
+    ``Name.vi``), to the package holding its module, as the start of an import
+    spec (the dots, then the dotted package and a final dot)."""
     assert ctx.graph is not None
     resolver = ctx.import_resolver
     tables = (
-        ("_vi_owners", ctx.graph.owner_files()),
+        ("_owned_vis", ctx.graph.owned_vi_files()),
         ("_vi_unowned", ctx.graph.unowned_vi_files()),
     )
     for table, files in tables:
