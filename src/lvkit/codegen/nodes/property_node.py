@@ -8,6 +8,7 @@ from lvkit.control_properties import (
     TREE_HOLDER,
     ReferenceRow,
     control_property,
+    is_block_diagram_class,
     is_value_row,
     is_value_signaling_row,
     reference_row,
@@ -71,6 +72,18 @@ def _no_python_equivalent(node: PrimitiveNode, prop: PropertyDef) -> ConversionG
     return ConversionGap(
         f"Property '{prop.name}'{on_class} has no Python equivalent", node
     )
+
+
+def _reject_block_diagram_object(node: PrimitiveNode, prop: PropertyDef) -> None:
+    """Raise the gap of a property row on a reference to an object of a block
+    diagram (a SubVI node, a Diagram, a Wire, ...): the converted code has none."""
+    class_name = node.object_name or ""
+    if is_block_diagram_class(class_name):
+        raise ConversionGap(
+            f"Property '{prop.name}' on a {class_name} reference: block-diagram "
+            "objects do not exist in converted code",
+            node,
+        )
 
 
 def _callees(ctx: CodeGenContext) -> str:
@@ -555,6 +568,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
+            _reject_block_diagram_object(node, prop)
             if is_on_application_reference(node):
                 # the program's one application: the rows of the default
                 # Application object, read on the reference
@@ -632,6 +646,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 raise ConversionGap(
                     "Unwired property write default is unqualified", node
                 )
+            _reject_block_diagram_object(node, prop)
             row = panel_reference.panel_row(node, prop)
             listed = panel_reference.property_row(node, prop)
             if listed is not None and not listed.settable_while_running:

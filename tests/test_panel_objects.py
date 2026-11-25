@@ -573,6 +573,70 @@ def test_bounds_and_the_panels_lists_cannot_be_written(tmp_path: Path) -> None:
     assert any("cannot be set while the VI runs" in str(g) for g in gaps)
 
 
+def test_a_block_diagram_object_reference_is_a_generation_gap(
+    tmp_path: Path,
+) -> None:
+    """The class of a reference decides: a SubVI node, a Diagram and a Terminal are
+    objects of a block diagram, which converted code does not have, so Owner and
+    Position on them are gaps (a warning and a raise where the node runs); the same
+    rows on a control reference generate."""
+    project = Project(tmp_path)
+    key = project.add_vi("Target", target)
+    project.graph._graph.nodes[key]["node"].front_panel = front_panel()  # noqa: SLF001
+
+    def on_class(class_name: str, code: tuple[int, ...], out: bool):  # noqa: ANN202
+        def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
+            row = ("p", code, "output" if out else "input", REFNUM if out else INT)
+            node = property_node(vi, "o", class_name, [row])
+            flow = [wire(vi, "ctl", "o.ref"), wire(vi, "o.err_out", "err")]
+            flow.append(wire(vi, "o.p", "p") if out else wire(vi, "p", "o.p"))
+            return (
+                VIContext(
+                    name=vi,
+                    inputs=[
+                        pane(vi, "input", "ctl", REFNUM, "ctl", 0),
+                        *([] if out else [pane(vi, "input", "p", INT, "p", 1)]),
+                    ],
+                    outputs=[
+                        *([pane(vi, "output", "p", REFNUM, "p", 1)] if out else []),
+                        pane(vi, "output", "err", ERROR, "error out", 2),
+                    ],
+                    data_flow=flow,
+                ),
+                [node],
+            )
+
+        return build
+
+    project.add_vi("Subvi", on_class("SubVI", OWNER, True))
+    project.add_vi("Diagram", on_class("Diag", OWNER, True))
+    project.add_vi("Terminal", on_class("Term", LEFT, False))
+    project.add_vi("Control", on_class("Ctl", LEFT, False))
+    gaps: list[Gap] = []
+    package = project.generate(gaps)
+    messages = [str(g) for g in gaps]
+    for class_name, prop in (
+        ("SubVI", "owner"),
+        ("Diag", "owner"),
+        ("Term", "left"),
+    ):
+        assert any(
+            f"on a {class_name} reference: block-diagram objects do not exist in "
+            "converted code" in m
+            for m in messages
+        ), (class_name, prop, messages)
+    assert not any("Ctl reference" in m for m in messages)
+    with package.use() as module:
+        for name in ("subvi", "diagram", "terminal"):
+            function = getattr(module(name), name)
+            try:
+                function(ctl=object(), **({} if name != "terminal" else {"p": 1}))
+            except NotImplementedError as error:
+                assert "block-diagram objects" in str(error)
+            else:
+                raise AssertionError(f"{name} did not raise")
+
+
 def test_a_vi_with_no_pane_hierarchy_raises_for_its_panes(tmp_path: Path) -> None:
     project = Project(tmp_path)
     project.add_vi("Target", target)

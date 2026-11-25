@@ -135,6 +135,7 @@ class _Table:
     reference_rows: dict[tuple[int, ...], ReferenceRow]
     unsettable_rows: dict[tuple[int, ...], str]
     class_parents: dict[str, str | None]
+    block_diagram_roots: frozenset[str]
     saved_defaults: dict[str, dict[str, Any]]
     reinit_to_default: frozenset[int]
     tree_methods: dict[int, TreeMethod]
@@ -189,6 +190,7 @@ def _table() -> _Table:
             for name, parent in raw["class_parents"].items()
             if not name.startswith("_")
         },
+        block_diagram_roots=frozenset(raw["block_diagram_roots"]["classes"]),
         saved_defaults={
             name: dict(members)
             for name, members in raw["saved_defaults"].items()
@@ -287,6 +289,16 @@ def _ancestry(class_name: str) -> list[str]:
         chain.append(name)
         name = parents.get(name, _CONTROL)
     return chain
+
+
+def is_block_diagram_class(class_name: str) -> bool:
+    """Whether ``class_name`` is a class of an object of a block diagram (a SubVI
+    node, a Diagram, a Wire, a Terminal, ...): the class, or a class above it in
+    ``class_parents``, is one of ``block_diagram_roots``, the classes NI's hierarchy
+    lists under GObject that are block-diagram objects. A class the hierarchy does
+    not place (Gen, GObj) is not."""
+    roots = _table().block_diagram_roots
+    return any(name in roots for name in _ancestry(class_name))
 
 
 def control_property(class_name: str, codes: Sequence[int]) -> ControlProperty | None:
