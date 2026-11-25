@@ -987,7 +987,7 @@ class TestIPESBorderDataFlowIds:
             ast.unparse(ast.fix_missing_locations(s)) for s in frag.statements
         )
         # A reference that is Not a Refnum reads the default data.
-        assert ctx.resolve("r_data") == "(ref[0] if ref is not None else None)"
+        assert ctx.resolve("r_data") == "(ref[0] if isinstance(ref, list) else None)"
         assert "ref[0] = updated" in code
         assert frag.bindings["dvr_out"] == "ref"
 
@@ -1079,7 +1079,7 @@ def test_a_border_tile_error_out_is_the_error_out_of_its_port():
     # No error came in: the read's error out is error 1556 when the reference is
     # Not a Refnum; the write's is no error.
     assert frag.bindings["err_read"] == (
-        "(None if ref is not None else LabVIEWError(code=1556, "
+        "(None if isinstance(ref, list) else LabVIEWError(code=1556, "
         "source='In Place Element Structure', "
         "message='The reference is invalid.'))"
     )

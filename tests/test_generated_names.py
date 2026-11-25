@@ -309,8 +309,9 @@ def test_in_place_element_borders_take_their_values_from_the_structure(tmp_path)
     text = source.read_text(encoding="utf-8")
     # The borders take the structure's data; a reference that is Not a Refnum
     # reads the type's default and puts error 1556 on the border's error out.
-    assert "is_dvr_valid(dvr_error_in=None if self.__data_dvr is not None else" in text
-    assert "dvr_valid_in=(self.__data_dvr[0] if self.__data_dvr is not None" in text
+    holds = "isinstance(self.__data_dvr, list)"
+    assert f"is_dvr_valid(dvr_error_in=None if {holds} else" in text
+    assert f"dvr_valid_in=(self.__data_dvr[0] if {holds}" in text
     assert ").dvr_valid)" in text
 
 
