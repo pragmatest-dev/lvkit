@@ -4,6 +4,7 @@ lvkit follows semantic versioning.
 
 ## [Unreleased]
 - **Owner of a front-panel object generates** — a control or decoration's Owner is the pane it is on, a cluster element's is the cluster, a pane's is the panel, and the panel's is Not a Refnum (NI's Owner page), on a reference and on a Property Node bound to a control. A property of a reference to a block-diagram object (a SubVI node, Diagram, Wire, Terminal, Constant, Structure ..., by NI's class hierarchy) is a gap, since converted code has no block diagram.
+- **A cluster constant saved without its type definition is written as that definition when a Bundle By Name takes it** — OpenG's Fit VI Window sets `.horizontal` on the constant `(0, 0)`; it is now an object with the definition's fields.
 - **Register For Events of a user event that is Not a Refnum gives error 1055** — no event is registered and the error reaches the node's error out (raised under Automatic Error Handling when it is unwired), instead of failing on `None.append`.
 - **A data value reference read back from its flattened number is no reference** — DVR In Place Element reads the type's default and gives error 1556 for it, as for Not a Refnum, instead of indexing the number.
 - **Call By Reference of a value that is not a VI gives error 1026 on its error out** — a VI reference read back from its flattened number (an integer) is no VI, like Not a Refnum, instead of failing when called.

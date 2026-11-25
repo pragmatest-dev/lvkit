@@ -959,6 +959,10 @@ class CodeGenContext:
         """The Python expression for a constant, importing the enum class when
         the constant is one of its members, the function when it is a reference
         to a VI, and the class when it is an object of a class."""
+        if const.lv_type is not None:
+            named = self._typedef_of_wire(const, const.lv_type)
+            if named is not const.lv_type:
+                const = const.model_copy(update={"lv_type": named})
         lv_type = const.lv_type
         if (
             lv_type is not None
@@ -1008,6 +1012,44 @@ class CodeGenContext:
                 f"the constant {const.label or ''!r}",
             )
         return self._format(const)
+
+    def _typedef_of_wire(
+        self, const: Constant | ConstantNode, lv_type: LVType
+    ) -> LVType:
+        """``lv_type``, an anonymous cluster constant, as the type definition the
+        wire it feeds carries: a constant saved without the definition's name is
+        one value of the wire, and a Bundle or Unbundle By Name it feeds takes its
+        cluster in and cluster out as one wire whose type definition wins, so it
+        reads the value as the definition's cluster (an object with an attribute
+        for each field). The constant is written as one. ``lv_type`` when it feeds
+        no such node, or its definition has other field names."""
+        if (
+            self.graph is None
+            or lv_type.kind != LVTypeKind.CLUSTER
+            or lv_type.typedef_name
+            or lv_type.classname
+            or not lv_type.fields
+        ):
+            return lv_type
+        node = const if isinstance(const, ConstantNode) else None
+        node = node or self.graph.get_graph_node(const.id)
+        if not isinstance(node, ConstantNode):
+            return lv_type
+        names = [f.name for f in lv_type.fields]
+        for term in node.terminals:
+            for dest in self.graph.outgoing_edges(term.id):
+                node = self.graph.get_graph_node(dest.node_id)
+                for other in getattr(node, "terminals", ()):
+                    named = other.lv_type
+                    if (
+                        other.nmux_role == "agg"
+                        and named is not None
+                        and named.kind == LVTypeKind.CLUSTER
+                        and named.typedef_name
+                        and [f.name for f in named.fields or []] == names
+                    ):
+                        return named
+        return lv_type
 
     def _format(self, const: Constant | ConstantNode) -> str:
         """A constant as ``_format_constant`` writes it, the class of an enum
