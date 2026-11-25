@@ -280,9 +280,11 @@ def test_q8_error_cluster_input_vis(jki_index: BuildResult):
         "SELECT COUNT(DISTINCT vi_path) FROM terminal "
         "WHERE type_descriptor='Error' AND direction='input'"
     )
-    # 412 = 408 .vi (13 more than before: unlabeled error clusters, such as
-    # `control_219`, are typed Error) + 4 .vit templates.
-    assert res.rows == [[412]]
+    # 413 = 409 .vi + 4 .vit templates. Unlabeled error clusters (such as
+    # `control_219`) are typed Error, and so is a Boolean/I32/String cluster with
+    # a blank field label that is wired to an error cluster
+    # (`Update Package Version from Build Rev.vi`'s error in).
+    assert res.rows == [[413]]
 
 
 @pytest.mark.slow
