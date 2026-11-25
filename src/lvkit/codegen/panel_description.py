@@ -16,8 +16,9 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   cluster or class (the function body makes it): the function is a ``lambda``
   making the control's default (its saved default, else its type's, a class's
   default object), so each run gets a fresh list or object. Every other
-  control's default is its parameter's own. Each indicator whose type's default
-  is not ``None`` has one too: it holds that until a run writes it;
+  control's default is its parameter's own. Each indicator whose default is not
+  ``None`` has one too (its saved default, else its type's): it holds that until
+  a run writes it;
 - ``indicators``: the name of each indicator to its label;
 - ``results``: the name of each indicator on the connector pane to the field of the
   result that holds it;
@@ -136,8 +137,8 @@ def default_functions(
     that is not loaded has no entry: the panel holds ``None`` for it (the class is
     reported where the VI uses it).
     Each of ``indicators`` has an entry too when its default is not ``None``: an
-    indicator no run has written holds its type's default (a class's default
-    object), as a front panel does."""
+    indicator no run has written holds its default (the value the VI saved, else
+    its type's default, a class's default object), as a front panel does."""
     defaults = DefaultFunctions()
     stem = target.replace(".", "_")
     entries = [(t, parameter, False) for t, parameter in controls]
