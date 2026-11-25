@@ -431,6 +431,7 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     # with no icon now wraps its name into the box (WrappedBoxGlyph), so a
     # second copy below would be redundant. A subVI WITH a real icon keeps its
     # label below, as before.
+    below = node.bounds[3] + 9
     if (
         isinstance(node.node, VINode)
         and node.label_visible
@@ -438,14 +439,42 @@ def draw_node(node: RenderNode, backend: Backend, theme: Theme = DEFAULT_THEME) 
     ):
         name = node.node.name or ""
         if name:
-            x1, y1, x2, y2 = node.bounds
-            backend.text((x1 + x2) / 2, y2 + 9, name, 8.0, fill=theme.text)
+            x1, _, x2, _ = node.bounds
+            backend.text((x1 + x2) / 2, below, name, 8.0, fill=theme.text)
+            below += _CAPTION_LINE_H
+
+    # An Express VI's saved copy: one line per output of the copy, under the
+    # name when the name is drawn there.
+    if node.embedded_copy and isinstance(node.node, VINode):
+        x1, _, x2, _ = node.bounds
+        for line in _embedded_copy_caption(node.node):
+            backend.text((x1 + x2) / 2, below, line, 8.0, fill=theme.text)
+            below += _CAPTION_LINE_H
 
     if node.owned_label is not None:
         _draw_owned_label(node.owned_label, backend, theme)
 
     if group_needed:
         backend.end_group()
+
+
+_CAPTION_LINE_H = 10.0  # spacing of the text lines drawn under a call's box
+
+
+def _embedded_copy_caption(node: VINode) -> list[str]:
+    """The caption lines under the call of an Express VI's saved copy: each
+    output of the copy as ``label: type`` in connector-pane order, the same text
+    the hover lists (``_terminal_text``). Empty when the copy has no informative
+    output."""
+    outs = sorted(
+        (
+            t
+            for t in node.terminals
+            if t.direction == "output" and _terminal_is_informative(t)
+        ),
+        key=lambda t: t.index,
+    )
+    return [_terminal_text(t) for t in outs]
 
 
 # Owned-label (constant free-label) text metrics — left-aligned, drawn top-down
@@ -565,6 +594,13 @@ def _terminal_is_informative(t: Terminal) -> bool:
     return t.lv_type is not None and lv_type_label(t.lv_type) != "?"
 
 
+def _terminal_text(t: Terminal) -> str:
+    """One terminal as ``label: type``. A nested Bundle/Unbundle-By-Name field
+    shows its FULL dotted path (the tooltip never truncates), while the glyph row
+    and connector panel keep the terse leaf ``display_name``."""
+    return f"{t.field_path or _terminal_label(t)}: {lv_type_label(t.lv_type)}"
+
+
 def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
     """The node's connector pane as tooltip lines — inputs then outputs, each
     ``label: type``. Empty pane slots (no label, no type) are omitted; labels
@@ -577,12 +613,7 @@ def _terminal_help_lines(node: AnyGraphNode) -> list[str]:
     ]
 
     def fmt(t: Terminal) -> str:
-        ty = lv_type_label(t.lv_type)
-        # A nested Bundle/Unbundle-By-Name field shows its FULL dotted path here
-        # (the tooltip never truncates), while the glyph row + connector panel
-        # keep the terse leaf ``display_name``.
-        label = t.field_path or _terminal_label(t)
-        return f"  {label}: {ty}"
+        return f"  {_terminal_text(t)}"
 
     ins = sorted((t for t in terms if t.direction == "input"), key=lambda t: t.index)
     outs = sorted((t for t in terms if t.direction == "output"), key=lambda t: t.index)

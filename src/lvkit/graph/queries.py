@@ -118,6 +118,7 @@ class QueryMixin:
     _loaded_vis: set[str]
     _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
+    _embedded_copies: dict[Path, Path]
     _vi_display_names: dict[str, str]
     _vi_metadata: dict[str, VIMetadata]
     _vi_properties: dict[str, VIProperties]
@@ -178,6 +179,11 @@ class QueryMixin:
         """Whether the VI at ``key`` is loaded in the graph: not a stub, not a
         file the load did not reach."""
         return key in self._vi_nodes
+
+    def is_embedded_copy(self, key: str) -> bool:
+        """Whether the VI at ``key`` is the copy of an Express VI stored inside
+        its caller (a VI of its own, not a file)."""
+        return Path(key) in self._embedded_copies
 
     def call_qualified_name(self, node: VINode) -> str | None:
         """The qualified name a SubVI call node shows: the name the graph gives

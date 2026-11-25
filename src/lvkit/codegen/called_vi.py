@@ -54,7 +54,13 @@ def run_call(node: VINode, ctx: CodeGenContext) -> RunCall:
         return RunCall(run, Path(name.rsplit(":", 1)[-1]).name, variant)
     if node.callee_key is None and node.qualified_path and node.qualified_name:
         return RunCall(node, node.qualified_name, None)
-    return RunCall(node, node.name or "", node.callee_key, _no_variant(node, ctx))
+    name = node.name or ""
+    if graph is not None and node.callee_key is not None:
+        # An Express VI's call is labelled with the Express VI's name, but the
+        # function its saved copy defines is named for that copy's own file.
+        if graph.is_embedded_copy(node.callee_key):
+            name = Path(graph.vi_display_name(node.callee_key).rsplit(":", 1)[-1]).name
+    return RunCall(node, name, node.callee_key, _no_variant(node, ctx))
 
 
 def _no_variant(node: VINode, ctx: CodeGenContext) -> str | None:

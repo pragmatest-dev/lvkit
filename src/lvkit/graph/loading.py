@@ -30,7 +30,10 @@ import networkx as nx
 from lvkit.library_folders import Folders, SearchEntries
 
 from ..cache_paths import LibraryRoots
-from ..embedded_instances import read_instance_defaults, read_instance_sources
+from ..embedded_instances import (
+    read_instance_defaults,
+    read_instances,
+)
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
 from ..flattened_typedesc import embedded_private_data_copy
@@ -428,6 +431,7 @@ class LoadingMixin:
     _untied_type_vis: set[str]
     _dep_load_mode: dict[str, LoadMode]
     _source_paths: dict[str, Path]
+    _embedded_copies: dict[Path, Path]
     _vi_display_names: dict[str, str]
     _vi_metadata: dict[str, VIMetadata]
     _vi_properties: dict[str, VIProperties]
@@ -645,7 +649,7 @@ class LoadingMixin:
         where a qname is not (a built copy beside its source twin share a
         qname). The qname is the human-facing display name (never a lookup
         key)."""
-        self._source_paths[key] = vi_bytes_file(source_file)
+        self._source_paths[key] = self._bytes_file(source_file)
         # The search path's <foundvi>: the folders this load found files in.
         self._search_path.found_folders.setdefault(Path(source_file).parent, None)
         self._vi_display_names[key] = qname
@@ -1485,10 +1489,16 @@ class LoadingMixin:
     def _extract(self, path: Path) -> tuple[Path, Path | None, Path | None]:
         """``extract_vi_xml`` for a file the pool may be extracting: wait for
         that extraction first, so this call finds it cached."""
-        source = vi_bytes_file(path)
+        source = self._bytes_file(path)
         if self._extract_pool is not None:
             self._extract_pool.wait(source)
         return extract_vi_xml(source, roots=self.cache_roots)
+
+    def _bytes_file(self, path: Path) -> Path:
+        """The file holding the bytes of the VI at ``path``: the copy stored in
+        its caller when ``path`` names one (``_embedded_copies``), else the
+        file itself or the extracted copy of a ``.llb`` member."""
+        return self._embedded_copies.get(path.resolve()) or vi_bytes_file(path)
 
     def _own_owner_chain(
         self, metadata: ParsedVIMetadata, caller_file: Path
@@ -1796,13 +1806,22 @@ class LoadingMixin:
 
             # A malleable-VI call is recorded as an embedded instance named by a
             # GUID; the file it is an instance of is what the call is to.
-            instance_sources = read_instance_sources(
-                main_xml.parent, metadata.instance_files, self.cache_roots
+            # An Express VI is saved as a VI of its own stored in the caller: its
+            # dialog settings are the saved values of that VI's controls, and a
+            # call of it runs it (``copy_files``).
+            embedded = read_instances(
+                main_xml.parent,
+                metadata.instance_files,
+                self.cache_roots,
+                self.vilib_catalog.writes_code,
             )
-            # An Express VI's dialog settings are the saved defaults of its
-            # instance's controls.
+            instance_sources = embedded.sources
+            copy_files = embedded.copies
             instance_defaults = read_instance_defaults(
-                main_xml.parent, metadata.instance_files, self.cache_roots
+                main_xml.parent,
+                metadata.instance_files,
+                self.cache_roots,
+                skip=copy_files,
             )
 
             # Sorted: dependency load ORDER decides which same-named candidate
@@ -1817,6 +1836,18 @@ class LoadingMixin:
                 caller_file,
             )
             for qname in sorted(all_dep_qnames):
+                copy_file = copy_files.get(qname.rsplit(":", 1)[-1])
+                if copy_file is not None:
+                    copy_key = self._load_embedded_copy(
+                        qname,
+                        copy_file,
+                        caller_file,
+                        caller_qname=vi_key,
+                        mode=mode,
+                    )
+                    if copy_key is not None:
+                        dep_keys[qname] = copy_key
+                    continue
                 instance_source = instance_sources.get(qname.rsplit(":", 1)[-1])
                 if instance_source is not None:
                     dep_ref_map[qname] = instance_source
@@ -2329,6 +2360,26 @@ class LoadingMixin:
         leaf = qualified_name.rsplit(":", 1)[-1]
         cand = redirect_member_beside_container(cand, leaf)
         return cand.resolve()
+
+    def _load_embedded_copy(
+        self,
+        qualified_name: str,
+        bytes_file: Path,
+        caller_file: Path,
+        caller_qname: str | None,
+        mode: LoadMode,
+    ) -> str | None:
+        """Load the VI stored inside a caller (an Express VI's copy) as an
+        ordinary SubVI of the caller. It is identified as ``<caller file>/<name>.vi``
+        (the name the caller's ``VINS`` block lists it by), the way an ``.llb``
+        member is identified by ``<llb>/<member>``; its bytes are ``bytes_file``
+        in the caller's extraction. The identity is a graph key, not a file a
+        command can be given.
+        Returns the VI's identity (see ``_load_dependency``)."""
+        leaf = f"{qualified_name.rsplit(':', 1)[-1]}.vi"
+        identity = caller_file / leaf
+        self._embedded_copies[identity.resolve()] = bytes_file
+        return self._leaf_load_vi(identity, qualified_name, caller_qname, None, mode)
 
     def _load_instance_dependency(
         self,

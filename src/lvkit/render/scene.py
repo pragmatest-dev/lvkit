@@ -180,6 +180,11 @@ class RenderNode:
     # The NI docs page of the node's primitive or vi.lib VI (``node_doc_url``), read
     # from the graph's catalog here so the drawing never needs the graph.
     doc_url: str | None = None
+    # Whether the call is of an Express VI's saved copy (a VI stored inside the
+    # caller, ``graph.is_embedded_copy``): its box shows no setting, so the
+    # drawing adds a caption with the copy's own outputs, which carry the
+    # units (output name) and counter size (output type) the dialog saved.
+    embedded_copy: bool = False
 
 
 @dataclass(frozen=True)
@@ -1976,6 +1981,11 @@ def build_scene(graph: InMemoryVIGraph, vi_name: str) -> Scene | None:
                     frame_path=fp_path,
                     owned_label=owned_label,
                     subvi_rel=subvi_rel,
+                    embedded_copy=(
+                        isinstance(node, VINode)
+                        and node.callee_key is not None
+                        and graph.is_embedded_copy(node.callee_key)
+                    ),
                     doc_url=node_doc_url(
                         graph,
                         node,

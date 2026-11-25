@@ -4451,6 +4451,69 @@ def test_string_constant_has_full_text_tooltip():
     assert f"<title>{full}</title>" in svg
 
 
+def _express_call(embedded_copy: bool, glyph=None, outputs=("Tick Count(uSec)",)):
+    from lvkit.graph.models import VINode
+    from lvkit.models import Terminal
+    from lvkit.render.glyph import WrappedBoxGlyph
+    from lvkit.render.scene import RenderNode
+
+    terminals = [
+        Terminal(
+            id=f"t{i}",
+            index=i,
+            direction="output",
+            name=name,
+            lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumUInt8"),
+        )
+        for i, name in enumerate(outputs)
+    ]
+    return RenderNode(
+        node=VINode(id="n1", vi_path="v", name="Tick Count", terminals=terminals),
+        bounds=(0.0, 0.0, 30.0, 30.0),
+        glyph=glyph or WrappedBoxGlyph("Tick Count"),
+        embedded_copy=embedded_copy,
+    )
+
+
+def _text_y(svg: str, text: str) -> float:
+    match = re.search(rf'<text [^>]*y="([\d.]+)"[^>]*>{re.escape(text)}</text>', svg)
+    assert match, f"no <text> reading {text!r} in {svg}"
+    return float(match.group(1))
+
+
+def test_call_of_an_express_vi_copy_is_captioned_with_its_outputs():
+    """The box of an Express VI's call shows only its name, so a caption under it
+    gives the outputs of the saved copy: the units (output name) and the counter
+    size (output type) the dialog saved."""
+    b = SvgBackend()
+    draw_node(_express_call(embedded_copy=True), b)
+    assert ">Tick Count(uSec): U8</text>" in b.render((0.0, 0.0, 120.0, 60.0))
+
+
+def test_caption_goes_under_the_name_label_when_the_name_is_drawn_below():
+    """A call whose box does not carry its name draws the name below it; the
+    caption starts under that, never on top of it."""
+    from lvkit.render.glyph import ArithGlyph
+
+    b = SvgBackend()
+    draw_node(_express_call(embedded_copy=True, glyph=ArithGlyph("+")), b)
+    svg = b.render((0.0, 0.0, 120.0, 80.0))
+    assert _text_y(svg, "Tick Count(uSec): U8") > _text_y(svg, "Tick Count")
+
+
+def test_caption_lists_each_output_on_its_own_line():
+    b = SvgBackend()
+    draw_node(_express_call(embedded_copy=True, outputs=("a", "b")), b)
+    svg = b.render((0.0, 0.0, 120.0, 80.0))
+    assert _text_y(svg, "b: U8") > _text_y(svg, "a: U8")
+
+
+def test_call_of_another_vi_gets_no_caption():
+    b = SvgBackend()
+    draw_node(_express_call(embedded_copy=False), b)
+    assert "Tick Count(uSec): U8</text>" not in b.render((0.0, 0.0, 120.0, 60.0))
+
+
 def test_bundle_by_name_glyph_draws_field_names():
     """Bundle/Unbundle By Name draws one row per field, each LABELED with the
     field name, AND the cluster-direction arrow cell (task #89) — matching
