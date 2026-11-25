@@ -804,22 +804,43 @@ _ERROR_CLUSTER_FIELDS: tuple[tuple[str, Callable[[str | None], bool]], ...] = (
 )
 
 
-def _is_error_cluster(lv_type: LVType) -> bool:
-    """Whether a type is LabVIEW's error cluster: exactly the fields ``status``
-    (Boolean), ``code`` (I32) and ``source`` (String), in that order. A cluster
-    whose fields are unknown is not one."""
+def _has_error_fields(lv_type: LVType, *, blank_labels_match: bool) -> bool:
+    """Whether a cluster's three fields are Boolean, I32 and String in that
+    order and each label is the expected one; with ``blank_labels_match`` a
+    field with no label (none saved, empty, or a lone NUL) also matches."""
     if lv_type.kind not in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return False
     fields = lv_type.fields
     if not fields or len(fields) != len(_ERROR_CLUSTER_FIELDS):
         return False
     return all(
-        candidate.name.lower() == name
+        (
+            candidate.name.lower() == name
+            or (
+                blank_labels_match
+                and (not candidate.labelled or not candidate.name.strip("\x00"))
+            )
+        )
         and candidate.type is not None
         and candidate.type.kind == LVTypeKind.PRIMITIVE
         and has_type(candidate.type.underlying_type)
         for candidate, (name, has_type) in zip(fields, _ERROR_CLUSTER_FIELDS)
     )
+
+
+def _is_error_cluster(lv_type: LVType) -> bool:
+    """Whether a type is LabVIEW's error cluster: exactly the fields ``status``
+    (Boolean), ``code`` (I32) and ``source`` (String), in that order. A cluster
+    whose fields are unknown is not one."""
+    return _has_error_fields(lv_type, blank_labels_match=False)
+
+
+def _is_error_shape(lv_type: LVType) -> bool:
+    """Whether a cluster has the error cluster's shape: its three types in
+    order, each label the expected one or blank. It is the error cluster only
+    where a wire joins it to one (``InMemoryVIGraph._propagate_types_and_rematch``);
+    on its own it is a plain cluster."""
+    return _has_error_fields(lv_type, blank_labels_match=True)
 
 
 # control_type (FP control class) -> LVTypeKind, for a terminal whose LVType
