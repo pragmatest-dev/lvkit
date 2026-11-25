@@ -9,6 +9,7 @@ from lvkit.control_properties import (
     ReferenceRow,
     control_property,
     is_block_diagram_class,
+    is_generic_object_class,
     is_value_row,
     is_value_signaling_row,
     reference_row,
@@ -62,6 +63,7 @@ from .base import (
 from .ctrl_val import report_panel_error
 from .event_user import listens_for_value_change, signal_value_change
 from .local_variable import read_control, write_control
+from .reference_origin import ObjectOrigin, reference_origin
 
 
 def _no_python_equivalent(node: PrimitiveNode, prop: PropertyDef) -> ConversionGap:
@@ -74,11 +76,20 @@ def _no_python_equivalent(node: PrimitiveNode, prop: PropertyDef) -> ConversionG
     )
 
 
-def _reject_block_diagram_object(node: PrimitiveNode, prop: PropertyDef) -> None:
+def _reject_block_diagram_object(
+    node: PrimitiveNode, prop: PropertyDef, ctx: CodeGenContext
+) -> None:
     """Raise the gap of a property row on a reference to an object of a block
-    diagram (a SubVI node, a Diagram, a Wire, ...): the converted code has none."""
+    diagram (a SubVI node, a Diagram, a Wire, ...): the converted code has none.
+    A Generic or GObject reference is one when the diagram made it from a block
+    diagram (``reference_origin``); one made from the front panel, or somewhere
+    the diagram does not show, is read when the code runs."""
     class_name = node.object_name or ""
-    if is_block_diagram_class(class_name):
+    if is_block_diagram_class(class_name) or (
+        ctx.graph is not None
+        and is_generic_object_class(class_name)
+        and reference_origin(ctx.graph, node) is ObjectOrigin.BLOCK_DIAGRAM
+    ):
         raise ConversionGap(
             f"Property '{prop.name}' on a {class_name} reference: block-diagram "
             "objects do not exist in converted code",
@@ -568,7 +579,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
-            _reject_block_diagram_object(node, prop)
+            _reject_block_diagram_object(node, prop, ctx)
             if is_on_application_reference(node):
                 # the program's one application: the rows of the default
                 # Application object, read on the reference
@@ -649,7 +660,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 raise ConversionGap(
                     "Unwired property write default is unqualified", node
                 )
-            _reject_block_diagram_object(node, prop)
+            _reject_block_diagram_object(node, prop, ctx)
             row = panel_reference.panel_row(node, prop)
             listed = panel_reference.property_row(node, prop)
             if listed is not None and not listed.settable_while_running:

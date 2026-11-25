@@ -68,6 +68,10 @@
     "NmdUnbndl": "NamedUnbundler",
     "Wire": "GObject"
   },
+  "generic_classes": {
+    "_comment": "The classes of a Property Node whose reference can be any object of a front panel or a block diagram: Generic (heap name Gen), the class every VI Server class descends from, and GObject (GObj), the class of every front-panel and block-diagram object (NI's class hierarchy, https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/class-hierarchy.html). Which kind the reference is, is told by what made it (codegen/nodes/reference_origin.py).",
+    "classes": ["Generic", "Gen", "GObject", "GObj"]
+  },
   "block_diagram_roots": {
     "_comment": "The classes of NI's class hierarchy (https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/class-hierarchy.html) that sit directly under GObject and are objects of a block diagram: AbstractDiagram (and its Diagram), Terminal, Constant, Tunnel, SequenceLocal, Node (and its SubVI, Structure, ...), Wire, PropertyItem, FlatSequence and its two tunnels, PolymorphicVISelector. A reference whose class is one of them or below one (class_parents) is a reference to a block-diagram object, which converted code does not have. Pnl, Pane, Decoration, Scale and Control, the other classes under GObject, are front-panel objects. The short names (Diag, Term, SubVI, CaseSel, ...) are the heap class names the Property Node records, each the abbreviation of the NI class listed as its parent.",
     "classes": [

@@ -136,6 +136,7 @@ class _Table:
     unsettable_rows: dict[tuple[int, ...], str]
     class_parents: dict[str, str | None]
     block_diagram_roots: frozenset[str]
+    generic_classes: frozenset[str]
     saved_defaults: dict[str, dict[str, Any]]
     reinit_to_default: frozenset[int]
     tree_methods: dict[int, TreeMethod]
@@ -191,6 +192,7 @@ def _table() -> _Table:
             if not name.startswith("_")
         },
         block_diagram_roots=frozenset(raw["block_diagram_roots"]["classes"]),
+        generic_classes=frozenset(raw["generic_classes"]["classes"]),
         saved_defaults={
             name: dict(members)
             for name, members in raw["saved_defaults"].items()
@@ -299,6 +301,12 @@ def is_block_diagram_class(class_name: str) -> bool:
     not place (Gen, GObj) is not."""
     roots = _table().block_diagram_roots
     return any(name in roots for name in _ancestry(class_name))
+
+
+def is_generic_object_class(class_name: str) -> bool:
+    """Whether ``class_name`` is Generic or GObject, whose reference can be any
+    front-panel or block-diagram object (``generic_classes``)."""
+    return class_name in _table().generic_classes
 
 
 def control_property(class_name: str, codes: Sequence[int]) -> ControlProperty | None:

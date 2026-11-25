@@ -76,6 +76,9 @@ class GeometryRow:
     accessor: str = AS_OBJECT_NAME
 
 
+OWNER_CODE = 103970822
+"""The Owner property: the object that holds the object the reference refers to."""
+
 _ROWS = (
     GeometryRow(103983104, "Position", "position", 2, True, "gobject/position"),
     GeometryRow(103983105, "Position:Left", "left", 0, True, "gobject/left"),
@@ -88,7 +91,7 @@ _ROWS = (
         103983109, "Bounds:Area Height", "area_height", 0, False, "gobject/areaheight"
     ),
     GeometryRow(103970818, "Owning VI", "owning_vi", 0, False, "owningvi"),
-    GeometryRow(103970822, "Owner", "owner", 0, False, "owner2", AS_OWNED_NAME),
+    GeometryRow(OWNER_CODE, "Owner", "owner", 0, False, "owner2", AS_OWNED_NAME),
     GeometryRow(
         404121605, "Origin", "origin", 2, True, "gobject/pane/origin", AS_PANE_NAME
     ),
