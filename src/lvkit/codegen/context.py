@@ -46,6 +46,7 @@ from lvkit.models import (
     _is_error_cluster,
     unique_names,
 )
+from lvkit.parser.constants import NODE_CLASS_ARRAY_BUILD
 from lvkit.parser.refnum_value import NULL_REFNUM, holds_handle
 from lvkit.path_value import NOT_A_PATH, parse_path, python_path
 from lvkit.picture_records import PictureData
@@ -1021,8 +1022,11 @@ class CodeGenContext:
         one value of the wire, and a Bundle or Unbundle By Name it feeds takes its
         cluster in and cluster out as one wire whose type definition wins, so it
         reads the value as the definition's cluster (an object with an attribute
-        for each field). The constant is written as one. ``lv_type`` when it feeds
-        no such node, or its definition has other field names."""
+        for each field). So does a Build Array it feeds (through structure
+        tunnels too): its elements and its array are one type, the definition
+        another element or the array names. The constant is written as one.
+        ``lv_type`` when it feeds no such node, or its definition has other field
+        names."""
         if (
             self.graph is None
             or lv_type.kind != LVTypeKind.CLUSTER
@@ -1037,18 +1041,15 @@ class CodeGenContext:
             return lv_type
         names = [f.name for f in lv_type.fields]
         for term in node.terminals:
-            for dest in self.graph.outgoing_edges(term.id):
-                node = self.graph.get_graph_node(dest.node_id)
-                for other in getattr(node, "terminals", ()):
-                    named = other.lv_type
-                    if (
-                        other.nmux_role == "agg"
-                        and named is not None
-                        and named.kind == LVTypeKind.CLUSTER
-                        and named.typedef_name
-                        and [f.name for f in named.fields or []] == names
-                    ):
-                        return named
+            for reader, _ in self.graph.wire_destinations(term.id):
+                for other in getattr(reader, "terminals", ()):
+                    for named in _same_wire_types(reader, other):
+                        if (
+                            named.kind == LVTypeKind.CLUSTER
+                            and named.typedef_name
+                            and [f.name for f in named.fields or []] == names
+                        ):
+                            return named
         return lv_type
 
     def _format(self, const: Constant | ConstantNode) -> str:
@@ -1410,6 +1411,23 @@ def _bind_inputs_and_constants(
             ctx.bind(const.id, bound)
             if _needs_simplenamespace(bound):
                 ctx.add_import(_SIMPLENAMESPACE_IMPORT)
+
+
+def _same_wire_types(node: AnyGraphNode, terminal: Terminal) -> list[LVType]:
+    """The types of the terminal ``terminal`` of ``node`` that are the type of one
+    wire with the node's other terminals: the aggregate of a Bundle or Unbundle By
+    Name, and every terminal of a Build Array (an element is the type of the array's
+    elements, an array input or the output is an array of them)."""
+    lv_type = terminal.lv_type
+    if lv_type is None:
+        return []
+    if terminal.nmux_role == "agg":
+        return [lv_type]
+    if getattr(node, "node_type", None) == NODE_CLASS_ARRAY_BUILD:
+        if lv_type.kind == LVTypeKind.ARRAY and lv_type.element_type is not None:
+            return [lv_type.element_type]
+        return [lv_type]
+    return []
 
 
 def _python_float_constant(value: float) -> str:

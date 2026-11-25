@@ -47,6 +47,7 @@ class WireOriginMixin:
     if TYPE_CHECKING:
 
         def incoming_edges(self, terminal_id: str) -> list[WireEnd]: ...
+        def outgoing_edges(self, terminal_id: str) -> list[WireEnd]: ...
         def terminal_vi(self, terminal_id: str) -> str | None: ...
         def _get_typed_node(self, uid: str) -> AnyGraphNode | None: ...
 
@@ -70,6 +71,26 @@ class WireOriginMixin:
             else:
                 origins.append((node, source))
         return origins
+
+    def wire_destinations(
+        self, terminal_id: str, _seen: frozenset[str] = frozenset()
+    ) -> list[tuple[AnyGraphNode, WireEnd]]:
+        """The nodes the wire from the output ``terminal_id`` ends at, each with
+        the terminal it enters, looking through structure tunnels. Empty when
+        nothing reads it."""
+        if terminal_id in _seen:
+            return []
+        seen = _seen | {terminal_id}
+        destinations: list[tuple[AnyGraphNode, WireEnd]] = []
+        for dest in self.outgoing_edges(terminal_id):
+            node = self._get_typed_node(dest.node_id)
+            if node is None:
+                continue
+            if node.kind == "structure":
+                destinations.extend(self.wire_destinations(dest.terminal_id, seen))
+            else:
+                destinations.append((node, dest))
+        return destinations
 
     def constant_int(self, terminal_id: str) -> int | None:
         """The integer the wire into ``terminal_id`` holds when it is a constant
