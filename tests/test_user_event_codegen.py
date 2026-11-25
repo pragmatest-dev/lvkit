@@ -689,6 +689,43 @@ def nested_data_vi() -> Vi:
     return vi
 
 
+def register_parameter_vi(*, error_out: bool) -> Vi:
+    """Register For Events of the user event the VI takes as a parameter, with the
+    node's error out wired to the VI's (``error_out``) or not."""
+    vi = Vi("Register.vi")
+    event = user_event_of(vi, "Count", I32)
+    registration = registration_of(vi, [(event, USER_EVENT)])
+    register = register_node(vi, registration, [event])
+    vi.wire(vi.control("Event", event, REQUIRED), register["row 1"])
+    vi.wire(vi.error_in(), register["error in"])
+    if error_out:
+        vi.wire(register["error out"], vi.error_out())
+    return vi
+
+
+def test_registering_a_user_event_that_is_not_a_refnum_is_error_1055(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(register_parameter_vi(error_out=True))
+    package = project.generate("Register.vi")
+    assert package.gaps == []
+    result = package.function(None)
+    assert result.error_out.code == 1055
+    event: list[Any] = []
+    result = package.function(event)
+    assert result.error_out is None
+    assert len(event) == 1
+
+
+def test_registering_a_user_event_that_is_not_a_refnum_raises_without_an_error_out(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(register_parameter_vi(error_out=False))
+    package = project.generate("Register.vi")
+    with pytest.raises(Exception, match="1055"):
+        package.function(None)
+
+
 def test_event_data_after_a_cluster_field_is_found_by_its_depth_first_index(
     project: Project,  # noqa: F811
 ) -> None:
