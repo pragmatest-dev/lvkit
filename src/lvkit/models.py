@@ -806,19 +806,15 @@ _ERROR_CLUSTER_FIELDS: tuple[tuple[str, Callable[[str | None], bool]], ...] = (
 
 def _is_error_cluster(lv_type: LVType) -> bool:
     """Whether a type is LabVIEW's error cluster: exactly the fields ``status``
-    (Boolean), ``code`` (I32) and ``source`` (String), in that order. A field
-    the VI gives no label (a ``source`` whose label was blanked) has no name to
-    differ, so it is matched by its type alone, provided another field is named
-    as expected. A cluster whose fields are unknown is not one."""
+    (Boolean), ``code`` (I32) and ``source`` (String), in that order. A cluster
+    whose fields are unknown is not one."""
     if lv_type.kind not in (LVTypeKind.CLUSTER, LVTypeKind.TYPEDEF_REF):
         return False
     fields = lv_type.fields
     if not fields or len(fields) != len(_ERROR_CLUSTER_FIELDS):
         return False
-    if not any(candidate.labelled for candidate in fields):
-        return False
     return all(
-        (not candidate.labelled or candidate.name.lower() == name)
+        candidate.name.lower() == name
         and candidate.type is not None
         and candidate.type.kind == LVTypeKind.PRIMITIVE
         and has_type(candidate.type.underlying_type)
