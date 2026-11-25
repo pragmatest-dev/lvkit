@@ -78,7 +78,7 @@ from ..error_flow import assigned_names, output_defaults, own_error_terminals
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
-from ..native_failure import labview_error
+from ..native_failure import automatic_error_handling, labview_error
 from ..pane_candidates import CallForm, candidates
 from ..panels_application import APPLICATION_NAME
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
@@ -384,8 +384,9 @@ def _made_only_with_a_vi(
     node: VINode, ctx: CodeGenContext, reference: str, fragment: CodeFragment
 ) -> CodeFragment:
     """``fragment``, the call through the reference value ``reference``, made
-    only when the value holds a VI. A reference that is Not a Refnum (``None``)
-    makes no call: the node's outputs take their defaults and its own error is
+    only when the value holds a VI. A value that is not a function (Not a Refnum,
+    ``None``, or a reference read back from its flattened number) makes no
+    call: the node's outputs take their defaults and its own error is
     error 1026, "VI Reference is invalid." (NI, General LabVIEW Error Codes),
     which its error out reports unless an error came in (``error_flow``). A
     node whose error out is not wired has nowhere to report it, so calling the
@@ -417,7 +418,7 @@ def _made_only_with_a_vi(
     invalid = labview_error(INVALID_VI_REFERENCE_CODE, _label(node))
     fragment.statements = [
         ast.If(
-            test=parse_expr(f"({reference}) is None"),
+            test=parse_expr(f"not callable({reference})"),
             body=[*defaults, build_assign(own_error, invalid)],
             orelse=[*statements, build_assign(own_error, parse_expr("None"))],
         )
@@ -522,7 +523,9 @@ def _function_name(stem):
     return name
 """.replace("{modules}", repr(sorted(GENERATED_MODULE_NAMES)))
 
-_IMPORT_BY_PATH = PATH_FROM_HERE + """\
+_IMPORT_BY_PATH = (
+    PATH_FROM_HERE
+    + """\
 {parts} = {rel}.split("/")
 {up} = 0
 while {parts}[0] == "..":
@@ -533,6 +536,7 @@ if {up} >= len(__package__.split(".")):
 {stem} = {parts}.pop()
 {package} = "." * ({up} + 1) + "".join(_module_part(p) + "." for p in {parts})
 """
+)
 
 _IMPORT_BY_NAME = """\
 {owner}, _, {stem} = {value}.rpartition(":")
@@ -640,12 +644,6 @@ def _generate_lookup(
     statements = ast.parse(text).body
     bindings = {reference.id: reference_var} if reference is not None else {}
     fragment = CodeFragment(statements=statements, bindings=bindings)
-    _, error_outs = own_error_terminals(node, ctx)
-    if not any(ctx.is_wired(term.id) for term in error_outs):
-        # With nowhere to put an error, a name or path that finds no VI stays
-        # the lookup's own exception, as a native failure does
-        # (``native_failure``).
-        return fragment
     return _not_found_is_error(node, ctx, fragment, reference_var, value, by_name)
 
 
@@ -666,13 +664,37 @@ def _not_found_is_error(
     memory." (NI, Open VI Reference: "LabVIEW will only search in memory for a
     VI with a specified name"; NI, General LabVIEW Error Codes: 1004. JKI VI
     Tester's own diagram filters 1004 on a name that no class member has.)"""
-    own_error = ctx.make_output_var("own_error", node.id)
     ctx.import_labview_error()
     not_found = labview_error(
         NOT_IN_MEMORY_CODE if by_name else FILE_NOT_FOUND_CODE,
         _label(node),
         f"'the VI ' + repr({value}) + ' is not in memory and has no file'",
     )
+    _, error_outs = own_error_terminals(node, ctx)
+    if not any(ctx.is_wired(term.id) for term in error_outs):
+        # With nowhere to put the error, the VI's automatic error handling
+        # decides: on, the error is raised as LabVIEW stops at the node and
+        # shows it; off, the reference is Not a Refnum and the run continues.
+        lookup_failure = ctx.make_output_var("exception", node.id)
+        handler: list[ast.stmt] = [build_assign(reference_var, parse_expr("None"))]
+        if automatic_error_handling(ctx):
+            handler.append(ast.Raise(exc=not_found, cause=parse_expr(lookup_failure)))
+        fragment.statements = [
+            ast.Try(
+                body=fragment.statements,
+                handlers=[
+                    ast.ExceptHandler(
+                        type=parse_expr("(LookupError, ModuleNotFoundError)"),
+                        name=lookup_failure,
+                        body=handler,
+                    )
+                ],
+                orelse=[],
+                finalbody=[],
+            )
+        ]
+        return fragment
+    own_error = ctx.make_output_var("own_error", node.id)
     fragment.statements = [
         ast.Try(
             body=fragment.statements,

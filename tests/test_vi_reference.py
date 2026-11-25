@@ -372,8 +372,10 @@ def test_a_computed_path_to_a_polymorphic_vi_says_it_has_no_function(
     loaded = _computed(tmp_path, _PATH_TYPE)
     variants = "def wrap_scalar():\n    pass\n"
     for refs in _package(tmp_path, _source(loaded), variants, module="wrap"):
-        with pytest.raises(LookupError, match="module of 'Wrap' has no function"):
+        errors = sys.modules["generated_refs.errors"]
+        with pytest.raises(errors.LabVIEWError) as raised:
             refs.refs(Path("Wrap.vi"))  # type: ignore[attr-defined]
+        assert "module of 'Wrap' has no function" in str(raised.value.__cause__)
 
 
 def test_a_computed_path_may_climb_to_a_parent_folder(tmp_path: Path) -> None:
@@ -384,6 +386,7 @@ def test_a_computed_path_may_climb_to_a_parent_folder(tmp_path: Path) -> None:
     (package / "sub").mkdir(parents=True)
     (package / "__init__.py").write_text("", encoding="utf-8")
     (package / "sub" / "__init__.py").write_text("", encoding="utf-8")
+    (package / "sub" / "errors.py").write_text(ERRORS_MODULE_SOURCE, encoding="utf-8")
     (package / "callee.py").write_text(_CALLEE, encoding="utf-8")
     (package / "sub" / "refs.py").write_text(_source(loaded), encoding="utf-8")
     sys.path.insert(0, str(tmp_path))
@@ -408,6 +411,7 @@ def test_a_computed_path_with_backslashes_is_read_like_one_with_slashes(
     (package / "sub").mkdir(parents=True)
     (package / "__init__.py").write_text("", encoding="utf-8")
     (package / "sub" / "__init__.py").write_text("", encoding="utf-8")
+    (package / "errors.py").write_text(ERRORS_MODULE_SOURCE, encoding="utf-8")
     (package / "sub" / "callee.py").write_text(_CALLEE, encoding="utf-8")
     (package / "refs.py").write_text(_source(loaded), encoding="utf-8")
     sys.path.insert(0, str(tmp_path))
@@ -443,8 +447,10 @@ def test_a_computed_name_finds_the_method_of_its_class(tmp_path: Path) -> None:
     assert "'Owner.lvclass:Callee.vi': ('.owner', 'Owner', 'callee_bdhbxml')" in source
     for refs in _package(tmp_path, source, _CLASS_CALLEE, "owner"):
         refs.refs("Owner.lvclass:Callee.vi")  # type: ignore[attr-defined]
-        with pytest.raises(KeyError):
+        errors = sys.modules["generated_refs.errors"]
+        with pytest.raises(errors.LabVIEWError) as raised:
             refs.refs("Other.lvclass:Callee.vi")  # type: ignore[attr-defined]
+        assert raised.value.code == 1004
 
 
 def test_a_computed_name_with_no_owner_finds_the_loaded_vi_of_that_name(
@@ -456,8 +462,11 @@ def test_a_computed_name_with_no_owner_finds_the_loaded_vi_of_that_name(
     assert "_vi_unowned = {'Callee.vi': '.', 'Refs.vi': '.'}" in source
     for refs in _package(tmp_path, source, _CALLEE):
         refs.refs("Callee.vi")  # type: ignore[attr-defined]
-        with pytest.raises(KeyError):
-            refs.refs("Other.vi")  # type: ignore[attr-defined]
+        errors = sys.modules["generated_refs.errors"]
+        for name in ("Other.vi", ""):
+            with pytest.raises(errors.LabVIEWError) as raised:
+                refs.refs(name)  # type: ignore[attr-defined]
+            assert raised.value.code == 1004
 
 
 def test_a_call_by_reference_of_a_static_method_found_when_the_code_runs_calls_it(
@@ -1178,6 +1187,11 @@ def test_a_reference_value_that_is_not_a_refnum_is_error_1026(tmp_path: Path) ->
         assert result.error_out.source == "Call By Reference"
         assert result.error_out.message == "VI Reference is invalid."
         assert result.callee_error_out is None
+        assert result.y == 0
+        # A reference read back from its flattened number refers to nothing too.
+        result = refs.refs(vi_ref=12345, error_in=None, callee_error=None)  # type: ignore[attr-defined]
+        assert callee.calls == []
+        assert result.error_out.code == 1026
         assert result.y == 0
         # An error that came in wins over the invalid reference.
         incoming = errors.LabVIEWError(code=5, source="before")
