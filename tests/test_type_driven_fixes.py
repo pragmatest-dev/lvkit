@@ -167,3 +167,27 @@ class TestErrorClusterByType:
             lv_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32"),
         )
         assert term.is_error_cluster is False
+
+    def test_a_source_the_vi_gives_no_label_still_makes_an_error_cluster(self):
+        """JKI's Update Package Version from Build Rev has an error in whose
+        ``source`` label was blanked: status and code are named, the string is
+        matched by its type."""
+        lv_type = self._error_cluster_type()
+        lv_type.fields[2].name = "field_2"
+        lv_type.fields[2].labelled = False
+        term = Terminal(id="t4", index=3, direction="input", lv_type=lv_type)
+        assert term.is_error_cluster is True
+
+    def test_a_cluster_with_no_label_at_all_is_not_an_error_cluster(self):
+        lv_type = self._error_cluster_type()
+        for index, field in enumerate(lv_type.fields):
+            field.name = f"field_{index}"
+            field.labelled = False
+        term = Terminal(id="t5", index=3, direction="input", lv_type=lv_type)
+        assert term.is_error_cluster is False
+
+    def test_a_wrongly_named_label_is_not_an_error_cluster(self):
+        lv_type = self._error_cluster_type()
+        lv_type.fields[1].name = "number"
+        term = Terminal(id="t6", index=3, direction="input", lv_type=lv_type)
+        assert term.is_error_cluster is False

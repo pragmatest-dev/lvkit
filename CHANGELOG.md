@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **An error in whose source has no label is still an error cluster** — a status/code/string cluster whose string label was blanked (JKI's Update Package Version from Build Rev) is the error in it wires to, so the generated function takes the error as a value instead of a tuple it reads `.status` from.
 - **Delete From Array of a 2D (or deeper) array deletes along the dimension whose index is wired** — a column or page, not always the first dimension's rows; the deleted portion has one dimension less (or the array's dimensions with a wired length). JKI's Draw Flatten Pixmap split the alpha column off a pixmap and failed comparing a row with a number.
 - **Owner of a front-panel object generates** — a control or decoration's Owner is the pane it is on, a cluster element's is the cluster, a pane's is the panel, and the panel's is Not a Refnum (NI's Owner page), on a reference and on a Property Node bound to a control. A property of a reference to a block-diagram object (a SubVI node, Diagram, Wire, Terminal, Constant, Structure ..., by NI's class hierarchy) is a gap, since converted code has no block diagram.
 - **A cluster constant saved without its type definition is written as that definition when a Bundle By Name takes it** — OpenG's Fit VI Window sets `.horizontal` on the constant `(0, 0)`; it is now an object with the definition's fields.
