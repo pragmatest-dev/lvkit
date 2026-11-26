@@ -275,7 +275,7 @@ def test_owning_application_of_the_default_vi_is_the_application(
     assert _run(source, tmp_path).startswith("<")
 
 
-def test_all_vis_in_memory_lists_the_imported_vi_functions(tmp_path: Path) -> None:
+def test_all_vis_in_memory_lists_the_names_of_the_imported_vis(tmp_path: Path) -> None:
     source = _vi("App", "Application:All VIs In Memory", 28)
     assert "from .panels import loaded_vis" in source
     path = tmp_path / "user.py"
@@ -283,11 +283,9 @@ def test_all_vis_in_memory_lists_the_imported_vi_functions(tmp_path: Path) -> No
     namespace: dict = {"__file__": str(path)}
     exec_generated(source, namespace, str(path))  # noqa: S102
     listed = namespace["user"]().user
-    assert namespace["user"] in listed
-    assert [function.vi_name for function in listed] == sorted(
-        function.vi_name for function in listed
-    )
-    assert len(listed) == len({id(function) for function in listed})
+    assert all(isinstance(name, str) for name in listed)
+    assert namespace["user"].vi_name in listed
+    assert listed == sorted(set(listed))
 
 
 def test_the_reentrancy_type_is_a_file_fact_of_a_reentrant_vi(
