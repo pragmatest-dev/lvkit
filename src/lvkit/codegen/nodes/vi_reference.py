@@ -795,16 +795,31 @@ def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:
     path; anything else stops generation."""
     assert ctx.graph is not None
     kinds: set[str | None] = set()
-    for _, source in ctx.graph.wire_origins(path_term.id):
-        origin = ctx.graph.get_terminal(source.terminal_id)
-        kinds.add(origin.lv_type.underlying_type if origin and origin.lv_type else None)
+    for source in ctx.graph.incoming_edges(path_term.id):
+        # The terminal that feeds the node: a loop's indexing tunnel inside the
+        # loop carries one element of the array outside it.
+        feeder = ctx.graph.get_terminal(source.terminal_id)
+        if feeder is None or feeder.lv_type is None:
+            origins = ctx.graph.wire_origins(path_term.id)
+            kinds.update(_underlying(ctx, s.terminal_id) for _, s in origins)
+        else:
+            kinds.add(feeder.lv_type.underlying_type)
     if kinds == {"String"}:
         return True
     if kinds == {"Path"}:
         return False
     raise ConversionGap(
-        "Open VI Reference: the computed VI path is neither a path nor a string.",
+        "Open VI Reference: the computed VI path is neither a path nor a string "
+        f"(wire types: {sorted(str(k) for k in kinds)}).",
     )
+
+
+def _underlying(ctx: CodeGenContext, terminal_id: str) -> str | None:
+    assert ctx.graph is not None
+    terminal = ctx.graph.get_terminal(terminal_id)
+    if terminal is None or terminal.lv_type is None:
+        return None
+    return terminal.lv_type.underlying_type
 
 
 def vi_property_read(

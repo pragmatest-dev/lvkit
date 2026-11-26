@@ -515,7 +515,8 @@ def test_open_vi_reference_of_an_untyped_computed_value_is_a_gap(
 ) -> None:
     loaded = _computed(tmp_path, None)
     assert _failure(loaded) == (
-        "Open VI Reference: the computed VI path is neither a path nor a string."
+        "Open VI Reference: the computed VI path is neither a path nor a string "
+        "(wire types: ['None'])."
     )
 
 
