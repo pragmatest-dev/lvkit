@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **The constant of an enum or ring that holds its default (a UnitUInt8/16/32) is read** — zero of the unsigned width; before, it was "not decoded" (PicoScope 3000 example block, JKI Auto Increment Package Version).
 - **Qualified Name Array To Single String and Single String To Qualified Name Array generate** — a qualified name is its parts joined with a colon (`library1.lvlib:init.vi`, NI's Using Libraries in LabVIEW Projects page): `':'.join` and `split(':')`.
 - **A Property Node on a VISA resource reads and writes the session's attributes** — each row records its VISA attribute identifier as its property code (Serial Settings:End Mode for Writes, TCP/IP Settings:Computer Hostname, Send End Enable, Termination Character, Baud, ...), so the row is `get_visa_attribute` / `set_visa_attribute` with pyvisa's `ResourceAttribute(<code>)`; a VISA failure is the node's error out with the VISA status code, and the rows after it do not run.
 - **Match Regular Expression generates** — Python's `re` runs the pattern (compiled once at module level when it and both options are constants) from the offset; before, whole and after match, offset past match (-1 on no match) and every submatch follow NI's page, a pattern `re` cannot read or a null character (error -4702) is the error out.

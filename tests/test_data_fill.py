@@ -9,6 +9,7 @@ from dataclasses import replace
 
 import pytest
 
+from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.data_fill import (
     DefaultDataSpace,
     flatten_data_fill,
@@ -132,6 +133,22 @@ def test_a_string_is_encoded_with_the_encoding_of_the_vi() -> None:
     fill = _fill("<String>é</String>")
     assert flatten_data_fill(fill, "cp1252").data == b"\x00\x00\x00\x01\xe9"
     assert flatten_data_fill(fill, "cp932").unsupported_tag == "String"
+
+
+@pytest.mark.parametrize(
+    ("kind", "name", "width"),
+    [
+        (LVTypeKind.ENUM, "UnitUInt8", 1),
+        (LVTypeKind.ENUM, "UnitUInt16", 2),
+        (LVTypeKind.ENUM, "UnitUInt32", 4),
+        (LVTypeKind.RING, "UnitUInt16", 2),
+        (LVTypeKind.PRIMITIVE, "UnitUInt16", 2),
+    ],
+)
+def test_the_default_of_an_enum_or_ring_is_zero_of_its_unsigned_width(
+    kind: LVTypeKind, name: str, width: int
+) -> None:
+    assert type_default_bytes(LVType(kind=kind, underlying_type=name)) == bytes(width)
 
 
 def test_the_default_of_a_type_is_zero_empty_or_a_cluster_of_those() -> None:

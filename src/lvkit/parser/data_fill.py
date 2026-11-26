@@ -26,6 +26,7 @@ from typing import NamedTuple
 from ..lv_type_codes import (
     FLOAT_BYTE_WIDTHS,
     INTEGER_BYTE_WIDTHS,
+    UNIT_UINT_BYTE_WIDTHS,
     is_variant_type_name,
 )
 from ..models import LVType, LVTypeKind
@@ -374,7 +375,7 @@ def type_default_bytes(lv_type: LVType | None) -> bytes | None:
         if any(part is None for part in parts):
             return None
         return b"".join(part for part in parts if part is not None)
-    if lv_type.kind != LVTypeKind.PRIMITIVE:
+    if lv_type.kind not in (LVTypeKind.PRIMITIVE, LVTypeKind.ENUM, LVTypeKind.RING):
         return None
     name = lv_type.underlying_type
     if name == "Boolean":
@@ -395,7 +396,11 @@ def type_default_bytes(lv_type: LVType | None) -> bytes | None:
         # An empty Variant: no value and no attributes. Of the Variant constants
         # with a TMFBit11 type, 45 of 45 hold exactly these 20 bytes.
         return _EMPTY_VARIANT
-    width = INTEGER_BYTE_WIDTHS.get(name or "") or FLOAT_BYTE_WIDTHS.get(name or "")
+    width = (
+        INTEGER_BYTE_WIDTHS.get(name or "")
+        or UNIT_UINT_BYTE_WIDTHS.get(name or "")
+        or FLOAT_BYTE_WIDTHS.get(name or "")
+    )
     return b"\x00" * width if width else None
 
 
