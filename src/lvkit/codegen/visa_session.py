@@ -20,12 +20,13 @@ from __future__ import annotations
 import ast
 
 from lvkit.graph.models import AnyGraphNode
+from lvkit.lv_type_codes import REFNUM_TYPE
 from lvkit.models import TerminalDirection
 from lvkit.primitive_resolver import NativeError
 
 from .context import CodeGenContext
 
-VISA_REFNUM = "VisaRef"
+VISA_REFNUM = REFNUM_TYPE.VisaRef.name
 # NI, VISA Error Codes: -1073807346 "The given session or object reference is
 # invalid."
 INVALID_SESSION_CODE = -1073807346
