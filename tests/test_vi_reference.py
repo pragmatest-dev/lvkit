@@ -8,6 +8,7 @@ writes, and the result of running that Python next to a hand-written callee.
 
 from __future__ import annotations
 
+import ast
 import builtins
 import dataclasses
 import importlib
@@ -25,16 +26,18 @@ import pytest
 
 from lvkit.codegen.ast_utils import module_part, to_function_name
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.nodes import vi_reference
+from lvkit.codegen.pane_slots import pane_parameters
 from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.render_lvnet import render_lvnet
-from lvkit.models import LVType, LVTypeKind, ServerClass
+from lvkit.models import LVType, LVTypeKind, ServerClass, Terminal
 from lvkit.module_layout import ModuleLayout
 from lvkit.pipeline import create_import_resolver
 from tests import vi_reference_diagrams as d
@@ -970,6 +973,66 @@ def test_a_reference_value_call_runs(tmp_path: Path) -> None:
         assert [x for x, _ in callee.calls] == [5]
 
 
+_INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+_TWO_NAMINGS = (
+    "from typing import NamedTuple\n"
+    "calls = []\n"
+    "class CalleeResult(NamedTuple):\n"
+    "    y: int\n"
+    "class OtherResult(NamedTuple):\n"
+    "    q: int\n"
+    "def callee(x=None):\n"
+    "    calls.append(('callee', x))\n"
+    "    return CalleeResult(y=x + 1)\n"
+    "callee.vi_name = 'Callee.vi'\n"
+    "def other(p=None):\n"
+    "    calls.append(('other', p))\n"
+    "    return OtherResult(q=p + 2)\n"
+    "other.vi_name = 'Other.vi'\n"
+)
+
+
+def _two_namings(tmp_path: Path) -> d.Loaded:
+    """A call through a reference typed with terminals ``a`` and ``b`` (slots 0
+    and 1) whose project holds two VIs with that pane, ``Callee.vi`` (``x``, ``y``)
+    and ``Other.vi`` (``p``, ``q``)."""
+    typed = (
+        d.CALLEE_INPUT.model_copy(update={"lv_type": _INT}),
+        d.CALLEE_OUTPUT.model_copy(update={"lv_type": _INT}),
+    )
+    loaded = d.load(tmp_path, [_CALL], [], [_X], typed)
+    (tmp_path / "Other_BDHb.xml").write_text(d.diagram([], []), encoding="utf-8")
+    other = loaded.graph.load_vi(tmp_path / "Other_BDHb.xml")
+    assert other is not None
+    loaded.graph._vi_display_names[other] = "Other.vi"  # noqa: SLF001
+    other_node = loaded.graph._graph.nodes[other]["node"]  # noqa: SLF001
+    other_node.terminals = [
+        Terminal(id="p", index=0, direction="input", name="p", lv_type=_INT),
+        Terminal(id="q", index=1, direction="output", name="q", lv_type=_INT),
+    ]
+    reference = d.typed_vi_reference(("a", "b"))
+    assert reference.element_type is not None and reference.element_type.pane
+    reference.element_type.pane = tuple(
+        dataclasses.replace(slot, type=_INT) for slot in reference.element_type.pane
+    )
+    d.type_terminal(loaded, 31, reference)
+    d.add_control(loaded, "vi_ref", reference, 31)
+    d.add_indicator(loaded, "result", _INT, 43, 0)
+    return loaded
+
+
+def test_a_call_through_a_reference_is_matched_by_pane_slot_not_by_name(
+    tmp_path: Path,
+) -> None:
+    source = _source(_two_namings(tmp_path))
+    assert "x=5" not in source and "p=5" not in source
+    for refs in _package(tmp_path, source, _TWO_NAMINGS):
+        callee = importlib.import_module("generated_refs.callee")
+        assert refs.refs(callee.callee).result == 6  # type: ignore[attr-defined]
+        assert refs.refs(callee.other).result == 7  # type: ignore[attr-defined]
+        assert callee.calls == [("callee", 5), ("other", 5)]
+
+
 def test_a_call_by_reference_with_its_vi_chosen_in_the_setup_is_a_direct_call(
     tmp_path: Path,
 ) -> None:
@@ -1373,3 +1436,10 @@ def test_path_on_a_reference_that_is_not_a_vi_server_vi_stays_a_gap(
     assert _failure(loaded) == (
         "Property 'Path' on a Foo Interface Type 0 reference has no Python equivalent"
     )
+
+
+def test_a_started_call_matched_by_pane_slot_passes_the_slot_arguments() -> None:
+    keyword = pane_parameters("_t", "ref", [(0, "x")])
+    ctx = CodeGenContext()
+    call = vi_reference.start_forgotten(ctx, "ref", [keyword])
+    assert "kwargs={**{_t[ref.vi_name][0][0]: x}}" in ast.unparse(call)

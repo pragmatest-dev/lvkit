@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Call By Reference matches the called VI by connector-pane slot, not by name** — when the project's VIs with the reference's pane name their terminals differently (measurement-plugin's `resolve_service` and its fake), the generated call reads each slot's parameter and result name from a table keyed by the function's `vi_name`; before it passed the type specifier's names and crashed with an unexpected keyword.
 - **Application:All VIs In Memory returns the VI names** — `loaded_vis()` gave the VI functions, so OpenG's List Open Front Panels crashed passing one to Open VI Reference by name; it now gives each imported VI's qualified name, sorted, which that lookup takes back.
 - **Merge Signals generates, and dynamic data is a list of `nitypes` waveforms** — each input becomes its waveforms in input order (a waveform, a 1D array of waveforms or dynamic data as they are, a 1D numeric array one waveform, a scalar a one-sample waveform with default timing), as NI's Merge Signals page says an array of waveforms composes the wire; Boolean, 2D array and digital waveform inputs are gaps with NI's reason (PicoScope USBTC08 examples).
 - **The constant of an enum or ring that holds its default (a UnitUInt8/16/32) is read** — zero of the unsigned width; before, it was "not decoded" (PicoScope 3000 example block, JKI Auto Increment Package Version).
