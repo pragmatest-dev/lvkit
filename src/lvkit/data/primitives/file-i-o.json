@@ -526,12 +526,14 @@
         }
       ],
       "python_code": {
-        "text": "(in_11.read() if hasattr(in_11, \"read\") else open(in_11, encoding=\"utf-8\").read())",
-        "refnum_out": "in_11",
+        "_body": "_text_read = (_text_file := in_11 if hasattr(in_11, \"read\") else open(in_11, encoding=\"utf-8\")).read()",
+        "text": "_text_read",
+        "refnum_out": "_text_file",
         "cancelled": "False",
         "error_out": "in_8"
       },
-      "note": "Read from Text File (renamed from a mislabelled 'List Folder') -- file (in#11) accepts a refnum or path; text (out#2) is a string, or array of strings when count is wired. Side-effecting IO, not execution-verified.",
+      "inline": false,
+      "note": "Read from Text File (renamed from a mislabelled 'List Folder') -- file (in#11) accepts a refnum or path; text (out#2) is a string, or array of strings when count is wired. NI: file 'can be a refnum or absolute file path. If it is a path, this function opens the file specified by the path'; refnum out 'is the refnum of the file that the function read ... The default is to close the file if it is referenced by a file path ... If you wire refnum out to another function, LabVIEW assumes that the file is still in use until you close it', so refnum out is the open file (a path is opened here, as Open/Create/Replace File does), never the path. Side-effecting IO, not execution-verified.",
       "verified": false
     },
     "8078": {
