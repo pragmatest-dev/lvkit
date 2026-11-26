@@ -53,6 +53,7 @@ from . import (
     panel_reference,
     vi_file_properties,
     vi_reference,
+    visa_properties,
     window_rows,
 )
 from .base import (
@@ -455,7 +456,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     (``window_rows``: State, Open, Is Frontmost, Panel Bounds, Origin, Monitor,
     Behavior, Custom Title, Edit Mode On Open; a read and a write), the properties
     its file records
-    (``vi_file_properties``, Help:Document Web URL also a write) and the rows of
+    (``vi_file_properties``, Help:Document Web URL also a write), the attributes
+    of a VISA resource (``visa_properties``; a read and a write) and the rows of
     the front panel's own
     references (``panel_reference``: Panel, Controls[], a control's Value,
     Indicator and Label.Text, and a write of a control's Value; and a Combo Box's
@@ -482,6 +484,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         node, ctx.vi_name or ""
     ):
         return own_window_properties.generate(node, ctx)
+    if visa_properties.is_visa_property_node(node):
+        return visa_properties.generate(node, ctx)
     fixed = [term for term in node.terminals if term.id not in value_ids]
     default_class = unwired_ref_class(node, ctx)
     ref_var = "" if default_class else resolve_ref_input(node, ctx)
