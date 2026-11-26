@@ -770,14 +770,11 @@ def test_dflt_data_dir_is_found_by_its_file_name_and_has_python() -> None:
     assert entry.python_code is not None
 
 
-def test_librarian_get_info_and_qualified_name_array_to_single_string_are_gaps(
+def test_librarian_get_info_is_a_gap(
     tmp_path: Path,
 ) -> None:
     resolver = VILibResolver()
-    for path in (
-        "<vilib>/Utility/libraryn.llb/Librarian Get Info.vi",
-        "<vilib>/Utility/LVClass/Qualified Name Array To Single String.vi",
-    ):
+    for path in ("<vilib>/Utility/libraryn.llb/Librarian Get Info.vi",):
         entry = resolver.resolve_recorded(path)
         assert entry is None or entry.python_code is None
     gaps: list[Gap] = []

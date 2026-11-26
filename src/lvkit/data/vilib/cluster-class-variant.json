@@ -579,6 +579,78 @@
       ]
     },
     {
+      "name": "Qualified Name Array To Single String",
+      "doc_url": null,
+      "category": "Cluster, Class, & Variant",
+      "description": "Joins the parts of a qualified LabVIEW name (library names, then the class or VI name) into the single qualified name, with a colon between the parts. NI has no page for this VI; NI's 'Using Libraries in LabVIEW Projects' page says 'A qualified name includes the filename and the qualified name of the owning project library' and gives the form 'library1.lvlib:init.vi'. Pane: the callers LVOOP Return Class Name (OpenG) and Find Target Actor (Actor Framework) record output 0 'Fully Qualified String' (String) and input 1 'Fully Qualified Array' (array of String).",
+      "vi_path": "<vilib>/Utility/LVClass/Qualified Name Array To Single String.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "Fully Qualified String",
+          "index": 0,
+          "direction": "output",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "fully_qualified_string",
+          "description": "The qualified name: the parts joined with a colon."
+        },
+        {
+          "name": "Fully Qualified Array",
+          "index": 1,
+          "direction": "input",
+          "type": null,
+          "enum_values": null,
+          "python_param": "fully_qualified_array",
+          "description": "The parts of the qualified name, outermost library first and the class or VI name last."
+        }
+      ],
+      "match_names": [
+        "Qualified Name Array To Single String.vi"
+      ],
+      "imports": [],
+      "python_code": "{fully_qualified_string} = ':'.join({fully_qualified_array})",
+      "inline": true
+    },
+    {
+      "name": "Single String To Qualified Name Array",
+      "doc_url": null,
+      "category": "Cluster, Class, & Variant",
+      "description": "Splits a qualified LabVIEW name at its colons into its parts (the reverse of Qualified Name Array To Single String). NI has no page for this VI; the colon is NI's separator ('library1.lvlib:init.vi', NI's 'Using Libraries in LabVIEW Projects' page). Pane: the callers Exclude Conpane Item and Post Build Icon Editor PPL record output 0 'Fully Qualified Array' (array of String) and input 1 'Fully Qualified String' (String).",
+      "vi_path": "<vilib>/Utility/LVClass/Single String To Qualified Name Array.vi",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "Fully Qualified Array",
+          "index": 0,
+          "direction": "output",
+          "type": null,
+          "enum_values": null,
+          "python_param": "fully_qualified_array",
+          "description": "The parts of the qualified name, outermost library first and the class or VI name last."
+        },
+        {
+          "name": "Fully Qualified String",
+          "index": 1,
+          "direction": "input",
+          "type": "String",
+          "enum_values": null,
+          "python_param": "fully_qualified_string",
+          "description": "The qualified name: the parts joined with a colon."
+        }
+      ],
+      "match_names": [
+        "Single String To Qualified Name Array.vi"
+      ],
+      "imports": [],
+      "python_code": "{fully_qualified_array} = {fully_qualified_string}.split(':')",
+      "inline": true
+    },
+    {
       "name": "To Variant Function",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-variant.html",
       "category": "Cluster, Class, & Variant",
