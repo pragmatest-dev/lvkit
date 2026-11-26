@@ -155,6 +155,7 @@ _IMPLICIT_IMPORTS = {
     "Enum": "from enum import Enum",
     "UTC": "from datetime import UTC",
     "hightime": "import hightime",
+    "nitypes": "import nitypes.waveform",
     "os": "import os",
     "Path": "from pathlib import Path",
     "SimpleNamespace": "from types import SimpleNamespace",

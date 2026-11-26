@@ -3,6 +3,7 @@
 lvkit follows semantic versioning.
 
 ## [Unreleased]
+- **Merge Signals generates, and dynamic data is a list of `nitypes` waveforms** — each input becomes its waveforms in input order (a waveform, a 1D array of waveforms or dynamic data as they are, a 1D numeric array one waveform, a scalar a one-sample waveform with default timing), as NI's Merge Signals page says an array of waveforms composes the wire; Boolean, 2D array and digital waveform inputs are gaps with NI's reason (PicoScope USBTC08 examples).
 - **The constant of an enum or ring that holds its default (a UnitUInt8/16/32) is read** — zero of the unsigned width; before, it was "not decoded" (PicoScope 3000 example block, JKI Auto Increment Package Version).
 - **Qualified Name Array To Single String and Single String To Qualified Name Array generate** — a qualified name is its parts joined with a colon (`library1.lvlib:init.vi`, NI's Using Libraries in LabVIEW Projects page): `':'.join` and `split(':')`.
 - **VISA Open for gRPC Session.vi generates, called or chosen in a Call By Reference node's setup** — NI-VISA's `grpc://{address}:{port}/{resource}?init_behavior={0-4}&session_name={name}` resource name (empty address is localhost, port 0 is 31763) is opened with pyvisa's `open_resource` with the open timeout and access mode, a `VisaIOError` is the error out, and `pyvisa` is in `requirements.txt`; any Call By Reference node whose setup names a vi.lib VI the catalog has now generates that catalog code instead of a gap.
