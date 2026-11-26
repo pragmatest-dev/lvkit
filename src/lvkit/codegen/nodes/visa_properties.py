@@ -37,9 +37,9 @@ from ..context import CodeGenContext
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..native_failure import CatalogFailures, catch_failures
+from ..visa_session import VISA_REFNUM
 from .base import resolve_ref_input, unwired_ref_class
 
-_VISA_REFNUM = "VisaRef"
 _CODE_MASK = 0xFFFFFFFF
 _SOURCE = "Property Node"
 _FAILURE = NativeError(
@@ -54,7 +54,7 @@ def is_visa_property_node(node: PrimitiveNode) -> bool:
             return (
                 term.lv_type is not None
                 and term.lv_type.underlying_type == "Refnum"
-                and term.lv_type.ref_type == _VISA_REFNUM
+                and term.lv_type.ref_type == VISA_REFNUM
             )
     return False
 

@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from lvkit.models import LVType, LVTypeKind
 from tests.helpers import error_cluster_type
 from tests.primitive_caller import run_primitive
 from tests.vilib_caller import BOOL, STRING, U32, primitive
@@ -283,3 +284,68 @@ def test_a_neighbour_without_python_stays_a_gap() -> None:
             {"expression": "?*"},
             gaps=[],
         )
+
+
+VISA_REF = LVType(
+    kind=LVTypeKind.PRIMITIVE, underlying_type="Refnum", ref_type="VisaRef"
+)
+INVALID_SESSION = -1073807346
+
+
+def _close_session(session: Any, error_in: Any = None, wire_error: bool = False):
+    inputs = {"session": (11, VISA_REF)}
+    arguments: dict[str, Any] = {"session": session}
+    if wire_error:
+        inputs["error_in"] = (8, ERROR)
+        arguments["error_in"] = error_in
+    return run_primitive(
+        1922,
+        [(0, "output", ERROR), (8, "input", ERROR), (11, "input", VISA_REF)],
+        inputs,
+        {"error": (0, ERROR)},
+        arguments,
+    )
+
+
+def test_close_of_no_session_is_the_invalid_session_error() -> None:
+    _, result = _close_session(None)
+    assert result.error.code == INVALID_SESSION
+    assert result.error.source == "VISA Close"
+
+
+def test_close_of_no_session_keeps_the_error_that_came_in() -> None:
+    from tests.helpers import install_generated_package
+
+    install_generated_package()
+    from generated_package.errors import LabVIEWError
+
+    earlier = LabVIEWError(code=5, source="earlier", message="")
+    _, result = _close_session(None, earlier, wire_error=True)
+    assert result.error is earlier
+
+
+def test_close_of_a_live_session_is_unchanged() -> None:
+    resource = FakeResource()
+    _, result = _close_session(resource)
+    assert resource.calls == [("close",)]
+    assert result.error is None
+
+
+def test_write_to_no_session_is_the_invalid_session_error() -> None:
+    _, result = run_primitive(
+        1926,
+        [
+            (0, "output", ERROR),
+            (2, "output", U32),
+            (3, "output", VISA_REF),
+            (8, "input", ERROR),
+            (10, "input", STRING),
+            (11, "input", VISA_REF),
+        ],
+        {"resource": (11, VISA_REF), "data": (10, STRING)},
+        {"count": (2, U32), "error": (0, ERROR)},
+        {"resource": None, "data": "x"},
+    )
+    assert result.error.code == INVALID_SESSION
+    assert result.error.source == "VISA Write"
+    assert result.count == 0

@@ -193,6 +193,16 @@ def test_a_visa_failure_is_the_error_out_and_stops_the_rows_after_it(
         assert result.r2 == 0
 
 
+def test_a_property_of_no_session_is_the_invalid_session_error(
+    tmp_path: Path,
+) -> None:
+    package = generated(tmp_path, [(END_OUT, "r", U16)])
+    with package.use() as module:
+        result = module("visa").visa(session=None)
+        assert result.error_out.code == -1073807346
+        assert result.r0 == 0
+
+
 def test_a_property_of_another_kind_of_reference_stays_a_gap(tmp_path: Path) -> None:
     def build(vi: str) -> tuple[VIContext, list[GraphNode]]:
         context, nodes = visa_vi([(END_OUT, "r", U16)])(vi)
