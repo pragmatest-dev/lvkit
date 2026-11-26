@@ -69,6 +69,7 @@ from . import (
     sequence,
     shared_variable,
     subvi,
+    unit_cast,
     user_events,
     vi_reference,
     xnode,
@@ -177,6 +178,7 @@ _PRIM_CODEGEN: dict[str, _PrimGen] = {
     "eventRegNode": event_register.generate_register,
     "decimate": decimate.generate,
     "interLeave": interleave.generate,
+    "uCast": unit_cast.generate,
 }
 
 
