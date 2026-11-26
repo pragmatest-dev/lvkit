@@ -38,7 +38,7 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.netlist import build_netlist_from_graph
 from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.render_lvnet import render_lvnet
-from lvkit.models import LVType, LVTypeKind, ServerClass, Terminal
+from lvkit.models import LVType, LVTypeKind, PaneSlot, ServerClass, Terminal
 from lvkit.module_layout import ModuleLayout
 from lvkit.pipeline import create_import_resolver
 from tests import vi_reference_diagrams as d
@@ -1060,6 +1060,109 @@ def test_a_vi_holding_an_older_copy_of_a_typedef_is_still_a_candidate(
         assert refs.refs(callee.callee).result == 6  # type: ignore[attr-defined]
         assert refs.refs(callee.other).result == 7  # type: ignore[attr-defined]
         assert callee.calls == [("callee", 5), ("other", 5)]
+
+
+_MEMBER_AND_FUNCTION = (
+    "from typing import Any, NamedTuple\n"
+    "calls = []\n"
+    "class MemberResult(NamedTuple):\n"
+    "    y: int\n"
+    "class Owner:\n"
+    "    def callee(self, x=None):\n"
+    "        calls.append(('callee', self, x))\n"
+    "        return MemberResult(y=x + 1)\n"
+    "Owner.callee.vi_name = 'Owner.lvclass:Callee.vi'\n"
+    "class OtherResult(NamedTuple):\n"
+    "    q: int\n"
+    "    obj_out: Any\n"
+    "def other(p=None, obj=None):\n"
+    "    calls.append(('other', obj, p))\n"
+    "    return OtherResult(q=p + 2, obj_out=obj)\n"
+    "other.vi_name = 'Other.vi'\n"
+)
+
+
+def _member_and_function(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> d.Loaded:
+    """A call through a reference typed with an input and an output (slots 0 and
+    1) and an object in and out of the class ``Owner`` (slots 2 and 3). The
+    project holds two VIs with that pane: ``Callee.vi``, a member of ``Owner``
+    (``x``, ``y``, the class input and output) and ``Other.vi``, a plain VI
+    (``p``, ``q``, ``obj``, ``obj out``)."""
+    loaded = d.load(
+        tmp_path, [d.call_through_reference(30, callee_errors=True)], [], [_X]
+    )
+    class_key = d.own_by_class(loaded, "Owner.lvclass", is_static=True)
+    # The member's diagram (none here) wires its class input to its class output.
+    monkeypatch.setattr(
+        "lvkit.codegen.class_model.carries_receiver", lambda *args, **kw: True
+    )
+    owner = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
+        classname="Owner.lvclass",
+        file_key=class_key,
+    )
+
+    def pane(names: tuple[str, str, str, str]) -> list[Terminal]:
+        return [
+            Terminal(id="a", index=0, direction="input", name=names[0], lv_type=_INT),
+            Terminal(id="b", index=1, direction="output", name=names[1], lv_type=_INT),
+            Terminal(id="c", index=2, direction="input", name=names[2], lv_type=owner),
+            Terminal(id="e", index=3, direction="output", name=names[3], lv_type=owner),
+        ]
+
+    callee_node = loaded.graph._graph.nodes[loaded.callee]["node"]  # noqa: SLF001
+    callee_node.terminals = pane(("x", "y", "owner", "owner out"))
+    (tmp_path / "Other_BDHb.xml").write_text(d.diagram([], []), encoding="utf-8")
+    other = loaded.graph.load_vi(tmp_path / "Other_BDHb.xml")
+    assert other is not None
+    loaded.graph._vi_display_names[other] = "Other.vi"  # noqa: SLF001
+    other_node = loaded.graph._graph.nodes[other]["node"]  # noqa: SLF001
+    other_node.terminals = pane(("p", "q", "obj", "obj out"))
+    reference = d.typed_vi_reference(("a", "b"))
+    assert reference.element_type is not None
+    reference.element_type.pane = (
+        PaneSlot(0, False, _INT, "a"),
+        PaneSlot(1, True, _INT, "b"),
+        PaneSlot(2, False, owner, "c"),
+        PaneSlot(3, True, owner, "e"),
+    )
+    d.type_terminal(loaded, 31, reference)
+    d.add_control(loaded, "vi_ref", reference, 31)
+    d.add_control(loaded, "obj", owner, 45, "obj")
+    d.add_indicator(loaded, "result", _INT, 43, 0)
+    d.add_indicator(loaded, "obj_out", owner, 47, 1)
+    return loaded
+
+
+def test_a_call_through_a_reference_reaches_a_member_vi_and_a_plain_vi_by_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A member VI is the function on its class, called with its object as
+    ``self``; the class output of a method is the object it was called on."""
+    source = _source(_member_and_function(tmp_path, monkeypatch))
+    assert "x=5" not in source and "p=5" not in source
+    assert (
+        "'Owner.lvclass:Callee.vi': ({0: 'x', 2: 'self'}, {1: 'y'}, {3: 2})" in source
+    )
+    for refs in _package(tmp_path, source, _MEMBER_AND_FUNCTION):
+        module = importlib.import_module("generated_refs.callee")
+        owner = module.Owner()
+        member = refs.refs(module.Owner.callee, owner)  # type: ignore[attr-defined]
+        assert (member.result, member.obj_out) == (6, owner)
+        plain = refs.refs(module.other, owner)  # type: ignore[attr-defined]
+        assert (plain.result, plain.obj_out) == (7, owner)
+        assert module.calls == [("callee", owner, 5), ("other", owner, 5)]
+
+
+def test_a_member_vi_and_a_plain_vi_with_one_name_that_name_slots_differently_is_a_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loaded = _member_and_function(tmp_path, monkeypatch)
+    other = next(k for k in loaded.graph.list_vis() if k.endswith("Other_BDHb.xml"))
+    loaded.graph._vi_display_names[other] = "Owner.lvclass:Callee.vi"  # noqa: SLF001
+    assert "cannot be told apart by its name" in _failure(loaded)
 
 
 def test_a_call_by_reference_with_its_vi_chosen_in_the_setup_is_a_direct_call(

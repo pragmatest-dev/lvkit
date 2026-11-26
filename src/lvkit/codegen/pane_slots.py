@@ -12,14 +12,20 @@ When the project's VIs with the reference's pane do not all name their terminals
 alike, the module holds a table of them, by the ``vi_name`` each function carries:
 
     _pane_slots = {
-        "A.vi": ({0: "request_data", 1: "error_in"}, {0: "response_data"}),
-        "B.vi": ({0: "service_request", 1: "error_in"}, {0: "service_location"}),
+        "A.vi": ({0: "request_data", 1: "error_in"}, {0: "response_data"}, {}),
+        "B.vi": ({0: "service_request", 1: "error_in"}, {0: "service_location"}, {}),
+        "C.lvclass:M.vi": ({0: "self", 1: "x"}, {1: "y"}, {2: 0}),
     }
 
-(each VI's parameter name and result field name by slot index), and the call reads
-the names of the function it holds:
+(each VI's parameter name and result field name by slot index, and the output
+slots that are the object the call was made on, by the input slot that gave it),
+and the call reads the names of the function it holds:
 ``vi_ref(**{_pane_slots[vi_ref.vi_name][0][0]: x})`` and
-``getattr(result, _pane_slots[vi_ref.vi_name][1][0])``.
+``getattr(result, _pane_slots[vi_ref.vi_name][1][0])``. A member VI of a class is
+the function on its class (``Class.method``), so it is called like any function with
+its object as the ``self`` keyword, which the table records as the name of the
+object's slot; a class output that is that object is read from the argument that
+was given, not from the result.
 """
 
 from __future__ import annotations
@@ -31,15 +37,16 @@ from .ast_utils import parse_expr
 from .context import CodeGenContext
 from .pane_candidates import CallForm
 
-_INPUTS, _OUTPUTS = 0, 1
+_INPUTS, _OUTPUTS, _PASSED = 0, 1, 2
 
 
 def pane_slots_table(
     ctx: CodeGenContext, name: str, owner: str, forms: Mapping[str, CallForm]
 ) -> None:
     """The module-level table ``name`` (owned by the node ``owner``): the
-    parameter names and result field names by slot index of each VI in ``forms``
-    (the project's function VIs with the reference's pane, by the VI's name)."""
+    parameter names, result field names and passed-on objects by slot index of each
+    VI in ``forms`` (the project's VIs with the reference's pane, by the VI's
+    name)."""
     entries = sorted(forms.items())
     ctx.add_module_global(
         name,
@@ -52,7 +59,11 @@ def pane_slots_table(
                             keys=[ast.Constant(value=i) for i, _ in names],
                             values=[ast.Constant(value=n) for _, n in names],
                         )
-                        for names in (form.keywords, form.fields)
+                        for names in (
+                            form.keywords,
+                            form.fields,
+                            form.passed_on,
+                        )
                     ],
                     ctx=ast.Load(),
                 )
@@ -81,7 +92,20 @@ def pane_parameters(
     )
 
 
-def pane_result(table: str, reference: str, result: str, slot: int) -> str:
+def pane_result(
+    table: str,
+    reference: str,
+    result: str,
+    slot: int,
+    given: dict[int, str] | None = None,
+) -> str:
     """The expression that reads output slot ``slot`` from the ``result`` of a call
-    of the function ``reference`` holds."""
-    return f"getattr({result}, {table}[{reference}.vi_name][{_OUTPUTS}][{slot}])"
+    of the function ``reference`` holds. ``given`` are the values the call was
+    given at the class input slots; with them, an output that is the object the
+    call was made on is read from there."""
+    field = f"getattr({result}, {table}[{reference}.vi_name][{_OUTPUTS}][{slot}])"
+    if not given:
+        return field
+    objects = "{" + ", ".join(f"{i}: {v}" for i, v in sorted(given.items())) + "}"
+    passed = f"{table}[{reference}.vi_name][{_PASSED}]"
+    return f"({objects}[{passed}[{slot}]] if {slot} in {passed} else {field})"

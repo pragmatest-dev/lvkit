@@ -85,6 +85,7 @@ from ..pane_candidates import CallForm, Candidates, candidates
 from ..pane_slots import pane_parameters, pane_result, pane_slots_table
 from ..panels_application import APPLICATION_NAME
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
+from ..value_copy import owned_input
 from . import (
     application_properties,
     front_panel_bounds,
@@ -251,16 +252,17 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
         )
     assert ctx.graph is not None and ctx.vi_name is not None
     found = candidates(ctx.graph, pane, ctx.vi_name)
-    form = _one_form(node, ctx, found)
+    form = found.one_form()
     if form is not None and form.member is not None:
         call = method_call.build_call(node, ctx, form.member, receiver_keyword="self")
         result_var = call.result_var or ctx.make_output_var(
             "vi_reference_result", node.id
         )
         return _Call(function, call.keywords, result_var, call.bindings, call.prelude)
-    # The function VIs of the project with this pane name their terminals alike
-    # (``form``), or the project has none (the pane's labels), or they differ and
-    # the call reads the names from the function it holds (``pane_slots``).
+    # The VIs of the project with this pane are called alike (``form``), or the
+    # project has none (the pane's labels), or they differ and the call reads the
+    # names from the function it holds (``pane_slots``), a member VI of a class
+    # being the function on its class.
     table = _pane_table(node, ctx, found) if form is None and found.forms else None
     names = (
         CalleeNames(parameters=dict(form.keywords), fields=dict(form.fields))
@@ -272,13 +274,14 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
         in_slots = set.intersection(
             *({i for i, _ in f.keywords} for f in found.forms.values())
         )
-        out_slots = set.intersection(
-            *({i for i, _ in f.fields} for f in found.forms.values())
-        )
+        out_slots = set.intersection(*(f.output_slots for f in found.forms.values()))
+        object_slots = {slot for f in found.forms.values() for _, slot in f.passed_on}
     arguments: list[tuple[int, str]] = []
     keywords: list[ast.keyword] = []
+    prelude: list[ast.stmt] = []
     result_var = ctx.make_output_var("vi_reference_result", node.id)
     bindings: dict[str, str] = {}
+    outputs: list[Terminal] = []
     for term in ctx.enriched_terminals(node):
         if term.index is None or term.index < 0:
             continue
@@ -290,7 +293,9 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
         ):
             continue
         if term.direction == "input":
-            value = ctx.wired_input(term.id, node)
+            # A class object or named cluster is a value in LabVIEW and the
+            # called VI may change it in place: a copy when the wire is shared.
+            value = owned_input(ctx, term, node, prelude)
             if value is None:
                 continue
             if table is not None:
@@ -302,12 +307,19 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
                     )
                 )
         elif table is not None:
-            bindings[term.id] = pane_result(table, function, result_var, term.index)
+            outputs.append(term)
         else:
             bindings[term.id] = f"{result_var}.{names.fields[term.index]}"
-    if table is not None and arguments:
-        keywords.append(pane_parameters(table, function, arguments))
-    return _Call(function, keywords, result_var, bindings)
+    if table is not None:
+        given = {slot: value for slot, value in arguments if slot in object_slots}
+        for term in outputs:
+            assert term.index is not None
+            bindings[term.id] = pane_result(
+                table, function, result_var, term.index, given
+            )
+        if arguments:
+            keywords.append(pane_parameters(table, function, arguments))
+    return _Call(function, keywords, result_var, bindings, prelude)
 
 
 def _pane_table(node: VINode, ctx: CodeGenContext, found: Candidates) -> str:
@@ -331,29 +343,6 @@ def _pane_table(node: VINode, ctx: CodeGenContext, found: Candidates) -> str:
     table = ctx.make_output_var("pane_slots", node.id)
     pane_slots_table(ctx, table, node.id, forms)
     return table
-
-
-def _one_form(node: VINode, ctx: CodeGenContext, found: Candidates) -> CallForm | None:
-    """The call right for every VI of the project the reference value can hold
-    (``found``, ``pane_candidates``): the VIs with the reference's connector pane,
-    each named as its own function or method names its terminals. None when the
-    project has no such VI, or when the function VIs among them name their
-    terminals differently (the call is matched by pane slot); a gap when the VIs
-    include a method of a class and are not all called the same way."""
-    assert ctx.graph is not None
-    if not found.forms:
-        return None
-    form = found.one_form()
-    if form is None and found.members:
-        shown = ", ".join(ctx.graph.vi_display_name(k) for k in sorted(found.forms))
-        raise ConversionGap(
-            f"{_label(node)}: the VI the reference holds is only known when the "
-            f"diagram runs, and the project's VIs with its connector pane ({shown}) "
-            "are not all called the same way: their parameters or results are "
-            "named differently, or a method of a class takes its object as self.",
-            node,
-        )
-    return form
 
 
 def _input_terminal(node: PrimitiveNode, index: int) -> Terminal | None:
