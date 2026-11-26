@@ -57,6 +57,7 @@ from lvkit.graph.vi_reference import (
 from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
 from lvkit.vi_files import class_stem
 
+from .. import error_flow
 from ..ast_utils import (
     GENERATED_MODULE_NAMES,
     build_assign,
@@ -324,6 +325,17 @@ def pane_of(lv_type: LVType | None) -> tuple[PaneSlot, ...] | None:
     return lv_type.element_type.pane
 
 
+def _setup_names_catalog_vi(node: VINode, ctx: CodeGenContext) -> bool:
+    """Whether the node calls the VI its setup chooses (no reference wired, the
+    VI not loaded with the caller) and the vi.lib catalog has that VI."""
+    if node.callee_key is not None or not node.qualified_path:
+        return False
+    reference = _frame_terminal(node, ctx, CALL_REFERENCE_IN)
+    if reference is not None and ctx.is_wired(reference.id):
+        return False
+    return ctx.vilib_catalog.resolve_recorded(ctx.catalog_path(node)) is not None
+
+
 def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Call By Reference, or Start Asynchronous Call: a call of the function of
     the VI the reference holds, found when the code is generated or, when the
@@ -332,6 +344,19 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     assert ctx.graph is not None
     options: int | None = None
     known_when_generated = True
+    if style is CallStyle.CALL and _setup_names_catalog_vi(node, ctx):
+        # The VI chosen in the node's setup is a vi.lib VI the catalog writes
+        # the code of: the node is a call of it like any other call of it. Its
+        # own error in and out are the called VI's connector pane ones (index
+        # 0 up); the node's own error in and out (``error_flow.guard`` in the
+        # dispatcher) stay around the call.
+        pane = node.model_copy(
+            update={
+                "node_type": "iUse",
+                "terminals": [t for t in node.terminals if t.index >= 0],
+            }
+        )
+        return error_flow.guard(pane, subvi.generate(pane, ctx), ctx)
     if node.callee_key is not None:
         # The VI is chosen in the node's setup; the caller records it.
         name = node.qualified_name or Path(node.callee_key).name
