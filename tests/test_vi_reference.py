@@ -36,6 +36,7 @@ from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.netlist import build_netlist_from_graph
+from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.render_lvnet import render_lvnet
 from lvkit.models import LVType, LVTypeKind, ServerClass, Terminal
 from lvkit.module_layout import ModuleLayout
@@ -992,28 +993,42 @@ _TWO_NAMINGS = (
 )
 
 
-def _two_namings(tmp_path: Path) -> d.Loaded:
+_TYPEDEF = "/project/Number.ctl"
+_STALE = LVType(
+    kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16", file_key=_TYPEDEF
+)
+
+
+def _two_namings(tmp_path: Path, *, stale_copies: bool = False) -> d.Loaded:
     """A call through a reference typed with terminals ``a`` and ``b`` (slots 0
     and 1) whose project holds two VIs with that pane, ``Callee.vi`` (``x``, ``y``)
-    and ``Other.vi`` (``p``, ``q``)."""
+    and ``Other.vi`` (``p``, ``q``). With ``stale_copies`` every terminal names the
+    loaded typedef ``Number.ctl``, which defines an I32; the reference records
+    that I32 and each VI the copy (an I16) from before the typedef last changed."""
+    wire_type = _STALE if stale_copies else _INT
     typed = (
-        d.CALLEE_INPUT.model_copy(update={"lv_type": _INT}),
-        d.CALLEE_OUTPUT.model_copy(update={"lv_type": _INT}),
+        d.CALLEE_INPUT.model_copy(update={"lv_type": wire_type}),
+        d.CALLEE_OUTPUT.model_copy(update={"lv_type": wire_type}),
     )
     loaded = d.load(tmp_path, [_CALL], [], [_X], typed)
+    if stale_copies:
+        loaded.graph._dep_graph.add_node(  # noqa: SLF001
+            _TYPEDEF, node_type=NodeType.TYPEDEF, root_type=_INT
+        )
+    ref_type = dataclasses.replace(_INT, file_key=_TYPEDEF) if stale_copies else _INT
     (tmp_path / "Other_BDHb.xml").write_text(d.diagram([], []), encoding="utf-8")
     other = loaded.graph.load_vi(tmp_path / "Other_BDHb.xml")
     assert other is not None
     loaded.graph._vi_display_names[other] = "Other.vi"  # noqa: SLF001
     other_node = loaded.graph._graph.nodes[other]["node"]  # noqa: SLF001
     other_node.terminals = [
-        Terminal(id="p", index=0, direction="input", name="p", lv_type=_INT),
-        Terminal(id="q", index=1, direction="output", name="q", lv_type=_INT),
+        Terminal(id="p", index=0, direction="input", name="p", lv_type=wire_type),
+        Terminal(id="q", index=1, direction="output", name="q", lv_type=wire_type),
     ]
     reference = d.typed_vi_reference(("a", "b"))
     assert reference.element_type is not None and reference.element_type.pane
     reference.element_type.pane = tuple(
-        dataclasses.replace(slot, type=_INT) for slot in reference.element_type.pane
+        dataclasses.replace(slot, type=ref_type) for slot in reference.element_type.pane
     )
     d.type_terminal(loaded, 31, reference)
     d.add_control(loaded, "vi_ref", reference, 31)
@@ -1025,6 +1040,20 @@ def test_a_call_through_a_reference_is_matched_by_pane_slot_not_by_name(
     tmp_path: Path,
 ) -> None:
     source = _source(_two_namings(tmp_path))
+    assert "x=5" not in source and "p=5" not in source
+    for refs in _package(tmp_path, source, _TWO_NAMINGS):
+        callee = importlib.import_module("generated_refs.callee")
+        assert refs.refs(callee.callee).result == 6  # type: ignore[attr-defined]
+        assert refs.refs(callee.other).result == 7  # type: ignore[attr-defined]
+        assert callee.calls == [("callee", 5), ("other", 5)]
+
+
+def test_a_vi_holding_an_older_copy_of_a_typedef_is_still_a_candidate(
+    tmp_path: Path,
+) -> None:
+    """The VIs and the reference name the loaded typedef; the typedef's current
+    definition decides, not the copy each recorded when it was saved."""
+    source = _source(_two_namings(tmp_path, stale_copies=True))
     assert "x=5" not in source and "p=5" not in source
     for refs in _package(tmp_path, source, _TWO_NAMINGS):
         callee = importlib.import_module("generated_refs.callee")

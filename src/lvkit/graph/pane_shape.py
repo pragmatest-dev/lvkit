@@ -16,9 +16,11 @@ if TYPE_CHECKING:
 
 class PaneGraph(Protocol):
     """What the shapes read from the graph: the class a class type resolves to,
-    and a VI's connector pane."""
+    the definition a loaded typedef file gives a type, and a VI's connector pane."""
 
     def class_type_key(self, lv_type: LVType, /) -> str | None: ...
+
+    def typedef_definition(self, lv_type: LVType, /) -> LVType | None: ...
 
     def vi_interface(
         self, vi_key: str, /
@@ -35,9 +37,12 @@ PaneShape = frozenset[tuple[int, bool, TypeShape]]
 def type_shape(graph: PaneGraph, lv_type: LVType | None) -> TypeShape:
     """What ``lv_type`` is: its kind, its
     underlying and refnum types, the class a class wire carries, and the shapes
-    of its elements and fields."""
+    of its elements and fields. A type that names a loaded typedef file is that
+    file's current definition: a VI or reference saved before the typedef last
+    changed still records the older copy."""
     if lv_type is None:
         return ()
+    lv_type = graph.typedef_definition(lv_type) or lv_type
     if lv_type.ref_type == _CLASS_REF_TYPE:
         return ("class", graph.class_type_key(lv_type) or lv_type.classname)
     return (

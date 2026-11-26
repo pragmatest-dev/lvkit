@@ -317,6 +317,17 @@ class TypedefMixin:
             and self._dep_graph.nodes[key].get("node_type") == NodeType.TYPEDEF
         )
 
+    def typedef_definition(self, lv_type: LVType) -> LVType | None:
+        """The type a loaded typedef file defines, for a type that names that file
+        (``LVType.file_key``); ``None`` for a type that names no loaded typedef.
+        A VI and a reference keep the copy of the type from when each was saved;
+        the typedef file holds the current definition."""
+        key = lv_type.file_key
+        if key is None or not self.is_typedef(key) or self.is_stub(key):
+            return None
+        root: LVType | None = self._dep_graph.nodes[key].get("root_type")
+        return root
+
     def list_typedefs(self) -> list[str]:
         """The path keys of every loaded (non-stub) typedef, ordered by display
         name then path."""
