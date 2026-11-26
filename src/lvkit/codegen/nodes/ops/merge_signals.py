@@ -39,6 +39,7 @@ from lvkit.graph.models import PrimitiveNode
 from lvkit.lv_type_codes import (
     BOOLEAN_TYPE_NAMES,
     COMPLEX_TYPE_NAMES,
+    INTEGER_TYPE_NAMES,
     REAL_FLOAT_TYPE_NAMES,
 )
 from lvkit.models import LVType, LVTypeKind, Terminal
@@ -64,7 +65,7 @@ _COMPLEX = (
 
 def _numeric(name: str | None) -> bool:
     return name is not None and (
-        name in REAL_FLOAT_TYPE_NAMES or name.startswith(("NumInt", "NumUInt"))
+        name in REAL_FLOAT_TYPE_NAMES or name in INTEGER_TYPE_NAMES
     )
 
 
