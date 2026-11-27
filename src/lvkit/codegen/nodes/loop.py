@@ -672,13 +672,14 @@ def _unique_shift_var_name(base_name: str, ctx: CodeGenContext) -> str:
     silently clobbering one with the other's seed value. Mirrors
     _singularize()'s conflict-resolution pattern.
     """
-    if not ctx.var_name_in_use(base_name):
-        return base_name
-    suffix = 2
-    candidate = f"{base_name}_{suffix}"
+    candidate = base_name
+    suffix = 1
     while ctx.var_name_in_use(candidate):
         suffix += 1
         candidate = f"{base_name}_{suffix}"
+    # Reserved: a node output bound inside the loop must not take the name of
+    # the variable that carries the shift register.
+    ctx._allocated_vars.add(candidate)
     return candidate
 
 
