@@ -268,6 +268,31 @@ class PanelWidgets:
         with self._lock:
             self._defer_request = deferred
 
+    def geometry_changed(self, name: str, prop: str, value: Any) -> None:
+        """The program moved the object ``name`` (``prop`` "position") or scrolled
+        the pane ``name`` (``prop`` "origin"). The page lays its widgets out in
+        rows and has no fixed positions or scroll offsets to change, so the move
+        is ignored here; the panel keeps the geometry for the VI's reads."""
+
+    def window_changed(self, state: int, active: bool) -> None:
+        """The program opened, closed or gave the VI's window a state (FP.Open,
+        FP.Close, FP.State, Is Frontmost). This view is the browser tab the user
+        already has open, which a page cannot close, hide or minimise, so it
+        shows nothing for the change; the panel keeps the state for the VI's
+        reads."""
+
+    def window_property_changed(self, prop: str, value: Any) -> None:
+        """The program wrote a property of the VI's window (``panel_bounds``,
+        ``origin``, ``monitor``, ``behavior``, ``edit_mode_on_open``). A browser
+        tab has no desktop window to place, scroll or put on a monitor, so every
+        one is ignored here; the panel keeps the value for the VI's reads."""
+
+    def subpanel_changed(self, control: str, vi: Any) -> None:
+        """The program loaded the VI ``vi`` into the SubPanel control ``control``,
+        or took it out. The page draws no widget for a SubPanel control (the panel
+        gives it no name), so there is nothing to show; the panel keeps what it
+        holds for the VI's reads."""
+
     def run_started(self) -> None:
         with self._lock:
             self._steps.append(("started", None))
