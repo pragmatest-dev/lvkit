@@ -65,6 +65,7 @@ from .ctrl_val import report_panel_error
 from .event_user import listens_for_value_change, signal_value_change
 from .local_variable import read_control, write_control
 from .reference_origin import ObjectOrigin, reference_origin
+from .unsettable_write import unsettable_write_gap
 
 
 def _no_python_equivalent(node: PrimitiveNode, prop: PropertyDef) -> ConversionGap:
@@ -673,12 +674,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             row = panel_reference.panel_row(node, prop)
             listed = panel_reference.property_row(node, prop)
             if listed is not None and not listed.settable_while_running:
-                raise ConversionGap(
-                    f"Property '{prop.name}' on a {node.object_name} reference "
-                    "is written, and NI's page says it cannot be set while the "
-                    f"VI runs ({listed.doc_url})",
-                    node,
-                )
+                raise unsettable_write_gap(node, prop.name, listed.doc_url, ctx)
             title = is_on_vi_reference(node) and front_panel_title.is_title_row(prop)
             bounds = is_on_vi_reference(node) and front_panel_bounds.is_bounds_row(prop)
             file_row = (
@@ -692,8 +688,10 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             geometry = (
                 None if is_on_vi_reference(node) else geometry_rows.geometry_row(prop)
             )
-            if geometry is not None:
-                geometry_rows.check_writable(geometry, node)
+            if geometry is not None and not geometry.settable:
+                raise unsettable_write_gap(
+                    node, geometry.name, geometry_rows.page_url(geometry), ctx
+                )
             if (
                 not title
                 and not bounds
@@ -705,12 +703,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             ):
                 unsettable = panel_reference.unsettable_page(node, prop)
                 if unsettable is not None:
-                    raise ConversionGap(
-                        f"Property '{prop.name}' on a {node.object_name} reference "
-                        "is written, and NI's page says it cannot be set while the "
-                        f"VI runs ({unsettable})",
-                        node,
-                    )
+                    raise unsettable_write_gap(node, prop.name, unsettable, ctx)
                 raise _no_python_equivalent(node, prop)
             value = ctx.wired_input(term.id, node)
             if value is None:
