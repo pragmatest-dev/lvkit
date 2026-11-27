@@ -145,6 +145,41 @@ def test_a_catalog_call_is_typed_by_what_the_call_records(
     assert "None" not in _render_ports(*ports)
 
 
+def test_a_call_by_reference_lists_only_the_callees_pane(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Call By Reference node whose setup names a catalog VI records its own
+    reference and error terminals at negative indices beside the called VI's
+    pane; they are the node's, not ports of the VI."""
+    call = VINode(
+        id="c",
+        vi_path="caller.vi",
+        name="Clear Errors.vi",
+        node_type="callByRefNode",
+        qualified_path="<vilib>/Utility/error.llb/Clear Errors.vi",
+        terminals=[
+            FPTerminal(id="r_in", index=-1, direction="input", lv_type=_I32),
+            FPTerminal(id="r_out", index=-2, direction="output", lv_type=_I32),
+            FPTerminal(id="e_in", index=-3, direction="input", lv_type=_ERROR),
+            FPTerminal(id="e_out", index=-4, direction="output", lv_type=_ERROR),
+            FPTerminal(id="t0", index=0, direction="output", lv_type=_ERROR),
+            FPTerminal(id="t4", index=4, direction="input", lv_type=_ERROR),
+        ],
+    )
+    terminals = [
+        VITerminal(name="error in", index=4, direction="input"),
+        VITerminal(name="error out", index=0, direction="output"),
+    ]
+
+    ports = _catalog_ports(monkeypatch, call, terminals)
+
+    assert ports is not None
+    assert _render_ports(*ports) == (
+        f"(error in: {_ERROR.type_descriptor()}) -> "
+        f"(error out: {_ERROR.type_descriptor()})"
+    )
+
+
 _JKI_PROTOTYPE = (
     Path(__file__).resolve().parent.parent
     / ".lvkit/cache/samples/JKI-VI-Tester/source/Prototype/VI Tester Plugin"

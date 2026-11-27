@@ -577,8 +577,8 @@ def _subvi_ports(
     front-panel signature. Without one, a vi.lib call's ports are the catalog's
     terminals (looked up by the path the call records) at their pane
     positions, each typed by what the call records at that position (no type
-    when it records none), plus each terminal the call records at a position
-    the catalog does not place, named by its position. A catalog terminal with
+    when it records none), plus each terminal the call records at a pane
+    position the catalog does not place, named by its position. A catalog terminal with
     no direction is placed by the call's terminal at its position; one with no
     position cannot be placed and is left out. Returns ``None`` when neither
     source is available -- callers decide how to render that (bare name, or an
@@ -599,7 +599,11 @@ def _subvi_ports(
 
     entry = graph.vilib_catalog.resolve_recorded(call.qualified_path)
     if entry is not None and entry.terminals:
-        recorded = {t.index: t for t in call.terminals}
+        # The positions of the callee's connector pane; a Call By Reference's own
+        # reference and error terminals have negative indices and are not ports.
+        recorded = {
+            t.index: t for t in call.terminals if t.index is not None and t.index >= 0
+        }
         # (position, direction, name, type) of every port, catalog first.
         placed: dict[int, tuple[TerminalDirection, str, str | None]] = {}
         for t in entry.terminals:
