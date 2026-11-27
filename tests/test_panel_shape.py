@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
 from nicegui import ui
 
 from lvkit.models import ClusterField, EnumValue, LVType, LVTypeKind
@@ -288,7 +289,7 @@ def test_an_array_of_clusters_with_a_cluster_field_is_a_gap() -> None:
     described = _array_of(row, row_type)
     assert described.kind is None
     assert described.gap == (
-        "the panel has no widget for an array of cluster (element of the array)"
+        "the panel has no widget for an array of clusters (element of the array)"
     )
 
 
@@ -414,3 +415,24 @@ def test_an_enum_type_definition_is_an_enum_control_of_its_items() -> None:
     described = describe(control, lv_type, None, "shape")
     assert described.gap is None
     assert described.items == (("Sine", 0), ("Square", 1))
+
+
+@pytest.mark.parametrize(
+    ("control_type", "reason"),
+    [
+        ("tableControl", "the panel has no widget for the Table control"),
+        ("stdGraph", "the panel has no widget for the Graph or Chart control"),
+        ("absTime", "the panel has no widget for the Time Stamp control"),
+        (
+            "stdFoo",
+            "the panel has no widget for a control lvkit does not recognise "
+            "(saved class `stdFoo`)",
+        ),
+    ],
+)
+def test_a_control_with_no_widget_is_named_as_ni_names_it(
+    control_type: str, reason: str
+) -> None:
+    described = describe(_fp("Thing", control_type), _primitive("String"), None, "t")
+    assert described.kind is None
+    assert described.gap == reason

@@ -289,7 +289,7 @@ def test_a_control_the_panel_has_no_widget_for_is_a_gap_drawn_as_a_placeholder(
         ("unsupported_control", "Level")
     ]
     assert package.gaps[0].reason == (
-        "the panel has no widget for a stdSlide control of type int"
+        "the panel has no widget for the Slide control"
     )
     source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
     assert "raise NotImplementedError(" not in source

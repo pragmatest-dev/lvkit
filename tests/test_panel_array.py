@@ -201,7 +201,7 @@ def test_an_array_of_clusters_has_a_column_for_each_field_and_rows_are_tuples(
     [
         (
             [("Gain", "stdNum", I32), ("Level", "stdSlide", I32)],
-            "the panel has no widget for a stdSlide control of type int "
+            "the panel has no widget for the Slide control "
             "(field 'Level' of the cluster) (element of the array)",
         ),
     ],

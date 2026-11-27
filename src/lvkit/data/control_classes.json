@@ -134,5 +134,52 @@
       "class": "Knob",
       "evidence": "NI's hierarchy lists Knob under NumericWithScale."
     }
+  ],
+  "display_names": [
+    {
+      "fp_class": "stdSlide",
+      "name": "Slide",
+      "evidence": "NI's hierarchy lists Slide under NumericWithScale."
+    },
+    {
+      "fp_class": "stdKnob",
+      "name": "Knob",
+      "evidence": "NI's hierarchy lists Knob under NumericWithScale."
+    },
+    {
+      "fp_class": "stdPict",
+      "name": "Picture",
+      "evidence": "NI's hierarchy lists Picture under Control."
+    },
+    {
+      "fp_class": "tableControl",
+      "name": "Table",
+      "evidence": "NI's hierarchy lists Table under Control."
+    },
+    {
+      "fp_class": "listbox",
+      "name": "List Box",
+      "evidence": "NI's hierarchy lists ListBox under Control."
+    },
+    {
+      "fp_class": "tabControl",
+      "name": "Tab Control",
+      "evidence": "NI's hierarchy lists TabControl under PageSelector."
+    },
+    {
+      "fp_class": "stdColorNum",
+      "name": "Color Box",
+      "evidence": "NI's hierarchy lists ColorBox under Control; the saved class stdColorNum is the color box (the render draws it as one, controls/color.py)."
+    },
+    {
+      "fp_class": "absTime",
+      "name": "Time Stamp",
+      "evidence": "NI's hierarchy lists AbsTime (the absolute-time class); NI's manual calls the control a Time Stamp control (Configuring the Time and Date in a Time Stamp Control, https://www.ni.com/docs/en-US/bundle/labview/page/configuring-the-time-and-date-in-a-time-stamp-control.html). The render draws absTime as a Timestamp (controls/timestamp.py)."
+    },
+    {
+      "fp_class": "stdGraph",
+      "name": "Graph or Chart",
+      "evidence": "NI's hierarchy lists the graph and chart classes (WaveformChart, WaveformGraph, XYGraph, DigitalGraph, IntensityChart, IntensityGraph, MixedSignalGraph) under one parent, GraphChart (ClassID 22, GraphOrChart). The saved control records one class, stdGraph, for them and nothing else in the file that tells which, so the common NI parent is named."
+    }
   ]
 }

@@ -66,7 +66,7 @@ def test_a_required_input_with_no_widget_runs_with_its_default(
     async def scenario(user: User) -> None:
         text = labels(user)
         assert text.count("This control is not converted: ") == 2
-        assert "the panel has no widget for a stdSlide control of type int" in text
+        assert "the panel has no widget for the Slide control" in text
         switch = found(user, ui.switch)[0]
         switch.set_value(True)
         await run_once(user)
