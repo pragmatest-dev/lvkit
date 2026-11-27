@@ -24,13 +24,14 @@ from tests.error_diagrams import (  # noqa: F401
 )
 from tests.panel_diagrams import cluster_fields, cluster_type
 from tests.panel_harness import (
-    build_in_a_page,
     controls_of,
     found,
+    labels,
     panel_of,
     record_calls,
     run_once,
     simulate,
+    until,
 )
 
 NAME = "Kind Demo.vi"
@@ -342,5 +343,9 @@ def test_a_cluster_with_a_field_the_panel_has_no_widget_for_is_one_gap(
         "(field 'Level' of the cluster)"
     )
     panel = panel_of(package, STEM)
-    with pytest.raises(NotImplementedError, match="field 'Level' of the cluster"):
-        build_in_a_page(panel.build_panel)
+
+    async def scenario(user: User) -> None:
+        await until(user, "This control is not converted: ")
+        assert "field 'Level' of the cluster" in labels(user)
+
+    simulate(panel.build_panel, scenario)
