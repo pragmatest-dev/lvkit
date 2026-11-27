@@ -131,6 +131,14 @@
     },
     "2409": {
       "name": "Delete Data Value Reference",
+      "errors": [
+        {
+          "exception": "InvalidDataValueReferenceError",
+          "code": 1556,
+          "base": "ValueError",
+          "invalid_input": "data value reference"
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/delete-data-value-reference.html",
       "runs_on_error": true,
       "terminals": [

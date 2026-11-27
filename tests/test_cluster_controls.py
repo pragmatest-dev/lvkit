@@ -9,8 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 from lvkit.codegen.gaps import Gap
 from lvkit.graph.models import GraphNode, VIContext
 from lvkit.models import ClusterField, LVType, LVTypeKind
@@ -168,10 +166,10 @@ def test_the_indicator_of_a_field_is_the_clusters(tmp_path: Path) -> None:
         by_label = {c.label: c for c in panel.controls}
         fields = module("reader").reader(ctl=by_label["out"]).controls
         assert [f.indicator for f in fields] == [True, True, True]
-        # a cluster with no value yet reads None and cannot be written
-        assert fields[0].value is None
-        with pytest.raises(module("panels").PanelError):
-            fields[0].value = 1
+        # a cluster no run has written holds its default, whose field is written
+        assert fields[0].value == 0
+        fields[0].value = 1
+        assert fields[0].value == 1
 
 
 def test_controls_of_a_control_that_is_not_a_cluster_is_error_1026(

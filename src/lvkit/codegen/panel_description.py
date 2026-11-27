@@ -16,7 +16,9 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   cluster or class (the function body makes it): the function is a ``lambda``
   making the control's default (its saved default, else its type's, a class's
   default object), so each run gets a fresh list or object. Every other
-  control's default is its parameter's own;
+  control's default is its parameter's own. Each indicator whose default is not
+  ``None`` has one too (its saved default, else its type's): it holds that until
+  a run writes it;
 - ``indicators``: the name of each indicator to its label;
 - ``results``: the name of each indicator on the connector pane to the field of the
   result that holds it;
@@ -37,6 +39,9 @@ LabVIEW shows for each (``codegen/panels_module.py`` holds ``Panel``):
   Boolean's Mechanical Action when it is not Switch When Pressed,
   ``control_property_state.saved_properties``), what a reference's ``get_property``
   reads;
+- ``layout``: where the objects of the front panel are (panes, decorations, the
+  rectangle of each object, a cluster's own objects), written by
+  ``panel_layout.layout_expression``;
 - ``elements``: the name of each array control or indicator to the element its Array
   Element property is a reference to, ``(class, front_panel_class, saved)``: the
   element's VI Server class name (None when it has none), its front-panel class
@@ -77,6 +82,7 @@ from .control_property_state import (
     stored_states,
 )
 from .panel_clusters import cluster_specs
+from .panel_layout import layout_expression
 from .panel_names import panel_names
 from .panel_types import panel_type_keywords
 from .panels_module import PANEL_NAME
@@ -117,6 +123,7 @@ def default_functions(
     ctx: CodeGenContext,
     target: str,
     lazy: bool,
+    indicators: Sequence[NamedTerminal] = (),
 ) -> DefaultFunctions:
     """The default function of each control whose parameter does not hold its
     default (a Required input, a control off the connector pane, a control whose
@@ -128,10 +135,15 @@ def default_functions(
     (``lazy``), a default that needs one is a ``def`` of ``target``'s name that
     imports it, as the function bodies do. A control whose default needs a class
     that is not loaded has no entry: the panel holds ``None`` for it (the class is
-    reported where the VI uses it)."""
+    reported where the VI uses it).
+    Each of ``indicators`` has an entry too when its default is not ``None``: an
+    indicator no run has written holds its default (the value the VI saved, else
+    its type's default, a class's default object), as a front panel does."""
     defaults = DefaultFunctions()
     stem = target.replace(".", "_")
-    for terminal, parameter in controls:
+    entries = [(t, parameter, False) for t, parameter in controls]
+    entries += [(t, None, True) for t, _ in indicators]
+    for terminal, parameter, indicator in entries:
         on_def_default = parameter is not None and not is_required(terminal, "input")
         if on_def_default and not _is_none(parameter_default_expr(terminal)):
             continue
@@ -142,7 +154,7 @@ def default_functions(
             ctx.imports = module_imports
             continue
         added, ctx.imports = ctx.imports, module_imports
-        if on_def_default and _is_none(value):
+        if (on_def_default or indicator) and _is_none(value):
             continue
         needed = (
             {i for i in added if i.startswith("from .") and not imports_variants(i)}
@@ -240,6 +252,7 @@ def panel_statements(
     indicators: Sequence[NamedTerminal],
     lazy: bool,
     passed: Sequence[NamedTerminal] = (),
+    vi_key: str | None = None,
 ) -> list[ast.stmt]:
     """``target.panel = Panel(target, controls=..., indicators=..., results=...,
     passed=..., defaults=..., clusters=..., types=..., variants=...)``, ``target``
@@ -248,9 +261,11 @@ def panel_statements(
     is the VI's name table (``panel_names``); ``controls`` pair each control with
     the parameter that takes it (None off the connector pane), ``indicators`` each
     indicator with the field of the result that holds it (None off the pane) and
-    ``passed`` each class output with the parameter holding the object it shows."""
+    ``passed`` each class output with the parameter holding the object it shows.
+    ``vi_key`` is the VI whose front panel the ``layout`` keyword is written from
+    (``panel_layout``)."""
     ctx.import_panels(PANEL_NAME, at_module_level=True)
-    defaults = default_functions(controls, names, ctx, target, lazy)
+    defaults = default_functions(controls, names, ctx, target, lazy, indicators)
     keywords: list[tuple[str, ast.expr]] = []
     for entry in (
         _name_map("controls", [(names[t.id], t.name or "") for t, _ in controls]),
@@ -346,6 +361,14 @@ def panel_statements(
     ):
         if entry is not None:
             keywords.append(entry)
+    layout = layout_expression(
+        ctx.graph.get_vi_front_panel(vi_key)
+        if ctx.graph is not None and vi_key is not None
+        else None,
+        {t.fp_dco_uid: names[t.id] for t in fp_objects if t.fp_dco_uid},
+    )
+    if layout is not None:
+        keywords.append(("layout", layout))
     given = [names[t.id] for t, _ in objects]
     tabbing = _tabbing_order(names, objects)
     if tabbing != given:
@@ -388,5 +411,11 @@ def function_panel_statements(
     ]
     indicators += [(t, None) for t in vi_context.off_pane_outputs]
     return panel_statements(
-        ctx, target, panel_names(vi_context), controls, indicators, lazy
+        ctx,
+        target,
+        panel_names(vi_context),
+        controls,
+        indicators,
+        lazy,
+        vi_key=ctx.vi_name or vi_context.name,
     )

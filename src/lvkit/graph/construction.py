@@ -27,6 +27,8 @@ from ..models import (
     UndecodedPicture,
     UnwritableValue,
     ValueNotStored,
+    _is_error_cluster,
+    _is_error_shape,
     bundle_unbundle_name,
     control_type_to_lvtype,
     enum_values_from_labels,
@@ -340,6 +342,30 @@ def _lv_type_category(underlying: str, kind: LVTypeKind) -> str:
     return "unknown"
 
 
+def _error_identity_taker(
+    src_term: Terminal, dst_term: Terminal, declared: set[int]
+) -> Terminal | None:
+    """The end of a wire that takes the other end's type because that end is
+    the error cluster and this one only has its shape (a control whose string
+    label was blanked). A terminal on an ordinary subVI call's connector pane
+    keeps its declared type."""
+    src_type, dst_type = src_term.lv_type, dst_term.lv_type
+    if src_type is None or dst_type is None:
+        return None
+    for taker, taker_type, other_type in (
+        (src_term, src_type, dst_type),
+        (dst_term, dst_type, src_type),
+    ):
+        if (
+            id(taker) not in declared
+            and _is_error_cluster(other_type)
+            and not _is_error_cluster(taker_type)
+            and _is_error_shape(taker_type)
+        ):
+            return taker
+    return None
+
+
 if TYPE_CHECKING:
     from ..primitive_resolver import PrimitiveResolver
     from ..primitive_resolver.models import PrimitiveTerminal
@@ -590,6 +616,7 @@ class ConstructionMixin:
                 unwritable=ctrl.unwritable if ctrl else None,
                 enum_values=ctrl.enum_values if ctrl else [],
                 undecoded_strings=ctrl.undecoded_strings if ctrl else 0,
+                starting_properties=ctrl.starting_properties if ctrl else {},
             )
             vi_terminals.append(terminal)
 
@@ -1373,6 +1400,7 @@ class ConstructionMixin:
             unwritable=ctrl.unwritable,
             enum_values=ctrl.enum_values,
             undecoded_strings=ctrl.undecoded_strings,
+            starting_properties=ctrl.starting_properties,
         )
 
     def _connect_subvi_calls(
@@ -1619,6 +1647,14 @@ class ConstructionMixin:
                     changed = True
                 elif dst_term.lv_type and not src_term.lv_type:
                     src_term.lv_type = dst_term.lv_type
+                    changed = True
+                # A wire is one value: a cluster of the error cluster's shape
+                # joined to the error cluster is the error cluster.
+                elif (
+                    taker := _error_identity_taker(src_term, dst_term, declared)
+                ) is not None:
+                    source = dst_term if taker is src_term else src_term
+                    taker.lv_type = source.lv_type
                     changed = True
                 # Both have type but one has fields and the other doesn't:
                 # enrich the incomplete side (same wire = same type)

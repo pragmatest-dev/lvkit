@@ -1429,6 +1429,14 @@
     },
     {
       "name": "Acquire Semaphore",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "semaphore"
+        }
+      ],
       "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/vi-lib/utility/semaphor-llb/acquire-semaphore-vi.html",
       "category": "Synchronization",
@@ -1604,6 +1612,12 @@
         "semaphore_out": "passthrough_from:semaphore"
       },
       "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "semaphore"
+        },
         {
           "exception": "ValueError",
           "code": 1111

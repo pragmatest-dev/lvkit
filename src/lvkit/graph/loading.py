@@ -97,6 +97,7 @@ from .models import (
     VIMetadata,
     VINode,
     VIProperties,
+    WindowBehavior,
     WindowProps,
 )
 from .node_kinds import EdgeRel, NodeType
@@ -217,7 +218,10 @@ def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
     execution["exec_system"] = ExecSystem(
         execution.get("exec_system", ExecSystem.SAME_AS_CALLER.value)
     )
-    window = cast("dict[str, Any]", poly_metadata.get("window", {}))
+    window = dict(cast("dict[str, Any]", poly_metadata.get("window", {})))
+    window["behavior"] = WindowBehavior(
+        window.get("behavior", WindowBehavior.DEFAULT.value)
+    )
     toolbar = cast("dict[str, Any]", poly_metadata.get("toolbar", {}))
     instance = cast("dict[str, Any]", poly_metadata.get("instance", {}))
     kind = dict(cast("dict[str, Any]", poly_metadata.get("kind", {})))
@@ -227,6 +231,7 @@ def _build_vi_properties(poly_metadata: dict[str, Any]) -> VIProperties:
     return VIProperties(
         lv_version=cast("str | None", poly_metadata.get("lv_version")),
         vi_type=cast("str | None", poly_metadata.get("vi_type")),
+        help_url=cast("str", poly_metadata.get("help_url", "")),
         lock_state=LockState(poly_metadata.get("lock_state", LockState.UNLOCKED.value)),
         execution=ExecutionProps(**execution),
         window=WindowProps(**window),

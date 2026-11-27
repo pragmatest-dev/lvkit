@@ -58,6 +58,14 @@
     },
     "9102": {
       "name": "Release Notifier",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "notifier"
+        }
+      ],
       "runs_on_error": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/release-notifier.html",
       "verified": true,
@@ -107,6 +115,14 @@
     },
     "9103": {
       "name": "Get Notifier Status",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "notifier"
+        }
+      ],
       "terminals": [
         {
           "index": 0,
@@ -158,6 +174,14 @@
     },
     "9104": {
       "name": "Send Notification",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "notifier"
+        }
+      ],
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/send-notification.html",
       "verified": true,
       "terminals": [
@@ -200,6 +224,12 @@
     "9105": {
       "name": "Wait on Notification",
       "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "notifier"
+        },
         {
           "exception": "ReferenceError",
           "code": 1122
@@ -323,6 +353,14 @@
     },
     "9107": {
       "name": "Cancel Notification",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "notifier"
+        }
+      ],
       "terminals": [
         {
           "index": 0,

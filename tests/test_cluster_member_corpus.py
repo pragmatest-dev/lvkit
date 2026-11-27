@@ -55,6 +55,21 @@ def test_a_classic_unbundle_stores_the_position_among_the_clusters_own_fields(
     assert re.search(r"copy\.copy\(\w+\[2\]\)", source)
 
 
+def test_a_cluster_constant_saved_without_its_typedef_is_written_as_the_typedef(
+    tmp_path: Path,
+) -> None:
+    """The constant that feeds a Bundle By Name of LVPointTypeDef is that
+    typedef's value: an object with attributes, not a tuple the node cannot set
+    an attribute on."""
+    vi = (
+        OPENG_USER_LIB
+        / "_OpenG.lib/appcontrol/appcontrol.llb/Fit VI window to Largest Dec__ogtk.vi"
+    )
+    source, _ = _generate(vi, tmp_path)
+    assert "cluster = SimpleNamespace(horizontal=0, vertical=0)" in source
+    assert "cluster = (0, 0)" not in source
+
+
 def test_an_unwired_bundle_element_keeps_the_value_of_the_cluster_wired_in(
     tmp_path: Path,
 ) -> None:

@@ -2,6 +2,14 @@
   "primitives": {
     "9131": {
       "name": "Wait on Notification with Notifier History",
+      "errors": [
+        {
+          "exception": "InvalidRefnumError",
+          "code": 1,
+          "base": "ValueError",
+          "invalid_input": "notifier"
+        }
+      ],
       "terminals": [
         {
           "index": 0,

@@ -1,10 +1,93 @@
 {
-  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name; a row of several path segments (Scale.Maximum, Caption.Text) by the codes of its segments joined with '.' (a one-segment row's key is its code alone). 'inherited' holds the codes every control class shares; 'classes' holds a class's own codes (a class entry wins over an inherited one with the same code). Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written, as the Python value the generated code passes (bool: bool; enum: the property's integer enum value; number: int or float; string: str; path: pathlib.Path; color: int, LabVIEW's 0x00RRGGBB color; string_array: list of str, a list of lists of str for a two-dimensional array; number_array: list of int or float; array: list of the elements the wire carries, a cluster staying a cluster; cluster: the cluster the wire carries), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. 'value_signaling_codes' lists, by the same rule, the codes of Value (Signaling), which writes the value and generates a Value Change event (NI: write only). A property is listed only when NI's page says what it does. 'reference_rows' lists the rows a Property Node on a wired control reference (a Ctl, Clust, Bool ... reference) reads or writes as the reference's own value, indicator flag or label text, or a cluster's Controls[], or an array's Array Element (NI: 'Reference to the array element', read only): each row's 'codes' are the property paths (one code per segment) the corpus records for it; 'value' adds the generic Value code to 'value_codes' (a strict class's own code, 104013842, is already there). Code 104013825 is the Disabled property as a Property Node saved in LabVIEW 8.2 stores it (an integer, the enum written as its number); the file's own enum constants wired to it list enabled 0, disabled 1, greyed out 2, the values of DisabledEnum (NI forum, \"Possible Issue with help for disable property node\": the 8.2 property is the U8 form of the 9.0 enum, same values), so it shares that entry's page and member.",
-  "reference_properties": {
-    "_comment": "The listed properties (by class entry in 'classes', by member) that a Property Node on a wired reference of that class reads and writes through the panel: a write is held by the panel and shown by its views, a read gives the last write, else the strings the control is saved with. NI's page for Combo Box Strings[] (Read/Write, settable while the VI runs): 'Array of the strings from which you can select in the combo box control.' An entry with \"settable_while_running\": false is a property the file saves and a running VI cannot change (NI's page: Enum Strings[] 'If the string is an enumerated type control, you cannot write this property when the VI is running.'): a read gives the saved value (``Control.get_property``, the panel's ``saved``), a write is a gap.",
-    "CmbBox": ["strings"],
-    "Enum": ["strings"],
-    "Bool": ["mech_action"]
+  "_comment": "Properties of a front-panel control or indicator that a Property Node bound to a control of the VI may write while the VI runs (plan section 10). A row is identified by its PropItemCode, never its stored name; a row of several path segments (Scale.Maximum, Caption.Text) by the codes of its segments joined with '.' (a one-segment row's key is its code alone). 'inherited' holds the codes every Control class shares; 'classes' holds the codes a class declares, once, on the class NI documents the property on (its 'doc_url' shows the class path), and every class below it in 'class_parents' finds it there (a class entry wins over an inherited one with the same code; a strict and a non-strict reference of a class are one class). A Property Node on a wired control reference reads and writes every listed property through the panel, the same property a bound Property Node reads and writes: a read before any write gives the value the file starts the control in (the decoded members, parser/fp_starting_properties.py), else the 'default', else it raises NotImplementedError naming the property. Each entry: 'name' is NI's long name, 'member' the Python name, 'value' the kind of value written, as the Python value the generated code passes (bool: bool; enum: the property's integer enum value; number: int or float; string: str; path: pathlib.Path; color: int, LabVIEW's 0x00RRGGBB color; string_array: list of str, a list of lists of str for a two-dimensional array; number_array: list of int or float; array: list of the elements the wire carries, a cluster staying a cluster; cluster: the cluster the wire carries), 'doc_url' NI's public page for the property. 'value_codes' lists the codes of the property that reads or writes a control's value (the Value row), by the same inherited-then-class rule. 'value_signaling_codes' lists, by the same rule, the codes of Value (Signaling), which writes the value and generates a Value Change event (NI: write only). A property is listed only when NI's page says what it does. 'reference_rows' lists the rows a Property Node on a wired control reference (a Ctl, Clust, Bool ... reference) reads or writes as the reference's own value, indicator flag or label text, or a cluster's Controls[], or an array's Array Element (NI: 'Reference to the array element', read only): each row's 'codes' are the property paths (one code per segment) the corpus records for it; 'value' adds the generic Value code to 'value_codes' (a strict class's own code, 104013842, is already there). Code 104013825 is the Disabled property as a Property Node saved in LabVIEW 8.2 stores it (an integer, the enum written as its number); the file's own enum constants wired to it list enabled 0, disabled 1, greyed out 2, the values of DisabledEnum (NI forum, \"Possible Issue with help for disable property node\": the 8.2 property is the U8 form of the 9.0 enum, same values), so it shares that entry's page and member.",
+  "class_parents": {
+    "_comment": "The VI Server class each class of 'classes' belongs to, from NI's class hierarchy (https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/class-hierarchy.html): a class finds a property on its own entry, then on its parent's, up to Control, whose properties are 'inherited'. A class with no entry here is a class of Control. GObject and Decoration sit above Control, so a Decoration (Decor) has none of Control's properties (Visible is NI's page under gobject/control). NamedNumeric holds Ring's and Enum's shared Strings[]; GraphChart the properties of a Waveform Chart, a Waveform Graph (and its XY Graph) and an Intensity Graph; a Combo Box is a String.",
+    "Control": null,
+    "GObject": null,
+    "Decoration": "GObject",
+    "Decor": "Decoration",
+    "Ring": "NamedNumeric",
+    "Enum": "NamedNumeric",
+    "WFChart": "GraphChart",
+    "WFGraph": "GraphChart",
+    "IntGraph": "GraphChart",
+    "XYGraph": "WFGraph",
+    "CmbBox": "Str",
+    "AbstractDiagram": "GObject",
+    "Diagram": "AbstractDiagram",
+    "Diag": "Diagram",
+    "TopLevelDiagram": "Diagram",
+    "TopLvlDiag": "TopLevelDiagram",
+    "Terminal": "GObject",
+    "Term": "Terminal",
+    "ControlTerminal": "Terminal",
+    "CtrlTerm": "ControlTerminal",
+    "InnerTerminal": "Terminal",
+    "InrTerm": "InnerTerminal",
+    "OuterTerminal": "Terminal",
+    "OutrTerm": "OuterTerminal",
+    "Constant": "GObject",
+    "Const": "Constant",
+    "StringConstant": "Constant",
+    "StrCnst": "StringConstant",
+    "ClusterConstant": "Constant",
+    "ClustCnst": "ClusterConstant",
+    "ArrayConstant": "Constant",
+    "ArrCnst": "ArrayConstant",
+    "PathConstant": "Constant",
+    "PthCnst": "PathConstant",
+    "NumericConstant": "Constant",
+    "Tunnel": "GObject",
+    "Tun": "Tunnel",
+    "Node": "GObject",
+    "SubVI": "Node",
+    "Local": "Node",
+    "Lcl": "Local",
+    "Structure": "Node",
+    "Struct": "Structure",
+    "Loop": "Structure",
+    "ForLoop": "Loop",
+    "FLoop": "ForLoop",
+    "MultiFrameStructure": "Structure",
+    "CaseStructure": "MultiFrameStructure",
+    "CaseSel": "CaseStructure",
+    "EventStructure": "MultiFrameStructure",
+    "EvntStruct": "EventStructure",
+    "DisableStructure": "MultiFrameStructure",
+    "InPlaceElementStructure": "Structure",
+    "InPlaceStruct": "InPlaceElementStructure",
+    "InPlaceBorderNode": "Node",
+    "InPlaceClusterNode": "InPlaceBorderNode",
+    "InPlaceClustNode": "InPlaceClusterNode",
+    "GrowableFunction": "Node",
+    "Bundler": "GrowableFunction",
+    "NamedBundler": "Bundler",
+    "NmdBndl": "NamedBundler",
+    "Unbundler": "GrowableFunction",
+    "NamedUnbundler": "Unbundler",
+    "NmdUnbndl": "NamedUnbundler",
+    "Wire": "GObject"
+  },
+  "generic_classes": {
+    "_comment": "The classes of a Property Node whose reference can be any object of a front panel or a block diagram: Generic (heap name Gen), the class every VI Server class descends from, and GObject (GObj), the class of every front-panel and block-diagram object (NI's class hierarchy, https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/class-hierarchy.html). Which kind the reference is, is told by what made it (codegen/nodes/reference_origin.py).",
+    "classes": ["Generic", "Gen", "GObject", "GObj"]
+  },
+  "block_diagram_roots": {
+    "_comment": "The classes of NI's class hierarchy (https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/class-hierarchy.html) that sit directly under GObject and are objects of a block diagram: AbstractDiagram (and its Diagram), Terminal, Constant, Tunnel, SequenceLocal, Node (and its SubVI, Structure, ...), Wire, PropertyItem, FlatSequence and its two tunnels, PolymorphicVISelector. A reference whose class is one of them or below one (class_parents) is a reference to a block-diagram object, which converted code does not have. Pnl, Pane, Decoration, Scale and Control, the other classes under GObject, are front-panel objects. The short names (Diag, Term, SubVI, CaseSel, ...) are the heap class names the Property Node records, each the abbreviation of the NI class listed as its parent.",
+    "classes": [
+      "AbstractDiagram",
+      "Terminal",
+      "Constant",
+      "Tunnel",
+      "SequenceLocal",
+      "Node",
+      "Wire",
+      "PropertyItem",
+      "FlatSequence",
+      "FlatSequenceInnerTunnel",
+      "FlatSequenceOuterTunnel",
+      "PolymorphicVISelector"
+    ]
   },
   "saved_defaults": {
     "_comment": "The value a saved property has on a control of this VI Server class (control_classes.json) when the panel's saved keyword lists none: the generated panel leaves it out. A Boolean's Mechanical Action 0 is Switch When Pressed, what the saved flags of a Boolean in its default state decode to (labview-binary-format.md, 'A Boolean's mechanical action is in its ddo objFlags').",
@@ -14,7 +97,9 @@
     "inherited": [104013842],
     "classes": {
       "CmbBox": [104099840],
+      "ColBox": [104016896],
       "Path": [104032256],
+      "Pict": [104044544],
       "Str": [104093696]
     }
   },
@@ -22,6 +107,114 @@
     "reinit_to_default": {
       "codes": [104012800],
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/reinittodefault.html"
+    }
+  },
+  "tree_methods": {
+    "_comment": "The methods of a Tree control, each a method of the control's TreeItems (panels.py), by method code. 'params' are the TreeItems method's parameters in the order NI's page lists them, each with the Python text of its default: the Invoke Node's terminals are the reference at 0 (out 1), the error at 2 (out 3), the result at 5 and parameter k at input 6+2k (the corpus's nodes record them so, parameter k's own output terminal 7+2k a void). 'returns' is whether the method gives a value at terminal 5. Point To Row Column (1969895445) is not listed: it converts a pixel of the control's own drawing, which exists only in a view.",
+    "1969895428": {
+      "name": "Edit Tree Items.Add Item",
+      "member": "add_item",
+      "returns": true,
+      "params": [["parent_tag", "''"], ["position", "0"], ["left", "''"], ["child_text", "()"], ["child_tag", "None"], ["child_only", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/additem.html"
+    },
+    "1969895447": {
+      "name": "Edit Tree Items.Add Multiple Items to End",
+      "member": "add_items_to_end",
+      "returns": false,
+      "params": [["items", "()"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/addmultipleitemstoend.html"
+    },
+    "1969895427": {
+      "name": "Edit Tree Items.Delete",
+      "member": "delete_item",
+      "returns": false,
+      "params": [["tag", "''"], ["delete_children", "True"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/deleteitem.html"
+    },
+    "1969895436": {
+      "name": "Edit Tree Items.Move Item",
+      "member": "move_item",
+      "returns": false,
+      "params": [["tag", "''"], ["new_parent", "''"], ["position", "0"], ["carry_children", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/moveitem.html"
+    },
+    "1969895438": {
+      "name": "Edit Tree Items.Set Tag",
+      "member": "set_tag",
+      "returns": true,
+      "params": [["tag", "''"], ["new_tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/setnewtag.html"
+    },
+    "1969895431": {
+      "name": "Edit Tree Items.Sort Children",
+      "member": "sort_children",
+      "returns": false,
+      "params": [["tag", "''"], ["column", "0"], ["case", "0"], ["recursive", "False"], ["reverse", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/sortchildren.html"
+    },
+    "1969895437": {
+      "name": "Navigate Tree.Get Child",
+      "member": "get_child",
+      "returns": true,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/getchild.html"
+    },
+    "1969895424": {
+      "name": "Navigate Tree.Get Next",
+      "member": "get_next",
+      "returns": true,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/getnext.html"
+    },
+    "1969895425": {
+      "name": "Navigate Tree.Get Parent",
+      "member": "get_parent",
+      "returns": true,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/getparent.html"
+    },
+    "1969895426": {
+      "name": "Navigate Tree.Get Path",
+      "member": "get_path",
+      "returns": true,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/getpath.html"
+    },
+    "1969895430": {
+      "name": "Open/Close.Item",
+      "member": "set_open",
+      "returns": false,
+      "params": [["tag", "''"], ["opened", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/opencloseitem.html"
+    },
+    "1969895433": {
+      "name": "Open/Close.Open/Close All",
+      "member": "open_all",
+      "returns": false,
+      "params": [["opened", "False"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/opencloseall.html"
+    },
+    "1969895432": {
+      "name": "Open/Close.Ensure Visible",
+      "member": "ensure_visible",
+      "returns": false,
+      "params": [["tag", "''"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/ensurevisible.html"
+    },
+    "1969895442": {
+      "name": "Custom Item Symbols.Set Symbol Array",
+      "member": "set_symbol_array",
+      "returns": false,
+      "params": [["symbols", "()"]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/settocustomsymbolarray.html"
+    },
+    "1969895444": {
+      "name": "Custom Item Symbols.Revert Symbols",
+      "member": "revert_symbols",
+      "returns": false,
+      "params": [],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/revertalltobuiltinsymbols.html"
     }
   },
   "value_signaling_codes": {
@@ -37,24 +230,39 @@
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/value.html"
     },
     "indicator": {
+      "settable_while_running": false,
       "codes": [[104013831]],
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/indicator.html"
     },
     "cluster_controls": {
+      "settable_while_running": false,
       "codes": [[104102914]],
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/cluster/controls.html"
     },
+    "cluster_decorations": {
+      "settable_while_running": false,
+      "codes": [[104102915]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/cluster/decorations.html"
+    },
+    "cluster_all_objects": {
+      "settable_while_running": false,
+      "codes": [[104102916]],
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/cluster/allobjects.html"
+    },
     "array_element": {
+      "settable_while_running": false,
       "codes": [[104041479]],
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/array/arrayelement.html"
     },
     "class_id": {
+      "settable_while_running": false,
       "codes": [[103970816]],
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/classid.html"
     },
     "label_text": {
+      "settable_while_running": false,
       "codes": [[104013829, 103995392]],
-      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/label.html"
+      "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/text.html"
     }
   },
   "inherited": {
@@ -62,18 +270,21 @@
       "name": "Visible",
       "member": "visible",
       "value": "bool",
+      "default": true,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/visible.html"
     },
     "104013826": {
       "name": "Key Focus",
       "member": "key_focus",
       "value": "bool",
+      "default": false,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/keyfocus.html"
     },
     "104013885": {
       "name": "Disabled",
       "member": "disabled",
       "value": "enum",
+      "default": 0,
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/disabledenum.html"
     },
     "104013825": {
@@ -98,6 +309,7 @@
       "name": "Tip Strip",
       "member": "tip_strip",
       "value": "string",
+      "default": "",
       "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/tipstrip.html"
     },
     "104013828.103995392": {
@@ -108,7 +320,16 @@
     }
   },
   "classes": {
-    "Arr (strict)": {
+    "Decoration": {
+      "103992326": {
+        "name": "Visible",
+        "member": "visible",
+        "value": "bool",
+        "default": true,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/visible.html"
+      }
+    },
+    "Arr": {
       "104041473": {
         "name": "Number of Columns",
         "member": "number_of_columns",
@@ -128,20 +349,12 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/array/indexvalues.html"
       }
     },
-    "IntGraph (strict)": {
+    "GraphChart": {
       "104078363": {
         "name": "Frame Color",
         "member": "frame_color",
         "value": "color",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/graphchart/framecolor.html"
-      }
-    },
-    "Pict": {
-      "104044553": {
-        "name": "Zoom Factor",
-        "member": "zoom_factor",
-        "value": "number",
-        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/picture/zoomfactor.html"
       }
     },
     "Path": {
@@ -170,22 +383,105 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/path/browsedlgprompt.html"
       }
     },
-    "Tree (strict)": {
+    "Tree": {
+      "1969896450": {
+        "name": "Visible Items:Horizontal Scrollbar Visible",
+        "member": "hscroll_visible",
+        "value": "bool",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/horizscrollvis.html"
+      },
+      "1969896449": {
+        "name": "Visible Items:Vertical Scrollbar Visible",
+        "member": "vscroll_visible",
+        "value": "bool",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/vertscrollvis.html"
+      },
+      "1969896448": {
+        "name": "Column Header Strings[]",
+        "member": "column_header_strings",
+        "holder": "tree",
+        "value": "string_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/colheaders.html"
+      },
+      "1969896451": {
+        "name": "Number of Rows",
+        "member": "num_rows",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/numrows.html"
+      },
+      "1969896520": {
+        "name": "Expand/Contract Symbol:Show Symbol at Root",
+        "member": "show_symbol_at_root",
+        "value": "bool",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/showsymbolatroot.html"
+      },
+      "1969896472": {
+        "name": "Active Cell:Cell Size:Width",
+        "member": "cell_width",
+        "holder": "tree",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/width.html"
+      },
       "1969896461": {
         "name": "Active Item:Tag",
         "member": "active_item_tag",
+        "holder": "tree",
         "value": "string",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/activeitemtag.html"
+      },
+      "1969896514": {
+        "name": "Active Item:Row Number",
+        "member": "active_item_row_number",
+        "holder": "tree",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/activeitemrownumber.html"
+      },
+      "1969896476": {
+        "name": "Displayed Items",
+        "member": "displayed_items",
+        "holder": "tree",
+        "value": "string_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/displayeditems.html"
+      },
+      "1969896462": {
+        "name": "Active Item:Open?",
+        "member": "active_open",
+        "holder": "tree",
+        "value": "bool",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/open.html"
+      },
+      "1969896465": {
+        "name": "Active Item:Indent Level",
+        "member": "indent_level",
+        "holder": "tree",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/indent.html"
+      },
+      "1969896464": {
+        "name": "Active Item:Child-Only?",
+        "member": "child_only",
+        "holder": "tree",
+        "value": "bool",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/childonly.html"
+      },
+      "1969896466": {
+        "name": "Active Item:Symbol Index",
+        "member": "symbol_index",
+        "holder": "tree",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/symbol.html"
       },
       "1969896467": {
         "name": "Active Cell:Active Column Number",
         "member": "active_column_number",
+        "holder": "tree",
         "value": "number",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/activecolumnnumber.html"
       },
       "1969896473": {
         "name": "Active Cell:String",
         "member": "cell_string",
+        "holder": "tree",
         "value": "string",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/cellstring.html"
       },
@@ -193,32 +489,142 @@
         "name": "Edit Position",
         "member": "edit_position",
         "value": "cluster",
+        "default": [-2, -2],
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/treecontrol/editposition.html"
       }
     },
-    "LstBox (strict)": {
+    "LstBox": {
       "104035337": {
         "name": "Item Names",
-        "member": "item_names",
+        "member": "listbox_item_names",
         "value": "string_array",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/listbox/itemnames.html"
       }
     },
-    "MCListbox (strict)": {
+    "MCListbox": {
       "416911380": {
         "name": "Selection Color",
         "member": "selection_color",
         "value": "color",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/selectioncolor.html"
       },
+      "416911404": {
+        "name": "Active Cell:Cell Font:Color",
+        "member": "cell_font_color",
+        "value": "color",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/cellfontcolor.html"
+      },
       "416911360": {
         "name": "Item Names",
         "member": "item_names",
         "value": "string_array",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/itmnames.html"
+      },
+      "416911367": {
+        "name": "Visible Items:Vertical Scrollbar Visible",
+        "member": "vscroll_visible",
+        "value": "bool",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/vertscrollvis.html"
+      },
+      "416911361": {
+        "name": "Item Symbols",
+        "member": "item_symbols",
+        "value": "number_array",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/itemsymbols.html"
+      },
+      "416911374": {
+        "name": "Active Cell:Active Cell",
+        "member": "active_cell",
+        "value": "cluster",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/activecell.html"
+      },
+      "416911420": {
+        "name": "Edit Position",
+        "member": "edit_position",
+        "value": "cluster",
+        "default": [-2, -2],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/multicolumnlistbox/editposition.html"
       }
     },
-    "Knob (strict)": {
+    "Str": {
+      "104093700.103995413": {
+        "name": "Text:Justification",
+        "member": "justify",
+        "value": "enum",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/justification.html"
+      },
+      "104093700.103995395": {
+        "name": "Text:Selection:Start",
+        "member": "selection_start",
+        "value": "number",
+        "default": 0,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/selstart.html"
+      },
+      "104093700.103995396": {
+        "name": "Text:Selection:End",
+        "member": "selection_end",
+        "value": "number",
+        "default": 0,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/selend.html"
+      },
+      "104093700.103995394": {
+        "name": "Text:Selection",
+        "member": "selection",
+        "value": "cluster",
+        "default": [0, 0],
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/decoration/text/selection.html"
+      }
+    },
+    "Pict": {
+      "104044553": {
+        "name": "Zoom Factor",
+        "member": "zoom_factor",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/picture/zoomfactor.html"
+      },
+      "104044549": {
+        "name": "Cursor",
+        "member": "cursor",
+        "value": "number",
+        "default": 0,
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/picture/cursor.html"
+      }
+    },
+    "Scroll": {
+      "1727315969": {
+        "name": "Doc Max",
+        "member": "doc_max",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/scrollbar/docmax.html"
+      }
+    },
+    "XYGraph": {
+      "104078347.104001541": {
+        "name": "XScale:Range:Minimum",
+        "member": "x_min",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmin.html"
+      },
+      "104078347.104001542": {
+        "name": "XScale:Range:Maximum",
+        "member": "x_max",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmax.html"
+      },
+      "104078348.104001541": {
+        "name": "YScale:Range:Minimum",
+        "member": "y_min",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmin.html"
+      },
+      "104078348.104001542": {
+        "name": "YScale:Range:Maximum",
+        "member": "y_max",
+        "value": "number",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmax.html"
+      }
+    },
+    "Knob": {
       "104075264.104001542": {
         "name": "Scale:Range:Maximum",
         "member": "scale_maximum",
@@ -232,7 +638,13 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/scale/rngmin.html"
       }
     },
-    "Slide (strict)": {
+    "Slide": {
+      "104072194": {
+        "name": "Fill Color",
+        "member": "fill_color",
+        "value": "color",
+        "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/numericwithscale/slide/fillcolor.html"
+      },
       "104072195.104001542": {
         "name": "Scale:Range:Maximum",
         "member": "scale_maximum",
@@ -272,13 +684,15 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/namednumeric/strings.html"
       }
     },
-    "Ring (strict)": {
+    "NamedNumeric": {
       "104056839": {
         "name": "Strings []",
         "member": "strings",
         "value": "string_array",
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/namednumeric/strings.html"
-      },
+      }
+    },
+    "Ring": {
       "104062981": {
         "name": "Strings And Values []",
         "member": "strings_and_values",
@@ -286,7 +700,7 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/gobject/control/numeric/namednumeric/ring/strsandvals.html"
       }
     },
-    "WFGraph (strict)": {
+    "WFGraph": {
       "104084510": {
         "name": "Legend:Number of Rows",
         "member": "legend_number_of_rows",
@@ -306,7 +720,7 @@
         "doc_url": "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/vi-server/generic/plot/name.html"
       }
     },
-    "WFChart (strict)": {
+    "WFChart": {
       "104081416": {
         "name": "History Data",
         "member": "history_data",

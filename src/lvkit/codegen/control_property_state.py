@@ -26,8 +26,16 @@ stays a gap (``property_node``)."""
 from __future__ import annotations
 
 import ast
+from typing import Any
 
-from lvkit.control_properties import control_property, saved_defaults
+from lvkit.control_properties import (
+    FIELD_MEMBERS,
+    SAVED_MEMBERS,
+    STATE_MEMBERS,
+    control_property,
+    property_defaults,
+    saved_defaults,
+)
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.op_walk import correlate_property_terminals
 from lvkit.models import FPTerminal
@@ -35,33 +43,40 @@ from lvkit.models import FPTerminal
 from .ast_utils import build_assign, node_owned_name
 from .context import CodeGenContext
 
-STATE_MEMBERS = ("visible", "disabled", "strings")
-"""The ``ControlProperty.member`` of the properties that start from the stored
-state of the control."""
-
-StateValue = bool | int | list[str]
+StateValue = (
+    bool
+    | int
+    | float
+    | str
+    | tuple[int, ...]
+    | list[int]
+    | list[str]
+    | list[list[str]]
+    | list[list[Any]]
+)
 """A property's state: ``Visible`` a bool, ``Disabled`` its enum value, a Combo
-Box's ``Strings[]`` the list of its drop-down strings."""
+Box's ``Strings[]`` the list of its drop-down strings, a number, a string, a cell
+``(row, column)`` or a list of indexes or strings."""
 
 
 def starting_state(control: FPTerminal, member: str) -> StateValue | None:
     """The value the file stores for the property ``member`` of ``control``:
     ``Visible`` as a bool, ``Disabled`` as its enum value, a Combo Box's
     ``Strings[]`` as its list of strings (the parser records the items of a
-    Combo Box in ``enum_values``); None when the file does not record it (or
-    ``member`` is not one of ``STATE_MEMBERS``, or the control is not a Combo Box
-    for ``Strings[]``)."""
+    Combo Box in ``enum_values``), any other member as the parser read it from the
+    control's ddo; None when the file does not record it (or ``member`` is not one
+    of ``STATE_MEMBERS``, or the control is not a Combo Box for ``Strings[]``)."""
     if member == "visible":
         return None if control.starts_hidden is None else not control.starts_hidden
     if member == "disabled":
         return control.enable_state
-    if (
-        member == "strings"
-        and control.control_type == "stdComboBox"
-        and not control.undecoded_strings
-    ):
-        return list(control.enum_values)
-    return None
+    if member == "strings":
+        if control.vi_server_class == "Ring" or (
+            control.control_type == "stdComboBox" and not control.undecoded_strings
+        ):
+            return list(control.enum_values)
+        return None
+    return control.starting_properties.get(member)
 
 
 def saved_value(control: FPTerminal, member: str) -> StateValue | None:
@@ -77,20 +92,23 @@ def saved_value(control: FPTerminal, member: str) -> StateValue | None:
     return None
 
 
-SAVED_MEMBERS = ("strings", "mech_action")
-"""The ``ControlProperty.member`` of the properties a control is saved with
-(``saved_value``)."""
-
-
 def saved_properties(control: FPTerminal) -> dict[str, StateValue]:
     """Every property ``control`` is saved with that is not the default of its VI
     Server class (``control_properties.saved_defaults``), by member name: what the
-    panel holds for a reference to read (``Panel`` ``saved=``)."""
+    panel holds for a reference to read (``Panel`` ``saved=``), with the starting
+    value of each settable property the file records in a field of the control's
+    ddo (``FIELD_MEMBERS``) that is not the property's ``default``; a write replaces
+    it."""
     defaults = saved_defaults().get(control.vi_server_class or "", {})
     found: dict[str, StateValue] = {}
     for member in SAVED_MEMBERS:
         value = saved_value(control, member)
         if value is not None and value != defaults.get(member):
+            found[member] = value
+    property_default = property_defaults()
+    for member in FIELD_MEMBERS:
+        value = control.starting_properties.get(member)
+        if value is not None and value != property_default.get(member):
             found[member] = value
     return found
 
@@ -114,28 +132,30 @@ def element_saved_properties(control: FPTerminal) -> dict[str, StateValue]:
     return found
 
 
-DEFAULT_STATES: dict[str, bool | int] = {"visible": True, "disabled": 0}
-"""The state of each of ``STATE_MEMBERS`` that has a default (a control in
-LabVIEW's default state); a property with none (``Strings[]``) is always held."""
-
-
 def state_expression(state: StateValue) -> ast.expr:
     """The Python expression of the state ``state``."""
     if isinstance(state, list):
-        return ast.List(elts=[ast.Constant(value=s) for s in state], ctx=ast.Load())
+        return ast.List(
+            elts=[state_expression(item) for item in state], ctx=ast.Load()
+        )
+    if isinstance(state, tuple):
+        return ast.Tuple(
+            elts=[state_expression(item) for item in state], ctx=ast.Load()
+        )
     return ast.Constant(value=state)
 
 
 def stored_states(control: FPTerminal) -> dict[str, StateValue]:
     """The properties of ``control`` that the file stores in a state other than
-    the default (hidden, disabled, greyed out), and those with no default (a Combo
-    Box's strings), by member name: what the panel starts the control in."""
+    the default of the property (``control_properties.json``: a control in
+    LabVIEW's default state is visible, enabled, with no tip), and those with no
+    default (a Combo Box's strings), by member name: what the panel starts the
+    control in."""
+    defaults = property_defaults()
     states: dict[str, StateValue] = {}
     for member in STATE_MEMBERS:
         state = starting_state(control, member)
-        if state is not None and (
-            member not in DEFAULT_STATES or state != DEFAULT_STATES[member]
-        ):
+        if state is not None and (member not in defaults or state != defaults[member]):
             states[member] = state
     return states
 

@@ -318,7 +318,7 @@ def test_cluster_field_geoms_maps_real_field_geometry():
 
 
 def test_cluster_shape_resolves_direct_and_typedef_wrapped_clusters():
-    """``_cluster_shape`` finds the ``stdClust`` element that defines a
+    """``cluster_shape`` finds the ``stdClust`` element that defines a
     cluster's shape, whether ``el`` IS the cluster (``class="stdClust"``
     directly) or WRAPS one — a cluster used as a named ``.ctl`` typedef
     control has ddo ``class="typeDef"`` with the real ``stdClust`` embedded
@@ -327,12 +327,12 @@ def test_cluster_shape_resolves_direct_and_typedef_wrapped_clusters():
     ``paneHierarchy`` — never by name/position — so an unrelated ``stdClust``-
     classed part with no pane (shouldn't exist in practice, but proves this
     isn't a blind first-match) is skipped."""
-    from lvkit.parser.layout import _cluster_shape
+    from lvkit.parser.layout import cluster_shape
 
     direct = ET.fromstring(
         '<ddo class="stdClust" uid="1"><bounds>(0,0,10,10)</bounds></ddo>'
     )
-    assert _cluster_shape(direct) is direct
+    assert cluster_shape(direct) is direct
 
     wrapped = ET.fromstring(
         '<ddo class="typeDef" uid="2"><bounds>(0,0,10,10)</bounds>'
@@ -346,15 +346,15 @@ def test_cluster_shape_resolves_direct_and_typedef_wrapped_clusters():
         "</partsList>"
         "</ddo>"
     )
-    shape = _cluster_shape(wrapped)
+    shape = cluster_shape(wrapped)
     assert shape is not None
     assert shape.get("uid") == "4"
 
     not_a_cluster = ET.fromstring(
         '<ddo class="stdNum" uid="6"><bounds>(0,0,10,10)</bounds></ddo>'
     )
-    assert _cluster_shape(not_a_cluster) is None
-    assert _cluster_shape(None) is None
+    assert cluster_shape(not_a_cluster) is None
+    assert cluster_shape(None) is None
 
     # A typeDef with a stdClust PART that carries NO paneHierarchy (not a real
     # cluster shape — never seen on the corpus, but must not false-positive).
@@ -366,7 +366,7 @@ def test_cluster_shape_resolves_direct_and_typedef_wrapped_clusters():
         "</partsList>"
         "</ddo>"
     )
-    assert _cluster_shape(no_pane) is None
+    assert cluster_shape(no_pane) is None
 
 
 def test_refnum_type_display_expanded_reads_multicosm_index():
@@ -489,8 +489,8 @@ def test_refnum_payload_layout_extracts_real_offset_and_geometry():
     ``_cluster_field_geoms`` a genuine nested cluster field uses."""
     from lvkit.parser.layout import (
         _cluster_field_geoms,
-        _cluster_shape,
         _refnum_payload_layout,
+        cluster_shape,
     )
 
     outer = ET.fromstring(_REFNUM_PAYLOAD_FIXTURE)
@@ -514,7 +514,7 @@ def test_refnum_payload_layout_extracts_real_offset_and_geometry():
 
     # Threaded through _cluster_field_geoms onto the FIELD's own
     # ClusterFieldGeom, exactly like refnum_expanded.
-    outer_cg = _cluster_field_geoms(_cluster_shape(outer))
+    outer_cg = _cluster_field_geoms(cluster_shape(outer))
     assert outer_cg is not None
     field = next(f for f in outer_cg.fields if f.name == "ResultChangedRef")
     assert field.refnum_expanded is True
@@ -641,19 +641,19 @@ def test_array_element_cluster_geometry_typedef_wrapped():
     """The array-constant path: an ``indArr`` ddo's ELEMENT is its own DIRECT
     ``<ddo>`` child (not a ``partsList`` part) — verified on TestResult_Init's
     array-of-clusters constant. When that element resolves (via
-    ``_cluster_shape``, through the ``typeDef`` wrapper) to a cluster,
+    ``cluster_shape``, through the ``typeDef`` wrapper) to a cluster,
     ``_cluster_field_geoms`` extracts its real geometry exactly like a
     top-level cluster constant, including a genuinely NESTED cluster FIELD
     (``error`` -> status/code/source) — the same recursion, reached through
     the array path instead of a plain cluster constant."""
-    from lvkit.parser.layout import _cluster_field_geoms, _cluster_shape
+    from lvkit.parser.layout import _cluster_field_geoms, cluster_shape
 
     indarr = ET.fromstring(_ARRAY_OF_CLUSTER_FIXTURE)
     elem_ddo = indarr.find("ddo")
     assert elem_ddo is not None
     assert elem_ddo.get("class") == "typeDef"
 
-    shape = _cluster_shape(elem_ddo)
+    shape = cluster_shape(elem_ddo)
     assert shape is not None
     assert shape.get("uid") == "573"
 

@@ -12,9 +12,9 @@ zeros", so a shorter value is padded with zero bytes on the right.
 A cast whose source and destination type are the same, or from one refnum to
 another (an opaque handle, not bytes), keeps the value as it is. A refnum cast
 to an integer or to bytes is its 32-bit integer (``flat.RefnumInteger``): Not a
-Refnum (``None``) is 0 and a live reference, a Python object with no integer
-value, raises where it runs. An integer 0 (or four zero bytes) cast to a refnum
-is ``None``, Not a Refnum, and any other integer raises where it runs.
+Refnum (``None``) is 0 and a live reference, a Python object, is its identity
+number (``id`` kept to 32 bits, never 0). An integer 0 (or four zero bytes) cast
+to a refnum is ``None``, Not a Refnum, and any other integer stays that integer.
 
 Terminals (from the primitives.json entry):
   in  index 0 = x (data to reinterpret)

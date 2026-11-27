@@ -37,6 +37,7 @@ from ..nodes.call_chain import vi_name_statement
 from ..nodes.front_panel_bounds import window_bounds_statement
 from ..nodes.front_panel_title import window_title_statement
 from ..nodes.tag_methods import tags_statements
+from ..nodes.vi_file_properties import vi_file_property_statements
 from ..panel_description import NamedTerminal, panel_statements
 from ..panel_hooks import PanelHooks, method_enum_name, method_property_enum_name
 from ..panel_names import panel_names
@@ -108,6 +109,7 @@ class _MethodBuilderMixin:
         ]
         if property_accessor:
             parameters = [t for t in parameters if not t.is_error_cluster]
+        ctx.panel_names = panel_names(vi_context, names)
         ctx.panel_hooks = (
             None
             if property_accessor
@@ -226,6 +228,9 @@ class _MethodBuilderMixin:
             window_title_statement(ctx, ctx.vi_name or vi_context.name, target),
             window_bounds_statement(ctx, ctx.vi_name or vi_context.name, target),
             vi_name_statement(ctx, ctx.vi_name or vi_context.name, target),
+            *vi_file_property_statements(
+                ctx, ctx.vi_name or vi_context.name, target
+            ),
             *tags_statements(ctx, ctx.vi_name or vi_context.name, target),
             *panel_statements(
                 ctx,
@@ -235,6 +240,7 @@ class _MethodBuilderMixin:
                 indicators,
                 self._lazy,
                 passed,
+                ctx.vi_name or vi_context.name,
             ),
         ]
 

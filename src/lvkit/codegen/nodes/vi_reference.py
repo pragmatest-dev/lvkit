@@ -38,7 +38,8 @@ from enum import IntEnum
 from pathlib import Path
 
 from lvkit.conversion_gap import ConversionGap
-from lvkit.graph.models import AnyGraphNode, PrimitiveNode, VINode
+from lvkit.graph.models import AnyGraphNode, ConstantNode, PrimitiveNode, VINode
+from lvkit.graph.reference_target import is_reference_constant
 from lvkit.graph.vi_reference import (
     CALL_REFERENCE_IN,
     CALL_REFERENCE_OUT,
@@ -78,10 +79,19 @@ from ..error_flow import assigned_names, output_defaults, own_error_terminals
 from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
-from ..native_failure import labview_error
+from ..native_failure import automatic_error_handling, labview_error
 from ..pane_candidates import CallForm, candidates
+from ..panels_application import APPLICATION_NAME
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
-from . import front_panel_bounds, front_panel_title, method_call, primitive, subvi
+from . import (
+    application_properties,
+    front_panel_bounds,
+    front_panel_title,
+    method_call,
+    primitive,
+    subvi,
+    vi_file_properties,
+)
 from .call_chain import VI_NAME_ATTRIBUTE
 
 OPEN_VI_REFERENCE_PRIM_ID = 8010
@@ -92,6 +102,9 @@ INVALID_VI_REFERENCE_CODE = 1026
 
 # NI, General LabVIEW Error Codes: 7 "File not found."
 FILE_NOT_FOUND_CODE = 7
+
+# NI, General LabVIEW Error Codes: 1004 "The VI is not in memory."
+NOT_IN_MEMORY_CODE = 1004
 
 # Open VI Reference options: bit 0x80 opens the VI to be called and forgotten.
 CALL_AND_FORGET = 0x80
@@ -372,8 +385,9 @@ def _made_only_with_a_vi(
     node: VINode, ctx: CodeGenContext, reference: str, fragment: CodeFragment
 ) -> CodeFragment:
     """``fragment``, the call through the reference value ``reference``, made
-    only when the value holds a VI. A reference that is Not a Refnum (``None``)
-    makes no call: the node's outputs take their defaults and its own error is
+    only when the value holds a VI. A value that is not a function (Not a Refnum,
+    ``None``, or a reference read back from its flattened number) makes no
+    call: the node's outputs take their defaults and its own error is
     error 1026, "VI Reference is invalid." (NI, General LabVIEW Error Codes),
     which its error out reports unless an error came in (``error_flow``). A
     node whose error out is not wired has nowhere to report it, so calling the
@@ -405,7 +419,7 @@ def _made_only_with_a_vi(
     invalid = labview_error(INVALID_VI_REFERENCE_CODE, _label(node))
     fragment.statements = [
         ast.If(
-            test=parse_expr(f"({reference}) is None"),
+            test=parse_expr(f"not callable({reference})"),
             body=[*defaults, build_assign(own_error, invalid)],
             orelse=[*statements, build_assign(own_error, parse_expr("None"))],
         )
@@ -510,7 +524,9 @@ def _function_name(stem):
     return name
 """.replace("{modules}", repr(sorted(GENERATED_MODULE_NAMES)))
 
-_IMPORT_BY_PATH = PATH_FROM_HERE + """\
+_IMPORT_BY_PATH = (
+    PATH_FROM_HERE
+    + """\
 {parts} = {rel}.split("/")
 {up} = 0
 while {parts}[0] == "..":
@@ -521,10 +537,11 @@ if {up} >= len(__package__.split(".")):
 {stem} = {parts}.pop()
 {package} = "." * ({up} + 1) + "".join(_module_part(p) + "." for p in {parts})
 """
+)
 
 _IMPORT_BY_NAME = """\
 {owner}, _, {stem} = {value}.rpartition(":")
-{package} = {owners}[{owner}] if {owner} else {unowned}[{stem}]
+{package} = {owners}[{value}] if {owner} else {unowned}[{stem}]
 """
 
 # A VI a class lists is a method of the class, found by the name or the path
@@ -628,35 +645,57 @@ def _generate_lookup(
     statements = ast.parse(text).body
     bindings = {reference.id: reference_var} if reference is not None else {}
     fragment = CodeFragment(statements=statements, bindings=bindings)
-    _, error_outs = own_error_terminals(node, ctx)
-    if not any(ctx.is_wired(term.id) for term in error_outs):
-        # With nowhere to put an error, a name or path that finds no VI stays
-        # the lookup's own exception, as a native failure does
-        # (``native_failure``).
-        return fragment
-    return _not_found_is_error_7(node, ctx, fragment, reference_var, value)
+    return _not_found_is_error(node, ctx, fragment, reference_var, value, by_name)
 
 
-def _not_found_is_error_7(
+def _not_found_is_error(
     node: PrimitiveNode,
     ctx: CodeGenContext,
     fragment: CodeFragment,
     reference_var: str,
     value: str,
+    by_name: bool,
 ) -> CodeFragment:
     """``fragment``, the lookup of a computed VI name or path, with a name or
-    path that finds no VI in the project made the node's own error 7, "File not
-    found.", and the reference Not a Refnum. NI, Open VI Reference: "If a
-    matching VI is not found in memory, LabVIEW then tries to load the VI from
-    that file on disk. An error occurs if LabVIEW cannot find the file." (7 is
-    NI's General LabVIEW Error Code for a file not found.)"""
-    own_error = ctx.make_output_var("own_error", node.id)
+    path that finds no VI in the project made the node's own error and the
+    reference Not a Refnum. A path: error 7, "File not found." (NI, Open VI
+    Reference: "If you wire a path, LabVIEW searches for a VI in memory ...
+    then tries to load the VI from that file on disk. An error occurs if
+    LabVIEW cannot find the file."). A name: error 1004, "The VI is not in
+    memory." (NI, Open VI Reference: "LabVIEW will only search in memory for a
+    VI with a specified name"; NI, General LabVIEW Error Codes: 1004. JKI VI
+    Tester's own diagram filters 1004 on a name that no class member has.)"""
     ctx.import_labview_error()
     not_found = labview_error(
-        FILE_NOT_FOUND_CODE,
+        NOT_IN_MEMORY_CODE if by_name else FILE_NOT_FOUND_CODE,
         _label(node),
         f"'the VI ' + repr({value}) + ' is not in memory and has no file'",
     )
+    _, error_outs = own_error_terminals(node, ctx)
+    if not any(ctx.is_wired(term.id) for term in error_outs):
+        # With nowhere to put the error, the VI's automatic error handling
+        # decides: on, the error is raised as LabVIEW stops at the node and
+        # shows it; off, the reference is Not a Refnum and the run continues.
+        lookup_failure = ctx.make_output_var("exception", node.id)
+        handler: list[ast.stmt] = [build_assign(reference_var, parse_expr("None"))]
+        if automatic_error_handling(ctx):
+            handler.append(ast.Raise(exc=not_found, cause=parse_expr(lookup_failure)))
+        fragment.statements = [
+            ast.Try(
+                body=fragment.statements,
+                handlers=[
+                    ast.ExceptHandler(
+                        type=parse_expr("(LookupError, ModuleNotFoundError)"),
+                        name=lookup_failure,
+                        body=handler,
+                    )
+                ],
+                orelse=[],
+                finalbody=[],
+            )
+        ]
+        return fragment
+    own_error = ctx.make_output_var("own_error", node.id)
     fragment.statements = [
         ast.Try(
             body=fragment.statements,
@@ -723,14 +762,14 @@ def _class_members_table(node: PrimitiveNode, ctx: CodeGenContext) -> None:
 
 
 def _owners_tables(ctx: CodeGenContext) -> tuple[str, str]:
-    """The module-level dictionaries from each owner's full delimited name, and from
-    each VI that no library or class owns (its ``Name.vi``), to the package holding
-    the modules of its VIs, as the start of an import spec (the dots, then the
-    dotted package and a final dot)."""
+    """The module-level dictionaries from each VI a library owns (its full
+    ``Lib.lvlib:Name.vi``), and from each VI that no library or class owns (its
+    ``Name.vi``), to the package holding its module, as the start of an import
+    spec (the dots, then the dotted package and a final dot)."""
     assert ctx.graph is not None
     resolver = ctx.import_resolver
     tables = (
-        ("_vi_owners", ctx.graph.owner_files()),
+        ("_owned_vis", ctx.graph.owned_vi_files()),
         ("_vi_unowned", ctx.graph.unowned_vi_files()),
     )
     for table, files in tables:
@@ -783,7 +822,11 @@ def vi_property_read(
     (``Panel.state``: 1 Idle, 2 Run top level while it runs), Front Panel
     Window:Title its ``window_title`` (``front_panel_title``), Front Panel
     Window:Window Bounds its ``window_bounds`` as the cluster ``lv_type`` of the
-    property's terminal (``front_panel_bounds``).
+    property's terminal (``front_panel_bounds``), and the properties the VI's file
+    records (Exec.IsReentrant, Exec.ReentrancyType, Exec.Priority, VI Type,
+    Help:Document Web URL, Is Clone VI, VI Clone Name) are its attributes of those
+    names (``vi_file_properties``), and Owning Application is the package's one
+    ``application`` (``application_properties``).
     None for a property of another class, or one with no such reading. The
     imports the read needs are added to ``ctx``."""
     if not is_on_vi_reference(node) or len(prop.segments) != 1:
@@ -792,7 +835,13 @@ def vi_property_read(
         return front_panel_title.read(reference)
     if front_panel_bounds.is_bounds_row(prop):
         return front_panel_bounds.read(reference, lv_type, node, ctx)
+    file_row = vi_file_properties.file_property(prop)
+    if file_row is not None:
+        return vi_file_properties.read(file_row, reference)
     code = prop.segments[0].code
+    if code == application_properties.OWNING_APP_PROPERTY_CODE:
+        ctx.import_panels(APPLICATION_NAME)
+        return application_properties.owning_app()
     if code == VI_NAME_PROPERTY_CODE:
         return parse_expr(f"{reference}.{VI_NAME_ATTRIBUTE}")
     if code == VI_PATH_PROPERTY_CODE:
@@ -805,6 +854,61 @@ def vi_property_read(
         ctx.import_panels(PANEL_CALL_IMPORTS)
         return parse_expr(f"{PANEL_OF_NAME}({reference}).state")
     return None
+
+
+def invalid_reference_guard(
+    node: PrimitiveNode, prop: PropertyDef, reference: str, ctx: CodeGenContext
+) -> tuple[list[ast.stmt], bool]:
+    """The guard before ``vi_property_read``'s read of ``prop`` from ``reference``
+    and whether the Property Node reports its error: a reference that holds no VI
+    (Not a Refnum, ``None``, or a reference read back from its flattened number,
+    which is not a function) has no name, path or file properties: error 1026, "VI
+    Reference is invalid." (NI, General LabVIEW Error Codes). The node reports it
+    on its error out when that is wired, or, with nowhere to put it, when the VI's
+    automatic error handling is off (the outputs take their defaults and the run
+    continues); with it on the error is raised, as LabVIEW stops at the node
+    (``native_failure``). No guard for Exec.State (the front panel fails with its
+    own error, ``reads_panel``), for Owning Application (the package's own, read
+    from no reference) and for a reference that is a constant, which holds a
+    VI."""
+    code = prop.segments[0].code
+    if (
+        reads_panel(node, prop)
+        or code == application_properties.OWNING_APP_PROPERTY_CODE
+        or _is_constant_reference(node, ctx)
+    ):
+        return [], False
+    _, error_outs = own_error_terminals(node, ctx)
+    reported = any(ctx.is_wired(term.id) for term in error_outs) or (
+        not automatic_error_handling(ctx)
+    )
+    ctx.import_labview_error()
+    invalid = labview_error(
+        INVALID_VI_REFERENCE_CODE,
+        _label(node),
+        f"'the VI reference is not a VI: ' + repr({reference})",
+    )
+    guard = ast.If(
+        test=parse_expr(f"not callable({reference})"),
+        body=[ast.Raise(exc=invalid, cause=None)],
+        orelse=[],
+    )
+    return [guard], reported
+
+
+def _is_constant_reference(node: PrimitiveNode, ctx: CodeGenContext) -> bool:
+    """Whether every wire into the reference input of the Property Node ``node``
+    starts at a VI reference constant or a Control Reference constant, which
+    always holds an object."""
+    reference = _input_terminal(node, 0)
+    if ctx.graph is None or reference is None:
+        return False
+    origins = ctx.graph.wire_origins(reference.id)
+    return bool(origins) and all(
+        is_reference_constant(origin)
+        or (isinstance(origin, ConstantNode) and bool(origin.value))
+        for origin, _ in origins
+    )
 
 
 def reads_panel(node: PrimitiveNode, prop: PropertyDef) -> bool:

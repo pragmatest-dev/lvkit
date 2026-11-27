@@ -30,8 +30,18 @@ control name), and a reference that is Not a Refnum, or holds an object with no
 panel, is error 1026, both reported on the Invoke Node's own error out
 (``error_flow``). A name that two controls or indicators of the VI share is the
 first object's in the front panel tabbing order, as NI says ("the first object
-whose label matches"). The deprecated forms of these methods take the value as
-flattened data and a type string, which has no Python meaning: they stay a gap.
+whose label matches").
+
+The deprecated Ctrl Val.Set and Ctrl Val.Get All take and give each value as flattened
+data and its type string (the connector pane of the node records an array of
+clusters of ``name``, ``type desc`` ([I16]) and ``flat data`` (a string) for Get All,
+and the inputs ``name``, ``type desc`` and ``flat data`` for Set; no NI page
+documents them, the public table of contents lists the variant forms only). They
+are the same two methods with the value flattened in LabVIEW's big-endian form:
+Get All is ``.get_all_flattened(controls)`` (each control's ``Variant`` flattened
+with its type string, ``variant_to_flattened``) and Set is ``.set_flattened(name,
+type_string, data)`` (``variant_from_flattened`` then ``set_variant``), with the same
+errors.
 """
 
 from __future__ import annotations
@@ -54,31 +64,35 @@ from ..variant_values import variant_input
 CTRL_VAL_SET_CODE = 1051
 CTRL_VAL_GET_CODE = 1052
 CTRL_VAL_GET_ALL_CODE = 1053
-_CODES = (CTRL_VAL_SET_CODE, CTRL_VAL_GET_CODE, CTRL_VAL_GET_ALL_CODE)
 # The method codes the corpus records for Ctrl Val.Set (Deprecated) and Ctrl
 # Val.Get All (Deprecated).
-_DEPRECATED_CODES = (1009, 1020)
+CTRL_VAL_SET_DEPRECATED_CODE = 1009
+CTRL_VAL_GET_ALL_DEPRECATED_CODE = 1020
+_CODES = (
+    CTRL_VAL_SET_CODE,
+    CTRL_VAL_GET_CODE,
+    CTRL_VAL_GET_ALL_CODE,
+    CTRL_VAL_SET_DEPRECATED_CODE,
+    CTRL_VAL_GET_ALL_DEPRECATED_CODE,
+)
+_GET_ALL_CODES = (CTRL_VAL_GET_ALL_CODE, CTRL_VAL_GET_ALL_DEPRECATED_CODE)
 
 # The Invoke Node's terminals: the VI reference in and out, then the method's
-# parameters from index 5 (a result at 5, its parameters at 6 and 8).
+# parameters from index 5 (a result at 5, its parameters at 6 and 8; the deprecated
+# Set's flattened data at 10).
 REFERENCE_IN = 0
 REFERENCE_OUT = 1
 _RESULT = 5
 _NAME = 6
 _VALUE = 8
+_FLAT_DATA = 10
 _CONTROLS = 6
 
 
 def is_ctrl_val(node: PrimitiveNode) -> bool:
-    """Whether ``node`` is an Invoke Node calling Ctrl Val.Set, Get or Get All on
-    a VI reference."""
+    """Whether ``node`` is an Invoke Node calling Ctrl Val.Set, Get or Get All, or
+    a deprecated Set or Get All, on a VI reference."""
     return node.object_name == VI_CLASS and node.method_code in _CODES
-
-
-def is_deprecated_ctrl_val(node: PrimitiveNode) -> bool:
-    """Whether ``node`` is an Invoke Node calling a deprecated form of Ctrl Val.Set
-    or Get All, which moves the value as flattened bytes and a type string."""
-    return node.object_name == VI_CLASS and node.method_code in _DEPRECATED_CODES
 
 
 def terminal_at(node: PrimitiveNode, direction: str, index: int) -> Terminal | None:
@@ -123,8 +137,16 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         value = variant_input(ctx, node, terminal_at(node, "input", _VALUE))
         name = input_value(node, ctx, _NAME, repr(""))
         call = f"{panel}.set_variant({name}, {value})"
+    elif node.method_code == CTRL_VAL_SET_DEPRECATED_CODE:
+        name = input_value(node, ctx, _NAME, repr(""))
+        type_string = input_value(node, ctx, _VALUE, "[]")
+        data = input_value(node, ctx, _FLAT_DATA, repr(""))
+        call = f"{panel}.set_flattened({name}, {type_string}, {data})"
     elif node.method_code == CTRL_VAL_GET_CODE:
         call = f"{panel}.get_variant({input_value(node, ctx, _NAME, repr(''))})"
+    elif node.method_code == CTRL_VAL_GET_ALL_DEPRECATED_CODE:
+        controls = input_value(node, ctx, _CONTROLS, "False")
+        call = f"{panel}.get_all_flattened({controls})"
     else:
         controls = input_value(node, ctx, _CONTROLS, "False")
         call = f"{panel}.get_all_variants({controls})"
@@ -136,7 +158,7 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     body: ast.stmt
     if result is not None and ctx.is_wired(result.id):
         variable = ctx.make_output_var(
-            "controls" if node.method_code == CTRL_VAL_GET_ALL_CODE else "value",
+            "controls" if node.method_code in _GET_ALL_CODES else "value",
             node.id,
             result.id,
         )
@@ -154,16 +176,17 @@ def report_panel_error(
     statements: list[ast.stmt],
     bindings: dict[str, str],
     after: list[ast.stmt] | None = None,
+    catches: str = PANEL_ERROR_NAME,
 ) -> CodeFragment:
-    """``statements``, which may fail with the front panel's own error, run in a
-    ``try``: that error is the node's own error (``CodeFragment.own_error``) and
-    the outputs the statements assign take their defaults. ``after`` runs only
-    when they did not fail."""
+    """``statements``, which may fail with the front panel's own error (or the
+    class ``catches`` names), run in a ``try``: that error is the node's own error
+    (``CodeFragment.own_error``) and the outputs the statements assign take their
+    defaults. ``after`` runs only when they did not fail."""
     own_error = ctx.make_output_var("own_error", node.id)
     exception = ctx.make_output_var("exception", node.id)
     defaults = output_defaults(node, ctx, bindings, assigned_names(statements), None)
     handler = ast.ExceptHandler(
-        type=ast.Name(id=PANEL_ERROR_NAME, ctx=ast.Load()),
+        type=ast.Name(id=catches, ctx=ast.Load()),
         name=exception,
         body=[*defaults, build_assign(own_error, parse_expr(exception))],
     )

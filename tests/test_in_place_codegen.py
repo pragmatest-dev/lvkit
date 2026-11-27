@@ -987,7 +987,7 @@ class TestIPESBorderDataFlowIds:
             ast.unparse(ast.fix_missing_locations(s)) for s in frag.statements
         )
         # A reference that is Not a Refnum reads the default data.
-        assert ctx.resolve("r_data") == "(ref[0] if ref is not None else None)"
+        assert ctx.resolve("r_data") == "(ref[0] if isinstance(ref, list) else None)"
         assert "ref[0] = updated" in code
         assert frag.bindings["dvr_out"] == "ref"
 
@@ -1031,10 +1031,9 @@ class TestIPESBorderDataFlowIds:
         assert frag.bindings["dvr_out"] == "ref"
 
 
-def test_a_border_tile_error_out_is_the_error_out_of_its_port():
-    """A data value reference tile has no error coming in, so its error out is
-    ``None``; the structure's error out port with the same data-flow id carries
-    it on to what the diagram wires it to."""
+def _dvr_read_and_write_with_errors():
+    """A data value reference read tile and write tile, each with an error out,
+    generated; returns ``(ctx, frag)``."""
     ctx = make_ctx(
         "dvr", "dvr_out", "r_in", "r_data", "r_err", "w_data", "w_out", "w_err"
     )
@@ -1074,16 +1073,58 @@ def test_a_border_tile_error_out_is_the_error_out_of_its_port():
     ]
     node = _ipes_with_tiles(ctx, ports, tiles)
 
-    frag = in_place.generate(node, ctx)
+    return ctx, in_place.generate(node, ctx)
+
+
+def test_a_border_tile_error_out_is_the_error_out_of_its_port():
+    """A data value reference tile has no error coming in, so its error out is
+    ``None``; the structure's error out port with the same data-flow id carries
+    it on to what the diagram wires it to."""
+    _, frag = _dvr_read_and_write_with_errors()
 
     # No error came in: the read's error out is error 1556 when the reference is
     # Not a Refnum; the write's is no error.
     assert frag.bindings["err_read"] == (
-        "(None if ref is not None else LabVIEWError(code=1556, "
+        "(None if isinstance(ref, list) else LabVIEWError(code=1556, "
         "source='In Place Element Structure', "
         "message='The reference is invalid.'))"
     )
     assert frag.bindings["err_write"] == "None"
+
+
+class _LabVIEWError(Exception):
+    def __init__(self, *, code, source, message):
+        super().__init__(message)
+        self.code, self.source, self.message = code, source, message
+
+
+@pytest.mark.parametrize(
+    ("reference", "valid"),
+    [([5], True), (None, False), (7, False)],
+    ids=["a reference", "Not a Refnum", "a flattened number"],
+)
+def test_the_generated_in_place_element_runs_on_a_reference_that_holds_nothing(
+    reference, valid
+):
+    """Run the generated code: a data value reference is the list that holds the
+    data, so Not a Refnum and a reference read back from its flattened number
+    (an integer) read the type's default and give error 1556, and the write
+    changes nothing."""
+    ctx, frag = _dvr_read_and_write_with_errors()
+    namespace = {"ref": reference, "updated": 9, "LabVIEWError": _LabVIEWError}
+    read = eval(ctx.resolve("r_data"), namespace)  # noqa: S307
+    error = eval(frag.bindings["err_read"], namespace)  # noqa: S307
+    code = "\n".join(
+        ast.unparse(ast.fix_missing_locations(s)) for s in frag.statements
+    )
+    exec(code, namespace)  # noqa: S102
+    if valid:
+        assert (read, error, namespace["ref"]) == (5, None, [9])
+    else:
+        assert read is None
+        assert isinstance(error, _LabVIEWError)
+        assert error.code == 1556
+        assert namespace["ref"] is reference
 
 
 # ---------------------------------------------------------------------------

@@ -43,7 +43,12 @@ page's other waveform-family descriptors are not written.
 
 ``encode`` writes the types ``codegen/flat.py`` has a layout for among those the
 page documents: numbers, Booleans, strings, arrays, clusters, enums and time
-stamps. A cluster
+stamps, and a class. NI's page does not document the refnum layout, so a class is
+written as the VI file stores a class refnum (``parser/td_pool.py``,
+``class_refnum_body``, the layout of a file from LabVIEW 8.6.1 on): the refnum type
+code ``0070``, the class refnum kind, a field of zero and the parts of the class's
+qualified name. ``decode`` reads it back through the same descriptor reader. A
+cluster
 member with a label is written named, as the page's I16 named ``radio`` is
 (``000A 4002 0572 6164 696F``: the 0x40 flag on the type code, the name a Pascal
 string padded to an even length, counted in the size word); an unlabelled member
@@ -59,13 +64,14 @@ from collections.abc import Sequence
 
 from lvkit.lv_type_codes import (
     MEASURE_DATA_FLAVOR,
+    REFNUM_TYPE,
     TD_FULL_TYPE,
     is_boolean_type_name,
     is_numeric_type_name,
     is_string_type_name,
 )
 from lvkit.models import LVType, LVTypeKind
-from lvkit.parser.td_pool import RawTD, TdPool
+from lvkit.parser.td_pool import PoolError, RawTD, TdPool, class_refnum_body
 
 VARIABLE_SIZE = 0xFFFF
 _MAX_SIZE = 0x7FFF
@@ -123,7 +129,7 @@ def decode(numbers: Sequence[int]) -> LVType:
         raise TypeStringError(
             f"the type string has {len(data) - end} bytes after its descriptor"
         )
-    pool = TdPool(raws)
+    pool = TdPool(raws, class_refnum_old_field=False)
     if pool.failures:
         raise TypeStringError(next(iter(pool.failures.values())))
     result = pool.lvtypes[root]
@@ -162,6 +168,8 @@ def _descriptor(lv_type: LVType, name: str | None = None) -> list[int]:
         return _enum(lv_type, name)
     if lv_type.kind != LVTypeKind.PRIMITIVE:
         raise TypeStringError(f"a value of type {lv_type.kind.value!r}")
+    if _is_class_refnum(lv_type):
+        return _class_refnum(lv_type, name)
     if lv_type.is_timestamp:
         return _timestamp(name)
     if is_boolean_type_name(underlying):
@@ -173,6 +181,26 @@ def _descriptor(lv_type: LVType, name: str | None = None) -> list[int]:
     if is_numeric_type_name(underlying):
         raise TypeStringError(f"a number of type {underlying!r}")
     raise TypeStringError(f"a value of type {underlying or lv_type.kind.value!r}")
+
+
+def _is_class_refnum(lv_type: LVType) -> bool:
+    return lv_type.ref_type == REFNUM_TYPE.UDClassInst.name
+
+
+def _class_refnum(lv_type: LVType, name: str | None) -> list[int]:
+    """The descriptor of a class: the refnum type code and the body the VI file
+    stores for a class refnum (``class_refnum_body``), which names the class by
+    the parts of its qualified name."""
+    if not lv_type.classname:
+        raise TypeStringError("a class that records no name")
+    try:
+        body = class_refnum_body(lv_type.classname.split(":"))
+    except PoolError as error:
+        raise TypeStringError(str(error)) from error
+    return _sized(
+        [TD_FULL_TYPE.Refnum.value, *struct.unpack(f">{len(body) // 2}H", body)],
+        name,
+    )
 
 
 # The four integers a time stamp's cluster holds, in order.
@@ -313,7 +341,8 @@ def _require_known(lv_type: LVType) -> None:
             _require_known(member.type)
     underlying = lv_type.underlying_type or ""
     if lv_type.kind == LVTypeKind.PRIMITIVE and not (
-        lv_type.is_timestamp
+        _is_class_refnum(lv_type)
+        or lv_type.is_timestamp
         or underlying in NUMBER_CODES
         or is_boolean_type_name(underlying)
         or underlying == TD_FULL_TYPE.String.name

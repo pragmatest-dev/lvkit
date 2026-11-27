@@ -328,8 +328,16 @@ def _take_element_out(
     # reference is invalid" (the code LabVIEW reports for an invalid reference;
     # NI's forum threads on DVR In Place Element Structure errors).
     default = ast.unparse(type_default(ctx, value_out.lv_type, "A DVR value of"))
-    ctx.bind(value_out.id, f"({whole}[0] if {whole} is not None else {default})")
+    ctx.bind(value_out.id, f"({whole}[0] if {_holds_data(whole)} else {default})")
     return _Element(whole)
+
+
+def _holds_data(whole: str) -> str:
+    """The test that the data value reference ``whole`` refers to its data: a
+    reference is the one-element list that holds the data, so Not a Refnum
+    (``None``) and a number (a reference read back from its flattened number)
+    refer to nothing."""
+    return f"isinstance({whole}, list)"
 
 
 def _invalid_reference_errors(
@@ -362,11 +370,11 @@ def _invalid_reference_errors(
             "message='The reference is invalid.')"
         )
         if incoming == "None":
-            expression = f"(None if {element.whole} is not None else {invalid})"
+            expression = f"(None if {_holds_data(element.whole)} else {invalid})"
         else:
             expression = (
                 f"({incoming} if {incoming} is not None or "
-                f"{element.whole} is not None else {invalid})"
+                f"{_holds_data(element.whole)} else {invalid})"
             )
         ctx.bind(error_out.id, expression)
 
@@ -413,7 +421,7 @@ def _write_elements_back(
         if value is not None and value != target:
             stmts.append(
                 ast.If(
-                    test=parse_expr(f"{element.whole} is not None"),
+                    test=parse_expr(_holds_data(element.whole)),
                     body=[_assign(parse_expr(target), value)],
                     orelse=[],
                 )

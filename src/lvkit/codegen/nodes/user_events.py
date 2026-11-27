@@ -4,26 +4,28 @@ Covers Create User Event (2073), Generate User Event (2074), Destroy User Event
 (2075) and Unregister For Events (2076). Register For Events is the node of
 ``event_register.py``.
 
-A user event is a ``list`` of the queues of the registrations that hold it, and a
-registration is the list ``[queue, rows, registered]`` (``event_register.py``)::
+A user event is a ``UserEvent`` (``user_events_module``: a ``list`` whose deep copy
+is itself, as LabVIEW copies a refnum) of the queues of the registrations that hold
+it, and a registration is the list ``[queue, rows, registered]``
+(``event_register.py``)::
 
-    stop = []                                    # Create User Event
+    stop = UserEvent()                           # Create User Event
     for queue in stop:                           # Generate User Event
         queue.put((stop, True, 'User Event', None))
     if registration is not None:                 # Unregister For Events
         for registered in registration[2]:
             if registration[0] in registered:
                 registered.remove(registration[0])
-    if stop is not None:                         # Destroy User Event
-        stop.clear()
+    stop.clear()                                 # Destroy User Event
 
 A message is the shape of ``event_kinds``: the user event itself (the list, not a
 name) first, then its data, the kind ``'User Event'`` and no old value. The kind is
 written as its text, so a VI with no Event Structure needs no enum for it. A user
 event passes between VIs as the list. Unregister and Destroy run when an error came
-in; a user event or registration that an earlier node did not make is ``None`` then,
-and they do nothing for it. Unregister removes the queue only where it still is
-(Destroy empties the list).
+in; a user event or registration that an earlier node did not make is ``None`` then
+(Not a Refnum). Unregister does nothing for it; Destroy and Generate give error 1 on
+their error out, which the error that came in wins over (``native_failure``).
+Unregister removes the queue only where it still is (Destroy empties the list).
 
 Priority: NI's Generate User Event documents ``0`` high and ``1`` normal (the
 default); unwired or a constant ``1`` is converted, anything else is a gap.
@@ -43,6 +45,7 @@ from ..context import CodeGenContext
 from ..event_kinds import QUEUE_IMPORT, USER_EVENT_NAME
 from ..fragment import CodeFragment
 from ..type_default import type_default
+from ..user_events_module import USER_EVENT_CLASS
 from ..value_copy import is_by_value_object
 
 NORMAL_PRIORITY = 1
@@ -110,8 +113,12 @@ def _create(
     if out is None:
         return CodeFragment.empty()
     variable = ctx.make_output_var("user_event", node.id, terminal_id=out.id)
+    ctx.import_user_event()
+    made = ast.Call(
+        func=ast.Name(id=USER_EVENT_CLASS, ctx=ast.Load()), args=[], keywords=[]
+    )
     return CodeFragment(
-        statements=[build_assign(variable, ast.List(elts=[], ctx=ast.Load()))],
+        statements=[build_assign(variable, made)],
         bindings={out.id: variable},
     )
 
@@ -168,7 +175,7 @@ def _destroy(
     node: PrimitiveNode, by_index: dict[int, Terminal], ctx: CodeGenContext
 ) -> CodeFragment:
     event = _required(node, by_index, ctx, "user event")
-    statements = [parse_stmt(f"if {event} is not None:\n    {event}.clear()")]
+    statements = [parse_stmt(f"{event}.clear()")]
     return CodeFragment(statements=statements)
 
 

@@ -365,7 +365,10 @@ GENERATED_PACKAGE = "generated_package"
 
 _PANEL_LINE = re.compile(
     r"^([\w.]+\.panel = Panel\(|[\w.]+\.window_title = |[\w.]+\.window_bounds = "
-    r"|[\w.]+\.vi_name = |from \.+panels import |from \.+variants import "
+    r"|[\w.]+\.vi_name = "
+    r"|[\w.]+\.(is_reentrant|reentrancy_type|priority|vi_type|window_behavior) = "
+    r"|[\w.]+\.help_url = "
+    r"|[\w.]+\.clone_name = |from \.+panels import |from \.+variants import "
     r"|[A-Z0-9_]+_TYPE = LVType\()"
 )
 

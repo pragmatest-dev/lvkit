@@ -47,13 +47,13 @@ from queue import Empty, Full
 from queue import Queue as _StdQueue
 
 if hasattr(_StdQueue, "shutdown"):
-    from queue import Queue, ShutDown
+    from queue import Queue as _Queue, ShutDown
 else:
 
     class ShutDown(Exception):
         """Raised by put and get on a queue that was shut down."""
 
-    class Queue(_StdQueue):
+    class _Queue(_StdQueue):
         """queue.Queue with the shutdown of Python 3.13."""
 
         is_shutdown = False
@@ -125,6 +125,14 @@ else:
                         self.all_tasks_done.notify_all()
                 self.not_empty.notify_all()
                 self.not_full.notify_all()
+
+
+class Queue(_Queue):
+    """A queue is a reference: a class or cluster that holds it is copied by
+    value, and the copy refers to this same queue."""
+
+    def __deepcopy__(self, memo):
+        return self
 '''
 
 

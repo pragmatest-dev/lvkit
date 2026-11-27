@@ -16,6 +16,7 @@ from lvkit.models import LVType
 from .ast_utils import numbered_name
 from .errors import CodeGenError
 from .local_time_module import LOCAL_TIME_MODULE_NAME
+from .user_events_module import USER_EVENT_CLASS, USER_EVENTS_MODULE_NAME
 
 if TYPE_CHECKING:
     from .package_modules import PackageModules
@@ -257,8 +258,11 @@ class ImportResolver:
     def shared_names_import(self, module: str, names: str) -> str | None:
         """The statement importing ``names`` from the package's shared module
         ``module`` (``queues``); None when the package does not write that module."""
+        from .classes_module import CLASSES_MODULE_NAME  # circular at module level
         from .queue_module import QUEUES_MODULE  # circular at module level
 
+        if module == CLASSES_MODULE_NAME:
+            return self.classes_import(names)
         if (
             self._package_modules is None
             or self._root_names_import is None
@@ -274,6 +278,22 @@ class ImportResolver:
         if self._root_names_import is None:
             return None
         return self._root_names_import(LOCAL_TIME_MODULE_NAME, names)
+
+    def user_event_import(self) -> str | None:
+        """The statement importing ``UserEvent`` from the package root's
+        ``user_events`` module; None when this resolver has no package."""
+        if self._root_names_import is None:
+            return None
+        return self._root_names_import(USER_EVENTS_MODULE_NAME, USER_EVENT_CLASS)
+
+    def classes_import(self, names: str) -> str | None:
+        """The statement importing ``names`` from the package root's ``classes``
+        module; None when this resolver has no package."""
+        from .classes_module import CLASSES_MODULE_NAME  # circular at module level
+
+        if self._root_names_import is None:
+            return None
+        return self._root_names_import(CLASSES_MODULE_NAME, names)
 
     def queue_use(self, node: AnyGraphNode) -> tuple[QueueUse, ModuleImport]:
         """How the Obtain Queue ``node`` names its queue, from the package's

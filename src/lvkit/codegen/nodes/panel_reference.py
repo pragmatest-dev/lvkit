@@ -43,20 +43,31 @@ that module, and these rows read them:
   strings.html, "Array of the strings from which you can select in the combo box
   control", read and write, settable while the VI runs) is
   ``as_control(reference).get_property("strings")`` / ``.set_property("strings",
-  value)``: the panel holds the property like any other control property
-  (``reference_properties`` of ``control_properties.json``), a read gives the last
-  write, else the strings the control is saved with, and its views show a write.
+  value)``: the panel holds the property like any other control property (every
+  entry of ``control_properties.json``, found on the class of the node or one above
+  it, is read and written this way, as a bound Property Node reads and writes it), a
+  read gives the last write, else the value the file starts the control in
+  (``FPTerminal.starting_properties``), else the property's ``default``, else raises
+  NotImplementedError naming the property, and its views show a write.
 
 - ``Strings[]`` of an Enum reference and ``MechAction`` of a Boolean reference
-  (``reference_properties``, ``settable_while_running`` false: NI "you cannot write
-  this property when the VI is running" for an enumerated type control, "Settable
-  when the VI is running: No" for MechAction) are read the same way, from what the
-  file saves (``saved`` of the panel); a write is a gap.
+  (``settable_while_running`` false: NI "you cannot write this property when the VI
+  is running" for an enumerated type control, "Settable when the VI is running: No"
+  for MechAction) are read the same way, from what the file saves (``saved`` of the
+  panel); a write is a gap.
 
 A row is told by its property code and the class of the node (``PanelRow``), never
-by the stored name. Indicator and Controls[] cannot be set while the VI runs (NI's
-pages), and writing a label's text renames a control: those writes have no Python
-meaning. A reference that holds no panel or control (Not a Refnum) is error 1026
+by the stored name. The objects of the panel are read the same way
+(``panel_objects_module.py``): Decorations[], All Objects[] and Panes[] of a panel
+reference (``as_panel(reference).decorations`` / ``.all_objects`` / ``.panes``),
+Controls[] of a pane reference (``as_pane(reference).controls``) and Decos[] and
+AllObjs[] of a cluster reference (``as_control(reference).decorations`` /
+``.all_objects``); Position, Bounds and Owning VI of an object, and the Origin of a
+pane, are ``geometry_rows``. Indicator, Controls[], Decos[], AllObjs[], ClassID,
+Array Element and the Label.Text of an owned label cannot be set while the VI runs
+(NI's pages,
+``reference_rows`` of ``control_properties.json``): a write of one is a gap quoting
+the page. A reference that holds no panel or control (Not a Refnum) is error 1026
 (``panels_module.as_panel``, ``as_control``), reported on the node's error out.
 """
 
@@ -66,19 +77,23 @@ import ast
 from enum import Enum
 
 from lvkit.control_properties import (
+    TREE_HOLDER,
     ControlProperty,
     ReferenceRow,
-    reference_property,
+    control_property,
     reference_row,
+    unsettable_reference_page,
 )
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.vi_reference import is_on_vi_reference
 from lvkit.models import PropertyDef
 
-from ..ast_utils import parse_expr
+from ..ast_utils import parse_expr, parse_stmt
 from ..context import CodeGenContext
 from ..panels_module import (
     AS_CONTROL_NAME,
+    AS_OBJECT_NAME,
+    AS_PANE_NAME,
     AS_PANEL_NAME,
     PANEL_ERROR_NAME,
     PANEL_OF_NAME,
@@ -87,12 +102,15 @@ from ..panels_module import (
 # The Panel property of the VI class: the code its Property Nodes record beside the
 # names Panel and Front Panel.
 VI_PANEL_PROPERTY_CODE = 573
-# The Controls[] property of the Pnl class.
 PANEL_CLASS = "Pnl"
+PANE_CLASS = "Pane"
+# The properties of the Pnl class: Controls[], Decorations[], All Objects[] and Panes[]
+# (read only), and Defer Panel Updates (the corpus records it as DeferPanUpdts and as
+# Defer Panel Updates, with this code).
 PANEL_CONTROLS_PROPERTY_CODE = 104105985
-# The Defer Panel Updates property of the Pnl class (the corpus records it as
-# DeferPanUpdts and as Defer Panel Updates, with this code).
 PANEL_DEFER_UPDATES_PROPERTY_CODE = 104105989
+# The Controls[] property of the Pane class.
+PANE_CONTROLS_PROPERTY_CODE = 404121601
 
 
 class PanelRow(Enum):
@@ -100,6 +118,12 @@ class PanelRow(Enum):
 
     PANEL = "panel"
     CONTROLS = "controls"
+    DECORATIONS = "decorations"
+    ALL_OBJECTS = "all_objects"
+    PANES = "panes"
+    PANE_CONTROLS = "pane_controls"
+    CLUSTER_DECORATIONS = "cluster_decorations"
+    CLUSTER_ALL_OBJECTS = "cluster_all_objects"
     DEFER_UPDATES = "defer_updates"
     VALUE = "value"
     INDICATOR = "indicator"
@@ -114,8 +138,27 @@ _REFERENCE_ROWS = {
     ReferenceRow.INDICATOR: PanelRow.INDICATOR,
     ReferenceRow.LABEL_TEXT: PanelRow.LABEL_TEXT,
     ReferenceRow.CLUSTER_CONTROLS: PanelRow.CLUSTER_CONTROLS,
+    ReferenceRow.CLUSTER_DECORATIONS: PanelRow.CLUSTER_DECORATIONS,
+    ReferenceRow.CLUSTER_ALL_OBJECTS: PanelRow.CLUSTER_ALL_OBJECTS,
     ReferenceRow.CLASS_ID: PanelRow.CLASS_ID,
     ReferenceRow.ARRAY_ELEMENT: PanelRow.ARRAY_ELEMENT,
+}
+
+# The rows of a panel reference that are rows of a Pnl class (code to row), and the
+# attribute of the panel each reads.
+_PANEL_ROWS = {
+    PANEL_CONTROLS_PROPERTY_CODE: PanelRow.CONTROLS,
+    104105986: PanelRow.DECORATIONS,
+    104105987: PanelRow.ALL_OBJECTS,
+    PANEL_DEFER_UPDATES_PROPERTY_CODE: PanelRow.DEFER_UPDATES,
+    104105990: PanelRow.PANES,
+}
+_PANEL_ATTRIBUTE = {
+    PanelRow.CONTROLS: "controls",
+    PanelRow.DECORATIONS: "decorations",
+    PanelRow.ALL_OBJECTS: "all_objects",
+    PanelRow.PANES: "panes",
+    PanelRow.DEFER_UPDATES: "defer_updates",
 }
 
 _CONTROL_ATTRIBUTE = {
@@ -123,6 +166,8 @@ _CONTROL_ATTRIBUTE = {
     PanelRow.INDICATOR: "indicator",
     PanelRow.LABEL_TEXT: "label",
     PanelRow.CLUSTER_CONTROLS: "controls",
+    PanelRow.CLUSTER_DECORATIONS: "decorations",
+    PanelRow.CLUSTER_ALL_OBJECTS: "all_objects",
     PanelRow.CLASS_ID: "class_id",
     PanelRow.ARRAY_ELEMENT: "array_element",
 }
@@ -136,25 +181,33 @@ def panel_row(node: PrimitiveNode, prop: PropertyDef) -> PanelRow | None:
     if is_on_vi_reference(node):
         return PanelRow.PANEL if codes == [VI_PANEL_PROPERTY_CODE] else None
     if class_name == PANEL_CLASS:
-        if codes == [PANEL_CONTROLS_PROPERTY_CODE]:
-            return PanelRow.CONTROLS
-        if codes == [PANEL_DEFER_UPDATES_PROPERTY_CODE]:
-            return PanelRow.DEFER_UPDATES
-        return None
+        return _PANEL_ROWS.get(codes[0]) if len(codes) == 1 else None
+    if class_name == PANE_CLASS:
+        is_controls = codes == [PANE_CONTROLS_PROPERTY_CODE]
+        return PanelRow.PANE_CONTROLS if is_controls else None
     found = reference_row(class_name, codes)
     return _REFERENCE_ROWS[found] if found is not None else None
 
 
 def property_row(node: PrimitiveNode, prop: PropertyDef) -> ControlProperty | None:
     """The listed property of the control the Property Node row ``prop`` of ``node``
-    reads or writes through the panel (``reference_properties`` of
-    ``control_properties.json``: a Combo Box's Strings[]); None for any other
-    row."""
+    reads or writes through the panel (an entry of ``control_properties.json``, found
+    on the class of the node or one above it: a Combo Box's Strings[]); None for any
+    other row."""
     if is_on_vi_reference(node):
         return None
-    return reference_property(
+    return control_property(
         node.object_name or "", [segment.code for segment in prop.segments]
     )
+
+
+def unsettable_page(node: PrimitiveNode, prop: PropertyDef) -> str | None:
+    """NI's page for the own property of a control reference that the row ``prop``
+    of ``node`` is, when it says the property cannot be set while the VI runs; None
+    for any other row."""
+    if is_on_vi_reference(node) or node.object_name in (PANEL_CLASS, PANE_CLASS):
+        return None
+    return unsettable_reference_page([segment.code for segment in prop.segments])
 
 
 def read_property(
@@ -162,8 +215,10 @@ def read_property(
 ) -> ast.expr:
     """The Python value of the property ``listed`` of the control ``reference``
     holds: the last write, else the state the control is saved in."""
-    ctx.import_panels(f"{AS_CONTROL_NAME}, {PANEL_ERROR_NAME}")
-    return parse_expr(f"{AS_CONTROL_NAME}({reference}).get_property({listed.member!r})")
+    ctx.import_panels(f"{AS_CONTROL_NAME}, {AS_OBJECT_NAME}, {PANEL_ERROR_NAME}")
+    if listed.holder == TREE_HOLDER:
+        return parse_expr(f"{AS_CONTROL_NAME}({reference}).tree.{listed.member}")
+    return parse_expr(f"{AS_OBJECT_NAME}({reference}).get_property({listed.member!r})")
 
 
 def write_property(
@@ -171,10 +226,13 @@ def write_property(
 ) -> ast.stmt:
     """The call that sets the property ``listed`` of the control ``reference``
     holds to ``value``."""
-    ctx.import_panels(f"{AS_CONTROL_NAME}, {PANEL_ERROR_NAME}")
+    ctx.import_panels(f"{AS_CONTROL_NAME}, {AS_OBJECT_NAME}, {PANEL_ERROR_NAME}")
+    if listed.holder == TREE_HOLDER:
+        target = f"{AS_CONTROL_NAME}({reference}).tree.{listed.member}"
+        return parse_stmt(f"{target} = {value}")
     return ast.Expr(
         value=parse_expr(
-            f"{AS_CONTROL_NAME}({reference}).set_property({listed.member!r}, {value})"
+            f"{AS_OBJECT_NAME}({reference}).set_property({listed.member!r}, {value})"
         )
     )
 
@@ -201,12 +259,12 @@ def read(
     if row is PanelRow.PANEL:
         names = (PANEL_OF_NAME, PANEL_ERROR_NAME)
         expression = f"{PANEL_OF_NAME}({reference})"
-    elif row is PanelRow.CONTROLS:
+    elif row in _PANEL_ATTRIBUTE:
         names = (AS_PANEL_NAME, PANEL_ERROR_NAME)
-        expression = f"{AS_PANEL_NAME}({reference}).controls"
-    elif row is PanelRow.DEFER_UPDATES:
-        names = (AS_PANEL_NAME, PANEL_ERROR_NAME)
-        expression = f"{AS_PANEL_NAME}({reference}).defer_updates"
+        expression = f"{AS_PANEL_NAME}({reference}).{_PANEL_ATTRIBUTE[row]}"
+    elif row is PanelRow.PANE_CONTROLS:
+        names = (AS_PANE_NAME, PANEL_ERROR_NAME)
+        expression = f"{AS_PANE_NAME}({reference}).controls"
     else:
         names = (AS_CONTROL_NAME, PANEL_ERROR_NAME)
         expression = f"{AS_CONTROL_NAME}({reference}).{_value_attribute(row, variant)}"

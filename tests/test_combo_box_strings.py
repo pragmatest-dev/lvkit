@@ -1,5 +1,5 @@
 """``Strings[]`` of a Combo Box reference (``codegen/nodes/panel_reference.py``,
-``reference_properties`` of ``control_properties.json``): a read gives the last
+``control_properties.json`` entries): a read gives the last
 write, else the strings the control is saved with; a write is held by the panel and
 told to its views. Each case is a handmade diagram whose generated package is
 imported and run."""
@@ -19,7 +19,6 @@ from tests.test_control_references import REFNUM, property_node
 from tests.test_front_panel_reference import ERROR, STRING
 
 STRINGS_CODE = (104099843,)
-RING_STRINGS_CODE = (104056839,)
 STRINGS = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=STRING)
 
 
@@ -185,36 +184,3 @@ def test_a_control_that_is_not_a_combo_box_has_no_strings(tmp_path: Path) -> Non
         result = module("reader").reader(ctl=number)
         assert result.error_out.code == 1026
         assert module("writer").writer(ctl=None, items=["a"]).error_out.code == 1026
-
-
-def test_the_strings_of_a_ring_reference_stay_a_gap(tmp_path: Path) -> None:
-    """Only a Combo Box's Strings[] is read and written through the panel: a ring
-    keeps the value each string stands for, which the panel does not hold."""
-
-    def ring_reader(vi: str) -> tuple[VIContext, list[GraphNode]]:
-        node = property_node(
-            vi,
-            "ctl",
-            "Ring (strict)",
-            [("strings", RING_STRINGS_CODE, "output", STRINGS)],
-        )
-        return (
-            VIContext(
-                name=vi,
-                inputs=[pane(vi, "input", "ctl", REFNUM, "ctl", 0)],
-                outputs=[pane(vi, "output", "strings", STRINGS, "strings", 1)],
-                data_flow=[
-                    wire(vi, "ctl", "ctl.ref"),
-                    wire(vi, "ctl.strings", "strings"),
-                ],
-            ),
-            [node],
-        )
-
-    project = Project(tmp_path)
-    project.add_vi("Ring Reader", ring_reader)
-    gaps: list[Gap] = []
-    project.generate(gaps)
-    assert [g.reason for g in gaps] == [
-        "Property 'p104056839' on a Ring (strict) reference has no Python equivalent"
-    ]

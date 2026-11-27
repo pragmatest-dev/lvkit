@@ -268,12 +268,11 @@ undiscoverable.
 
 33. **What primitives / vi.lib VIs are unresolved across this repo?**
     - *Answered by:* `lvkit unresolved <repo>` (batch) — or `/lvkit-resolve` per gap.
-    - *Ground truth (`TestCase.lvclass`, this branch):* **11 distinct gaps = 3
-      nodes without code generation** (the type string of a Flatten To String
-      of a refnum, and two Invoke Node methods that move a value as flattened
-      bytes and a type string: Ctrl Val.Set (Deprecated) and Ctrl Val.Get All
-      (Deprecated)) **+ 8 VIs that were not found** on the search path. OpenG
-      Get TDEnum from Data reads the type a variant records, and the Flattened
+    - *Ground truth (`TestCase.lvclass`, this branch):* **8 distinct gaps = 8 VIs
+      that were not found** on the search path. The type string of a Flatten To
+      String of a class and the deprecated Ctrl Val.Set and Ctrl Val.Get All
+      (flattened data and a type string) generate code. OpenG Get TDEnum from Data
+      reads the type a variant records, and the Flattened
       String To Variant with a type known only at run time reads its bytes
       through the package's `variants` module. The
       notifier functions, the user events of `TestSuite.lvclass:run.vi` and the

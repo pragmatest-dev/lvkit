@@ -9,6 +9,7 @@ package's ``queues`` module, and shared by every VI that names it.
 # ruff: noqa: E501  (the pane tables list one primitive per line)
 from __future__ import annotations
 
+import copy
 import importlib
 import sys
 from pathlib import Path
@@ -762,6 +763,29 @@ def test_the_queues_module_has_a_queue_that_shuts_down(
         queue.get()
     with pytest.raises(queues_module.ShutDown):
         queue.get(block=False)
+
+
+def test_a_class_holding_a_queue_copies_by_value_around_the_same_queue(
+    queues_module: SimpleNamespace,
+) -> None:
+    """A cluster or class object is copied by value; the queue it holds is a
+    reference, so both copies hold the one queue and the other fields are
+    independent."""
+
+    class Holder:
+        def __init__(self) -> None:
+            self.queue = queues_module.Queue()
+            self.count = 1
+            self.items = [1]
+
+    held = Holder()
+    other = copy.deepcopy(held)
+    other.count = 2
+    other.items.append(2)
+    assert other.queue is held.queue
+    assert (held.count, held.items) == (1, [1])
+    other.queue.put("x")
+    assert held.queue.get(block=False) == "x"
 
 
 def test_an_immediate_shutdown_drains_the_queue(

@@ -30,6 +30,7 @@ from .link_table import (
     unwrap_link_names,
 )
 from .models import ParsedDependencyRef
+from .td_pool import block_sidecar_path
 from .type_resolution import parse_typedef_refs
 from .utils import clean_labview_string
 
@@ -48,6 +49,13 @@ PRIORITY_ABOVE_NORMAL = "above_normal"
 PRIORITY_HIGH = "high"
 PRIORITY_TIME_CRITICAL = "time_critical"
 PRIORITY_SUBROUTINE = "subroutine"
+
+# window behavior string values -- MUST mirror graph.models.WindowBehavior.value
+# exactly.
+WINDOW_BEHAVIOR_DEFAULT = "default"
+WINDOW_BEHAVIOR_FLOATING = "floating"
+WINDOW_BEHAVIOR_FLOATING_AUTO_HIDE = "floating_auto_hide"
+WINDOW_BEHAVIOR_MODAL = "modal"
 
 # reentrancy string values -- MUST mirror graph.models.Reentrancy.value exactly.
 REENTRANCY_NON_REENTRANT = "non_reentrant"
@@ -114,6 +122,22 @@ def _reentrancy(is_reentrant: bool, save_parallel: bool, pooled: bool) -> str:
     if not (is_reentrant or save_parallel):
         return REENTRANCY_NON_REENTRANT
     return REENTRANCY_SHARED_CLONE if pooled else REENTRANCY_PREALLOCATED_CLONE
+
+
+def _window_behavior(flags12: ET.Element | None) -> str:
+    """The Window Behavior of the VI's front panel window from its ``<Flags12>``
+    bits (NI's Front Panel Window:Behavior: Default, Floating, Floating/Auto-Hide,
+    Modal): ``WndBit0`` set is Modal; else ``WndFloatUnk1`` and ``WndFloatUnk9``
+    set is Floating, and Floating/Auto-Hide with ``WndBit10`` also set; else
+    Default. The corpus evidence for each bit is in
+    ``docs/_internal/design/labview-binary-format.md``."""
+    if _bool_attr(flags12, "WndBit0"):
+        return WINDOW_BEHAVIOR_MODAL
+    if _bool_attr(flags12, "WndFloatUnk1") and _bool_attr(flags12, "WndFloatUnk9"):
+        if _bool_attr(flags12, "WndBit10"):
+            return WINDOW_BEHAVIOR_FLOATING_AUTO_HIDE
+        return WINDOW_BEHAVIOR_FLOATING
+    return WINDOW_BEHAVIOR_DEFAULT
 
 
 def _exec_system_from_code(code: int | None) -> str:
@@ -213,6 +237,8 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
     if hlpt is not None and hlpt.text:
         metadata["help_tag"] = hlpt.text
 
+    metadata["help_url"] = _help_url(root, xml_path)
+
     # User-settable VI Properties (Protection/Execution/…) from <LVSR>.
     metadata.update(_parse_lvsr_properties(root))
 
@@ -227,6 +253,21 @@ def parse_vi_metadata(xml_path: Path | str) -> dict[str, Any]:
         metadata["poly_selectors"] = poly_info["selectors"]
 
     return metadata
+
+
+def _help_url(root: ET.Element, xml_path: Path | str) -> str:
+    """The VI's Help Website URL (the Documentation page's web address for its
+    help), the ``HLPW`` block: a 4-byte big-endian length and that many bytes of
+    text, in the raw ``*_HLPW.bin`` sidecar beside the main XML (a block pylabview
+    leaves undecoded). A VI that records none has an empty block, and gives ''."""
+    sidecar = block_sidecar_path(xml_path, "HLPW")
+    if not sidecar.exists():
+        return ""
+    data = sidecar.read_bytes()
+    if len(data) < 4:
+        return ""
+    (length,) = struct.unpack(">I", data[:4])
+    return decode_labview_text(data[4 : 4 + length], xml_text_encoding(root))
 
 
 def _bool_attr(elem: ET.Element | None, attr: str) -> bool:
@@ -391,6 +432,7 @@ def _parse_lvsr_properties(root: ET.Element) -> dict[str, Any]:
         "can_resize": _bool_attr(flags12, "WndCanResize"),
         "can_minimize": _bool_attr(flags12, "WndCanMinimize"),
         "transparent": _bool_attr(flags12, "WndTransparent"),
+        "behavior": _window_behavior(flags12),
     }
 
     buttons_hidden = root.find(".//LVSR/Section/ButtonsHidden")

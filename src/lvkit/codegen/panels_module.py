@@ -52,7 +52,10 @@ saves and a running VI cannot change (NI: "Settable when the VI is running: No",
 Enum's ``Strings[]`` and a Boolean's ``MechAction``) to those properties by member
 name, leaving out one that is the default of the control's VI Server class
 (``SAVED_DEFAULTS``: a Boolean's Switch When Pressed); ``Control.get_property``
-reads them after the state a write or the file's flags set.
+reads them after the state a write or the file's flags set. ``saved`` also holds the
+starting value of a settable property the file records in a field of the control's
+ddo (a Tip Strip, a graph's scale range, a listbox's items), which a write
+replaces.
 
 ``elements`` maps the name of each array control or indicator to the element its
 Array Element property is a reference to, ``(class, front_panel_class, saved)``
@@ -124,6 +127,9 @@ the ``vi_name`` of every VI function on it, the VI it is called from first. It l
 here because it reports the VIs as run (the function objects that carry ``panel``,
 ``window_title`` and ``vi_name``), which is what this module's ``panel_of`` reaches.
 
+The module ends with ``application`` and ``loaded_vis()``, the application the VIs
+run in and Application:All VIs In Memory (``codegen/panels_application.py``).
+
 The tags of a VI (Tag.Get Tag, Tag.Set Tag and Tag.Remove Tag on its reference) are
 a third attribute the VI's function carries, ``function.tags``, a ``Tags``: the tags
 the VI's file saves (its ``VITS`` block) and what the program sets. A VI that saves
@@ -136,7 +142,15 @@ the VI and the tag (``codegen/nodes/tag_methods.py``).
 from __future__ import annotations
 
 from lvkit.control_classes import class_ids
-from lvkit.control_properties import saved_defaults
+from lvkit.control_properties import (
+    property_defaults,
+    saved_defaults,
+    undecoded_saved_members,
+)
+
+from .panel_objects_module import PANEL_OBJECTS_SOURCE
+from .panels_application import APPLICATION_SOURCE
+from .tree_items_module import TREE_ITEMS_SOURCE
 
 PANELS_MODULE_NAME = "panels"
 PANEL_NAME = "Panel"
@@ -145,6 +159,9 @@ PANEL_ERROR_NAME = "PanelError"
 PANEL_OF_NAME = "panel_of"
 AS_PANEL_NAME = "as_panel"
 AS_CONTROL_NAME = "as_control"
+AS_OBJECT_NAME = "as_object"
+AS_PANE_NAME = "as_pane"
+AS_OWNED_NAME = "as_owned"
 CALL_CHAIN_NAME = "call_chain"
 TAGS_NAME = "Tags"
 TAGS_OF_NAME = "tags_of"
@@ -168,7 +185,10 @@ _PANELS_MODULE_TEMPLATE = '''"""The front panel of a VI."""
 from __future__ import annotations
 
 import copy
+import dataclasses
 import inspect
+import locale
+import os
 import sys
 import threading
 import time
@@ -179,9 +199,29 @@ from typing import Any, NoReturn
 
 from .errors import LabVIEWError
 from .live_io import LiveIO
-from .variants import LVType, Variant
+from .variants import (
+    LVType,
+    Variant,
+    variant_from_flattened,
+    variant_to_flattened,
+)
 
 ABORT_POLL = 0.1
+
+# NI's values of Front Panel Window:State (properties-and-methods/vi-server/vi/
+# fpstate.html: 1 Standard, 2 Closed, 3 Hidden, 4 Minimized, 5 Maximized; 0 Invalid
+# is an error when set) and the ones a window is opened or set to.
+WINDOW_STANDARD = 1
+WINDOW_CLOSED = 2
+WINDOW_HIDDEN = 3
+WINDOW_MINIMIZED = 4
+WINDOW_MAXIMIZED = 5
+WINDOW_OPEN_STATES = (
+    WINDOW_STANDARD,
+    WINDOW_HIDDEN,
+    WINDOW_MINIMIZED,
+    WINDOW_MAXIMIZED,
+)
 
 # NI's ClassID number of each VI Server class (the ClassID property,
 # properties-and-methods/vi-server/generic/classid.html).
@@ -190,6 +230,12 @@ CLASS_IDS: dict[str, int] = __CLASS_IDS__
 # The saved property a control of each VI Server class has when its panel lists none
 # (``control_properties.json`` ``saved_defaults``).
 SAVED_DEFAULTS: dict[str, dict[str, Any]] = __SAVED_DEFAULTS__
+
+# The value of each property (by member name) on a control that was neither written
+# nor saved with another (``control_properties.json`` ``default``), and the members
+# whose saved starting value the conversion does not decode.
+PROPERTY_DEFAULTS: dict[str, Any] = __PROPERTY_DEFAULTS__
+UNDECODED_SAVED: frozenset[str] = frozenset(__UNDECODED_SAVED__)
 
 
 class PanelError(LabVIEWError):
@@ -225,7 +271,10 @@ def raise_empty_variant(label: str) -> NoReturn:
 _NO_STATE = object()
 
 
-class Control:
+__PANEL_OBJECTS__
+
+
+class Control(GObject):
     """A control or indicator of a panel, as a reference to it: its ``label``, whether
     it is an ``indicator`` and its ``value``, which is the panel's value of it. A
     cluster's ``controls`` are a reference to each of its fields, in field order.
@@ -255,6 +304,7 @@ class Control:
             else [Field(self, label, key, *rest) for label, key, *rest in fields]
         )
         self._element = None if element is None else Element(self, *element)
+        self._tree: TreeItems | None = None
 
     def _named(self) -> str:
         """The control as a message names it."""
@@ -269,6 +319,8 @@ class Control:
             held = self.panel.saved.get(self.name, {}).get(prop, _NO_STATE)
         if held is _NO_STATE and self.class_name is not None:
             held = SAVED_DEFAULTS.get(self.class_name, {}).get(prop, _NO_STATE)
+        if held is _NO_STATE and prop not in UNDECODED_SAVED:
+            held = PROPERTY_DEFAULTS.get(prop, _NO_STATE)
         return held
 
     @property
@@ -302,6 +354,12 @@ class Control:
                 f"write: its {self.panel.undecoded_strings[self.name]} saved "
                 "strings are in a form the conversion does not decode"
             )
+        if held is _NO_STATE and prop in UNDECODED_SAVED:
+            raise NotImplementedError(
+                f"{prop} of the control {self.label!r} read before any write: "
+                "the value the file saves is in a form the conversion does not "
+                "decode"
+            )
         if held is _NO_STATE:
             raise PanelError(
                 code=1026,
@@ -314,6 +372,28 @@ class Control:
         """Set the property ``prop`` of the control: the panel holds it and tells
         its views."""
         self.panel.set_property(self.name, prop, copy.copy(value))
+
+    @property
+    def tree(self) -> TreeItems:
+        """The items of a Tree control, which hold every property and method of a
+        Tree reference (``TreeItems``): the same object each time, started from what
+        the file saves (``saved``); error 1026 for a control that is not a Tree."""
+        if self.front_panel_class != "treeControl" and self.class_name != "Tree":
+            raise PanelError(
+                code=1026,
+                source="Control.tree",
+                message="Control Reference is invalid.",
+            )
+        if self._tree is None:
+            saved = self.panel.saved.get(self.name, {})
+            self._tree = TreeItems(
+                self,
+                saved.get("tree_items", ()),
+                saved.get("tree_cell_widths", ()),
+                saved.get("tree_active_column", 0),
+                saved.get("tree_column_headers", ()),
+            )
+        return self._tree
 
     @property
     def class_id(self) -> int:
@@ -508,10 +588,33 @@ class PanelView:
         """The running VI set the property ``prop`` (the name of the property) of
         the control or indicator ``name``."""
 
+    def geometry_changed(self, name: str, prop: str, value: Any) -> None:
+        """The running VI moved the object ``name`` (``prop`` "position", value
+        ``(left, top)``) or scrolled the pane ``name`` (``prop`` "origin", value
+        ``(horizontal, vertical)``)."""
+
     def defer_updates_changed(self, deferred: bool) -> None:
         """The running VI set the panel's Defer Panel Updates: True, the view draws
         what is pending and then holds new changes back; False, it draws every
         change as it comes."""
+
+    def window_changed(self, state: int, active: bool) -> None:
+        """The VI's front panel window was opened, closed or given a state, by the
+        program (FP.Open, FP.Close, FP.State, Is Frontmost): ``state`` is NI's
+        Front Panel Window:State number (1 Standard, 2 Closed, 3 Hidden, 4
+        Minimized, 5 Maximized) and ``active`` whether the window came to the
+        front. A view that has a window for the panel shows, hides or closes
+        it."""
+
+    def window_property_changed(self, prop: str, value: Any) -> None:
+        """The program wrote the property ``prop`` of the VI's front panel window:
+        ``panel_bounds`` (``(left, top, right, bottom)``), ``origin`` (the scroll
+        position, in the order of the cluster written), ``monitor``, ``behavior``
+        or ``edit_mode_on_open``."""
+
+    def subpanel_changed(self, control: str, vi: Any) -> None:
+        """The program loaded the VI ``vi`` (a function) into the SubPanel control
+        ``control`` (Insert VI), or took it out (Remove VI, ``vi`` None)."""
 
     def run_started(self) -> None:
         """A run of the VI began."""
@@ -580,7 +683,7 @@ class PanelIO(LiveIO):
         return self._panel._live_get_property(key_of(name), key_of(prop), value)
 
 
-class PanelValues:
+class PanelValues(PanelLayout):
     """The values of a front panel: each control and indicator by name, with the
     label LabVIEW shows for it, and the views told of every change. A Global VI's
     panel is this class over the module's own names (``storage``): its controls
@@ -604,6 +707,7 @@ class PanelValues:
         undecoded_strings: Mapping[str, int] | None = None,
         saved: Mapping[str, Mapping[str, Any]] | None = None,
         elements: Mapping[str, Sequence[Any]] | None = None,
+        layout: Mapping[str, Any] | None = None,
     ) -> None:
         self.undecoded_strings = dict(undecoded_strings or {})
         self.saved = {name: dict(held) for name, held in (saved or {}).items()}
@@ -633,10 +737,161 @@ class PanelValues:
             )
             for name, label in {**self._controls, **self._indicators}.items()
         }
+        self._build_layout(layout)
         self._values: MutableMapping[str, Any] = {} if storage is None else storage
         self._views: list[PanelView] = []
         self._lock = threading.RLock()
         self._defer_updates = False
+        self._window_state = WINDOW_CLOSED
+        self._window_values: dict[str, Any] = {}
+        self._frontmost = False
+        self._hosted_in: tuple[PanelValues, str] | None = None
+        self._subpanels: dict[str, Any] = {}
+
+    @property
+    def window_state(self) -> int:
+        """The Front Panel Window:State of the VI (NI: 1 Standard, 2 Closed, 3
+        Hidden, 4 Minimized, 5 Maximized): Closed until the program opens the
+        window (FP.Open, a write of Front Panel Window:Open) and after it closes
+        it; Hidden while the panel is loaded in a SubPanel control (NI: "If you
+        load the VI in a subpanel control, this property is read only and always
+        returns a value of Hidden")."""
+        with self._lock:
+            return WINDOW_HIDDEN if self._hosted_in is not None else self._window_state
+
+    def open_window(self, activate: bool = False, state: int = 1) -> None:
+        """FP.Open: open the front panel window in ``state`` (NI: "If the front
+        panel is already open, this method changes the state of the front panel
+        window to the state you wire to this method"); ``activate`` opens it as
+        the active window. 0 Invalid and 2 Closed are errors, as NI says ("the
+        method returns an error"; NI gives no code, so this is the generic error 1,
+        "An input parameter is invalid"). The views are told."""
+        if state not in WINDOW_OPEN_STATES:
+            raise PanelError(
+                code=1,
+                source="Panel.open_window",
+                message=f"{state} is not a state a front panel window opens in.",
+            )
+        with self._lock:
+            self._window_state = state
+            self._frontmost = bool(activate)
+        self._tell("window_changed", state, bool(activate))
+
+    def close_window(self) -> None:
+        """FP.Close: close the front panel window; the views are told."""
+        with self._lock:
+            self._window_state = WINDOW_CLOSED
+            self._frontmost = False
+        self._tell("window_changed", WINDOW_CLOSED, False)
+
+    def set_window_state(self, state: int) -> None:
+        """Write Front Panel Window:State. NI: "If you attempt to set this property
+        for a front panel window that is not open, the property returns an error",
+        and Invalid and Closed "return an error" when set; the VI Server's error
+        for a VI not in a state that allows the operation is 1000 (NI, General
+        LabVIEW Error Codes: "The VI is not in a state compatible with this
+        operation"), and an input that is not allowed is error 1. A VI loaded in a
+        SubPanel control has a read-only state."""
+        with self._lock:
+            hosted = self._hosted_in is not None
+            closed = self._window_state == WINDOW_CLOSED
+        if hosted or closed:
+            raise PanelError(
+                code=1000,
+                source="Panel.set_window_state",
+                message="The VI is not in a state compatible with this operation: "
+                "the front panel window is not open.",
+            )
+        if state not in WINDOW_OPEN_STATES:
+            raise PanelError(
+                code=1,
+                source="Panel.set_window_state",
+                message=f"{state} is not a state a front panel window is set to.",
+            )
+        with self._lock:
+            self._window_state = state
+        self._tell("window_changed", state, False)
+
+    @property
+    def frontmost(self) -> bool:
+        """Whether the front panel window is the front window: it was opened as the
+        active window or brought to the front, and is open and not hidden or
+        minimized. The window system, when a view has one, knows better: a view
+        tells the panel through ``window_changed`` only what the program did."""
+        with self._lock:
+            return self._frontmost and self.window_state in (
+                WINDOW_STANDARD,
+                WINDOW_MAXIMIZED,
+            )
+
+    def bring_to_front(self) -> None:
+        """Write TRUE to Front Panel Window:Is Frontmost: the window comes to the
+        front (a write of FALSE has no effect, NI)."""
+        with self._lock:
+            self._frontmost = True
+            state = self._window_state
+        self._tell("window_changed", state, True)
+
+    def window_value(self, prop: str, default: Any) -> Any:
+        """The last written value of the window property ``prop`` (``panel_bounds``,
+        ``origin``, ``monitor``, ``behavior``, ``edit_mode_on_open``), else
+        ``default``."""
+        with self._lock:
+            return self._window_values.get(prop, default)
+
+    def set_window_value(self, prop: str, value: Any) -> None:
+        """Write the window property ``prop``: the panel holds it and tells the
+        views."""
+        with self._lock:
+            self._window_values[prop] = value
+        self._tell("window_property_changed", prop, value)
+
+    def insert_vi(self, control: str, vi: Any) -> None:
+        """SubPanel Insert VI on the control ``control``: load the front panel of
+        the VI ``vi`` (a reference: its function) into it. NI: "If the front panel
+        of the VI you want to load is open or if you loaded the front panel in
+        another subpanel control on the same front panel, LabVIEW returns an error"
+        (no code is given: error 1000, as for a VI not in a state that allows the
+        operation); the panel the control holds before is unloaded first. The views
+        are told, and one that has a widget for the SubPanel shows the VI's
+        panel."""
+        panel = panel_of(vi)
+        with self._lock:
+            loaded = panel is not self._subpanels.get(control)
+            busy = panel._window_state != WINDOW_CLOSED or panel._hosted_in is not None
+            if loaded and busy:
+                raise PanelError(
+                    code=1000,
+                    source="Panel.insert_vi",
+                    message="The VI is not in a state compatible with this "
+                    "operation: its front panel is open or loaded in a SubPanel "
+                    "control.",
+                )
+            before = self._subpanels.get(control)
+            if before is not None and before is not panel:
+                before._hosted_in = None
+            self._subpanels[control] = panel
+            panel._hosted_in = (self, control)
+        self._tell("subpanel_changed", control, vi)
+
+    def remove_vi(self, control: str) -> None:
+        """SubPanel Remove VI on the control ``control``: unload the VI it holds
+        (nothing when it holds none)."""
+        with self._lock:
+            panel = self._subpanels.pop(control, None)
+            if panel is not None:
+                panel._hosted_in = None
+        self._tell("subpanel_changed", control, None)
+
+    def abort(self) -> None:
+        """Abort VI on a panel that is not a VI's function: a Global VI has no
+        diagram to abort (NI's Abort VI page lists "Available with global VIs:
+        No"), so it is error 1035, as Run VI on it is."""
+        raise PanelError(
+            code=1035,
+            source="Panel.abort",
+            message="Operation is invalid for this type of VI.",
+        )
 
     @property
     def defer_updates(self) -> bool:
@@ -703,11 +958,50 @@ class PanelValues:
                 if names.get(name)
             ]
 
+    def set_flattened(self, label: str, type_string: Any, data: str) -> None:
+        """Set the control or indicator labelled ``label`` to the value ``data``
+        holds flattened as the type ``type_string`` describes, as Ctrl Val.Set
+        (Deprecated) does: ``set_variant`` of the variant they make."""
+        self.set_variant(label, variant_from_flattened(data, type_string))
+
+    def get_all_flattened(
+        self, controls: bool = False
+    ) -> list[tuple[str, list[int], str]]:
+        """``get_all_variants`` as Ctrl Val.Get All (Deprecated) gives it: each
+        value as ``(label, type descriptor, flattened data)``, the descriptor the
+        type string of the type the panel records for the control (a control that
+        records none, or a type with no flattened form, raises
+        ``NotImplementedError`` naming the control)."""
+        flattened = []
+        for label, variant in self.get_all_variants(controls):
+            try:
+                descriptor, data = variant_to_flattened(
+                    Variant(variant.value, variant.type)
+                )
+            except NotImplementedError as error:
+                raise NotImplementedError(
+                    f"Ctrl Val.Get All (Deprecated): the control {label!r}: {error}"
+                ) from error
+            flattened.append((label, descriptor, data))
+        return flattened
+
     @property
     def controls(self) -> list[Control]:
         """The Controls[] of the panel: a reference to each control and indicator,
         in tabbing order."""
         return [self._refs[name] for name in self._order]
+
+    def control_of(self, name: str) -> Control:
+        """The reference to the control or indicator ``name`` (the one a Property Node
+        or Invoke Node bound to it acts on); error 1026 for a name the panel does not
+        hold."""
+        if name not in self._refs:
+            raise PanelError(
+                code=1026,
+                source="PanelValues.control_of",
+                message="Control Reference is invalid.",
+            )
+        return self._refs[name]
 
     def holds(self, name: str) -> bool:
         """Whether ``name`` is the name of a control or indicator of the panel."""
@@ -828,16 +1122,18 @@ class PanelValues:
             raise PanelError(code=1, source="Panel", message=f'"{name}" not found')
 
     def _value(self, name: str) -> Any:
-        """The panel's value of ``name``. A control with a default made for it
-        holds that from the first read on, as a front panel holds one value; else
-        the control's own default (``_own_default``), else None."""
+        """The panel's value of ``name``. A control or indicator with a default
+        made for it holds that from the first read on, as a front panel holds one
+        value (an indicator no run has written holds its type's default, a
+        class's default object, not nothing); else the control's own default
+        (``_own_default``), else None."""
         if name in self._values:
             return self._values[name]
+        factory = self._defaults.get(name)
+        if factory is not None:
+            self._values[name] = factory()
+            return self._values[name]
         if name in self._controls:
-            factory = self._defaults.get(name)
-            if factory is not None:
-                self._values[name] = factory()
-                return self._values[name]
             return self._own_default(name)
         return None
 
@@ -876,6 +1172,7 @@ class Panel(PanelValues):
         undecoded_strings: Mapping[str, int] | None = None,
         saved: Mapping[str, Mapping[str, Any]] | None = None,
         elements: Mapping[str, Sequence[Any]] | None = None,
+        layout: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__(
             controls,
@@ -891,6 +1188,7 @@ class Panel(PanelValues):
             undecoded_strings=undecoded_strings,
             saved=saved,
             elements=elements,
+            layout=layout,
         )
         self.function = function
         self._results = dict(results or {})
@@ -977,10 +1275,37 @@ class Panel(PanelValues):
             self._go.set()
         self._tell("run_finished", error)
 
+    def _called_by_a_vi(self) -> bool:
+        """Whether this thread is inside this VI's function called by another VI's
+        function: the VI is then a subVI of the running one."""
+        own = getattr(self.function, "vi_name", None)
+        seen = False
+        frame: types.FrameType | None = sys._getframe(1)
+        while frame is not None:
+            name = getattr(_function_of(frame), "vi_name", None)
+            if isinstance(name, str):
+                if seen:
+                    return True
+                seen = name == own
+            frame = frame.f_back
+        return False
+
     def abort(self) -> None:
-        """End the run in progress at its next point (a ``live_io`` call or a wait
-        for an event); a paused run is released so it reaches that point. A VI that
-        takes no ``live_io`` has no such point and runs to its end."""
+        """Abort VI. NI: "Aborts the execution of a top-level VI. This method returns
+        error 1000 if you call it on a subVI. Otherwise, this method is similar to
+        pressing the Abort Execution button": a VI whose function this thread is
+        inside, called by another VI's function, is error 1000. Else the run in
+        progress ends at its next point (a ``live_io`` call or a wait for an
+        event); a paused run is released so it reaches that point. A VI that takes
+        no ``live_io`` has no such point and runs to its end, and a VI that is not
+        running has nothing to abort."""
+        if self._called_by_a_vi():
+            raise PanelError(
+                code=1000,
+                source="Panel.abort",
+                message="The VI is not in a state compatible with this "
+                "operation: it is a subVI.",
+            )
         with self._lock:
             if self._running:
                 self._abort = True
@@ -1205,6 +1530,8 @@ def tags_of(reference: Any) -> Tags:
     raise PanelError(code=1026, source="tags_of", message="VI Reference is invalid.")
 
 
+__TREE_ITEMS__
+
 def as_panel(reference: Any) -> PanelValues:
     """``reference`` as the reference to a front panel (the ``Panel`` property of a
     VI gives one); error 1026 for a reference that holds none."""
@@ -1223,8 +1550,47 @@ def as_control(reference: Any) -> Control:
             code=1026, source="as_control", message="Control Reference is invalid."
         )
     return reference
+
+
+def as_object(reference: Any) -> GObject:
+    """``reference`` as the reference to a front-panel object (a control, an
+    indicator, a decoration or a pane); error 1026 for a reference that holds
+    none."""
+    if not isinstance(reference, GObject):
+        raise PanelError(
+            code=1026, source="as_object", message="Object Reference is invalid."
+        )
+    return reference
+
+
+def as_owned(reference: Any) -> GObject | PanelValues:
+    """``reference`` as the reference to an object that has an owner: a front-panel
+    object or the panel itself (the top-level object); error 1026 for a reference
+    that holds none."""
+    if not isinstance(reference, (GObject, PanelValues)):
+        raise PanelError(
+            code=1026, source="as_owned", message="Object Reference is invalid."
+        )
+    return reference
+
+
+def as_pane(reference: Any) -> Pane:
+    """``reference`` as the reference to a pane of a panel (an element of
+    ``Panel.panes``); error 1026 for a reference that holds none."""
+    if not isinstance(reference, Pane):
+        raise PanelError(
+            code=1026, source="as_pane", message="Pane Reference is invalid."
+        )
+    return reference
 '''
 
-PANELS_MODULE_SOURCE = _PANELS_MODULE_TEMPLATE.replace(
-    "__CLASS_IDS__", repr(class_ids())
-).replace("__SAVED_DEFAULTS__", repr(saved_defaults()))
+
+PANELS_MODULE_SOURCE = (
+    _PANELS_MODULE_TEMPLATE.replace("__CLASS_IDS__", repr(class_ids()))
+    .replace("__SAVED_DEFAULTS__", repr(saved_defaults()))
+    .replace("__PROPERTY_DEFAULTS__", repr(property_defaults()))
+    .replace("__UNDECODED_SAVED__", repr(sorted(undecoded_saved_members())))
+    .replace("__TREE_ITEMS__", TREE_ITEMS_SOURCE.strip("\n"))
+    .replace("__PANEL_OBJECTS__", PANEL_OBJECTS_SOURCE.strip("\n"))
+    + APPLICATION_SOURCE
+)

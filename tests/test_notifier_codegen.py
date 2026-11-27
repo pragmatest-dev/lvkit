@@ -141,7 +141,7 @@ def test_an_unnamed_notifier_sent_to_and_waited_on(project: Project) -> None:  #
         "notification, timed_out = notifier.wait('Err.vi::" in package.source
         and ", timeout_ms=0, default=0)\n" in package.source
     )
-    assert "if notifier is not None:\n        notifier.release()\n" in package.source
+    assert "\n        notifier.release()\n" in package.source
     result = package.function(value=7)
     assert (result.result, result.timed_out, result.created) == (7, False, True)
     assert result.error_out is None

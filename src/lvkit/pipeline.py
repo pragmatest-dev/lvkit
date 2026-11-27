@@ -28,6 +28,12 @@ from lvkit.codegen.ast_utils import (
     unique_names,
 )
 from lvkit.codegen.class_builder.shared_state import ModuleParts
+from lvkit.codegen.classes_module import (
+    CLASSES_MODULE_NAME,
+    build_classes_module,
+    imports_classes,
+    package_class_entries,
+)
 from lvkit.codegen.error_path import is_error_wire_vi
 from lvkit.codegen.errors import MissingVIError
 from lvkit.codegen.errors_module import (
@@ -73,6 +79,11 @@ from lvkit.codegen.scan_module import (
 )
 from lvkit.codegen.type_constants import share_type_constants
 from lvkit.codegen.type_module import build_type_module
+from lvkit.codegen.user_events_module import (
+    USER_EVENT_CLASS,
+    USER_EVENTS_MODULE_NAME,
+    USER_EVENTS_MODULE_SOURCE,
+)
 from lvkit.codegen.variants_module import (
     VARIANTS_MODULE_NAME,
     VARIANTS_MODULE_SOURCE,
@@ -496,6 +507,17 @@ def _write_notifiers_module(package_root: Path) -> None:
     )
 
 
+def _write_user_events_module(package_root: Path) -> None:
+    """Write ``user_events.py`` at the package root when a generated module imports
+    ``UserEvent`` from it."""
+    _write_support_module(
+        package_root,
+        f"{USER_EVENTS_MODULE_NAME} import {USER_EVENT_CLASS}",
+        USER_EVENTS_MODULE_NAME,
+        USER_EVENTS_MODULE_SOURCE,
+    )
+
+
 def _write_grpc_server_module(package_root: Path) -> None:
     """Write ``grpc_server.py`` at the package root when a generated module imports
     from it."""
@@ -572,6 +594,29 @@ def _write_ini_module(package_root: Path) -> None:
         INI_MODULE_NAME,
         INI_MODULE_SOURCE,
     )
+
+
+def _write_classes_module(
+    package_root: Path, graph: InMemoryVIGraph, layout: ModuleLayout
+) -> None:
+    """Write ``lv_classes.py`` at the package root when the package has a class or a
+    generated module imports from it: the dict of the classes of the package by
+    their qualified names."""
+
+    def module_of(key: str) -> str | None:
+        place = layout.places.get(key)
+        if place is None:
+            return None
+        return ".".join([*place.packages, place.module])
+
+    classes = package_class_entries(graph, module_of)
+    if classes or any(
+        imports_classes(module.read_text(encoding="utf-8"))
+        for module in sorted(package_root.rglob("*.py"))
+    ):
+        (package_root / f"{CLASSES_MODULE_NAME}.py").write_text(
+            build_classes_module(classes), encoding="utf-8"
+        )
 
 
 def _write_variants_module(package_root: Path) -> None:
@@ -1019,7 +1064,9 @@ def generate_python(
         reserved=[
             ERRORS_MODULE_NAME,
             VARIANTS_MODULE_NAME,
+            CLASSES_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
+            USER_EVENTS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
             GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
@@ -1035,7 +1082,9 @@ def generate_python(
             *layout.root_names,
             ERRORS_MODULE_NAME,
             VARIANTS_MODULE_NAME,
+            CLASSES_MODULE_NAME,
             NOTIFIERS_MODULE_NAME,
+            USER_EVENTS_MODULE_NAME,
             LIVE_IO_MODULE_NAME,
             GRPC_SERVER_MODULE_NAME,
             PANELS_MODULE_NAME,
@@ -1320,10 +1369,12 @@ def generate_python(
     # What every written module needs, whether the run ended or stopped: the
     # errors module, the shared modules and the files copied beside its VIs.
     _write_notifiers_module(output_dir_resolved)
+    _write_user_events_module(output_dir_resolved)
     _write_grpc_server_module(output_dir_resolved)
     _write_panels_module(output_dir_resolved)
     _write_errors_module(output_dir_resolved)
     _write_variants_module(output_dir_resolved)
+    _write_classes_module(output_dir_resolved, graph, layout)
     _write_scan_module(output_dir_resolved)
     _write_local_time_module(output_dir_resolved)
     _write_ini_module(output_dir_resolved)

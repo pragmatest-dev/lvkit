@@ -51,6 +51,24 @@ ENTRY = LVType(
     ],
 )
 ENTRIES = LVType(kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=ENTRY)
+TYPE_DESC = LVType(
+    kind=LVTypeKind.ARRAY,
+    underlying_type="Array",
+    element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16"),
+    dimensions=1,
+)
+FLAT_ENTRY = LVType(
+    kind=LVTypeKind.CLUSTER,
+    underlying_type="Cluster",
+    fields=[
+        ClusterField(name="name", type=STRING),
+        ClusterField(name="type desc", type=TYPE_DESC),
+        ClusterField(name="flat data", type=STRING),
+    ],
+)
+FLAT_ENTRIES = LVType(
+    kind=LVTypeKind.ARRAY, underlying_type="Array", element_type=FLAT_ENTRY
+)
 ERROR = LVType(
     kind=LVTypeKind.CLUSTER,
     typedef_name="error",
@@ -62,6 +80,7 @@ ERROR = LVType(
 )
 
 SET, GET, GET_ALL, RUN = 1051, 1052, 1053, 1003
+SET_DEPRECATED, GET_ALL_DEPRECATED = 1009, 1020
 
 
 def callee(vi: str) -> tuple[VIContext, list[GraphNode]]:
@@ -91,16 +110,25 @@ def callee(vi: str) -> tuple[VIContext, list[GraphNode]]:
 
 def invoke(vi: str, tag: str, method: str, code: int) -> PrimitiveNode:
     """An Invoke Node on the VI class: reference in 0 and out 1, error in 2 and
-    out 3, a result at 5, parameters at 6 and 8."""
+    out 3, a result at 5, parameters at 6 and 8 (the deprecated Set: the type
+    descriptor at 8 and the flattened data at 10)."""
+    result = {GET_ALL: ENTRIES, GET_ALL_DEPRECATED: FLAT_ENTRIES}.get(code, VARIANT)
     terminals = [
         ("ref", 0, "input", VI_REF),
         ("ref_out", 1, "output", VI_REF),
         ("err_in", 2, "input", ERROR),
         ("err_out", 3, "output", ERROR),
-        ("result", 5, "output", ENTRIES if code == GET_ALL else VARIANT),
-        ("param", 6, "input", BOOL if code in (GET_ALL, RUN) else STRING),
-        ("value", 8, "input", VARIANT),
+        ("result", 5, "output", result),
+        (
+            "param",
+            6,
+            "input",
+            BOOL if code in (GET_ALL, GET_ALL_DEPRECATED, RUN) else STRING,
+        ),
+        ("value", 8, "input", TYPE_DESC if code == SET_DEPRECATED else VARIANT),
     ]
+    if code == SET_DEPRECATED:
+        terminals.append(("flat", 10, "input", STRING))
     return PrimitiveNode(
         id=f"{vi}:{tag}",
         vi_path=vi,
@@ -155,6 +183,7 @@ class Diagram:
         value: tuple[str, LVType] | None = None,
         wait: str | None = None,
         empty: bool = False,
+        flat: tuple[str, str] | None = None,
     ) -> None:
         """An Invoke Node of ``method``; ``name`` wires a String constant to its
         first parameter, ``value`` a constant (``empty``: the empty Variant
@@ -175,6 +204,13 @@ class Diagram:
         if wait is not None:
             self.nodes.append(constant(self.vi, f"{tag}_wait", wait, BOOL))
             self.wire(f"{tag}_wait", f"{tag}.param")
+        if flat is not None:
+            # The deprecated Set's type descriptor (text of the numbers) and data.
+            descriptor, data = flat
+            self.nodes.append(constant(self.vi, f"{tag}_desc", descriptor, TYPE_DESC))
+            self.wire(f"{tag}_desc", f"{tag}.value")
+            self.nodes.append(constant(self.vi, f"{tag}_data", data, STRING))
+            self.wire(f"{tag}_data", f"{tag}.flat")
 
 
 def chained(target_key: str, steps: list[tuple], reads: str | None) -> Recipe:
@@ -202,7 +238,7 @@ def chained(target_key: str, steps: list[tuple], reads: str | None) -> Recipe:
                     vi,
                     "output",
                     "out",
-                    ENTRIES if reads == "entries" else VARIANT,
+                    {"entries": ENTRIES, "flat": FLAT_ENTRIES}.get(reads, VARIANT),
                     "out",
                     0,
                 )
@@ -299,7 +335,7 @@ def test_unknown_control_name_is_error_1_and_nothing_runs(tmp_path: Path) -> Non
         # empty Variant, the default of a Variant.
         assert result.out == module("variants").Variant()
         panel = module("target").target.panel
-        assert panel.get("y") is None
+        assert panel.get("y") == 0
 
 
 def test_the_front_panel_is_one_per_function(tmp_path: Path) -> None:
@@ -312,7 +348,7 @@ def test_the_front_panel_is_one_per_function(tmp_path: Path) -> None:
         assert isinstance(target.panel, panels.Panel)
         assert panels.panel_of(target) is target.panel
         assert target.panel.get_all(True) == [("x", 0)]
-        assert target.panel.get_all(False) == [("y", None)]
+        assert target.panel.get_all(False) == [("y", 0)]
         assert module("runner").runner.panel is not target.panel
 
 
@@ -668,19 +704,7 @@ def test_a_subvi_call_stays_a_direct_call_and_leaves_the_panel_alone(
     )
     with package.use() as module:
         assert module("runner").runner().out == 1
-        assert module("target").target.panel.get("y") is None
-
-
-def test_a_deprecated_ctrl_val_method_is_a_gap_naming_why(tmp_path: Path) -> None:
-    """The deprecated forms move the value as flattened bytes and a type string."""
-    steps = [step("Ctrl Val.Set (Deprecated)", 1009, name="x")]
-    gaps: list[Gap] = []
-    project_with(tmp_path, steps, None).generate(gaps)
-    assert [g.reason for g in gaps] == [
-        "Invoke Node method 'Ctrl Val.Set (Deprecated)' on a VI reference moves the "
-        "value as flattened bytes and a type string, which the generated code has "
-        "no LabVIEW type to read or write"
-    ]
+        assert module("target").target.panel.get("y") == 0
 
 
 def required_and_optional(vi: str) -> tuple[VIContext, list[GraphNode]]:
@@ -713,7 +737,7 @@ def test_a_required_control_holds_its_saved_default_until_set(tmp_path: Path) ->
     package = project.generate()
     assert (
         "controls={'x': 'x', 'o': 'o'}" in package.sources["target"]
-        and "defaults={'x': lambda: 5}" in package.sources["target"]
+        and "defaults={'x': lambda: 5, 'y': lambda: 0}" in package.sources["target"]
     )
     with package.use() as module:
         panel = module("target").target.panel
@@ -762,6 +786,37 @@ def test_a_required_class_control_holds_one_default_object(tmp_path: Path) -> No
         assert second is first
 
 
+def test_a_class_indicator_no_run_wrote_holds_its_default_object(
+    tmp_path: Path,
+) -> None:
+    """A front panel's indicator holds its type's default until a run writes it:
+    a class indicator is its class's default object (a read of it, such as
+    Ctrl Val.Get, is not nothing), made once."""
+    cls = class_type("Cls")
+
+    def take(vi: str) -> tuple[VIContext, list[GraphNode]]:
+        return (
+            VIContext(
+                name=vi,
+                inputs=[pane(vi, "input", "c", cls, "c", 0)],
+                outputs=[pane(vi, "output", "d", cls, "d", 1)],
+                data_flow=[wire(vi, "c", "d")],
+            ),
+            [],
+        )
+
+    project = Project(tmp_path)
+    project.add_class("Cls", [])
+    project.add_vi("Take", take)
+    package = project.generate()
+    with package.use() as module:
+        panel = module("take").take.panel
+        first = panel.get("d")
+        assert isinstance(first, module("cls").Cls)
+        assert panel.get("d") is first
+        assert isinstance(panel.get_variant("d").value, module("cls").Cls)
+
+
 def test_a_required_array_control_holds_its_default_until_set(tmp_path: Path) -> None:
     """An unset required array control holds ``[]``, made once (a default never
     shared with another function's panel); a set value replaces it."""
@@ -782,7 +837,7 @@ def test_a_required_array_control_holds_its_default_until_set(tmp_path: Path) ->
     project.add_vi("Take", take)
     package = project.generate()
     assert "controls={'a': 'a'}" in package.sources["take"]
-    assert "defaults={'a': lambda: []}" in package.sources["take"]
+    assert "'a': lambda: []" in package.sources["take"]
     with package.use() as module:
         panel = module("take").take.panel
         first = panel.get("a")
@@ -834,7 +889,8 @@ def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
     package = project.generate()
     assert (
         "controls={'hidden': 'hidden'}, indicators={'shown': 'shown'}, "
-        "types={'hidden': LV_I32, 'shown': LV_I32}, defaults={'hidden': lambda: 0}"
+        "types={'hidden': LV_I32, 'shown': LV_I32}, "
+        "defaults={'hidden': lambda: 0, 'shown': lambda: 0}"
         in package.sources["take"]
     )
     with package.use() as module:
@@ -844,7 +900,7 @@ def test_a_control_off_the_connector_pane_is_stored_but_a_run_cannot_pass_it(
         assert panel.get("hidden") == 3
         panel.run()
         assert panel.get("hidden") == 3
-        assert panel.get_all(False) == [("shown", None)]
+        assert panel.get_all(False) == [("shown", 0)]
 
 
 def test_a_label_two_objects_share_is_the_first_in_tabbing_order(
@@ -1049,7 +1105,7 @@ def test_an_unset_optional_array_control_holds_an_empty_array(tmp_path: Path) ->
     project = Project(tmp_path)
     project.add_vi("Take", take)
     package = project.generate()
-    assert "defaults={'a': lambda: []}" in package.sources["take"]
+    assert "'a': lambda: []" in package.sources["take"]
     with package.use() as module:
         panel = module("take").take.panel
         first = panel.get("a")

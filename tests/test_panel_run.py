@@ -382,7 +382,7 @@ def test_an_indicator_written_while_the_vi_runs_reaches_every_view(
     for view in views:
         view.paint()
         vi_panel.detach(view)
-    assert shown == [[1], [1]]
+    assert shown == [[0, 1], [0, 1]]
 
 
 def test_abort_and_pause_through_the_panel_stop_and_hold_a_headless_run(

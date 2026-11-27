@@ -5,17 +5,27 @@ from __future__ import annotations
 import ast
 
 from lvkit.control_properties import (
+    TREE_HOLDER,
+    ReferenceRow,
     control_property,
+    is_block_diagram_class,
+    is_generic_object_class,
     is_value_row,
     is_value_signaling_row,
+    reference_row,
 )
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, VINode
 from lvkit.graph.op_walk import correlate_property_terminals
-from lvkit.graph.vi_reference import is_on_vi_reference
+from lvkit.graph.vi_reference import (
+    APPLICATION_CLASS,
+    VI_CLASS,
+    is_on_application_reference,
+    is_on_vi_reference,
+)
 from lvkit.models import FPTerminal, PropertyDef, Terminal
 
-from ..ast_utils import build_assign, parse_expr, to_var_name
+from ..ast_utils import build_assign, parse_expr, parse_stmt, to_var_name
 from ..called_vi import run_call
 from ..context import CodeGenContext
 from ..control_property_state import (
@@ -26,16 +36,24 @@ from ..control_property_state import (
 )
 from ..default_objects import DefaultObjectProperty, default_object_property
 from ..errors import CodeGenError
+from ..errors_module import LABVIEW_ERROR_NAME
 from ..fragment import CodeFragment
 from ..panel_hooks import get_property_stmt, property_stmt
+from ..panels_application import APPLICATION_NAME
+from ..panels_module import PANEL_ERROR_NAME, PANEL_OF_NAME
 from ..variant_values import is_variant_type
 from . import (
+    application_properties,
     class_property_node,
     front_panel_bounds,
     front_panel_title,
+    geometry_rows,
+    monitors,
     own_window_properties,
     panel_reference,
+    vi_file_properties,
     vi_reference,
+    window_rows,
 )
 from .base import (
     DefaultObjectError,
@@ -45,6 +63,7 @@ from .base import (
 from .ctrl_val import report_panel_error
 from .event_user import listens_for_value_change, signal_value_change
 from .local_variable import read_control, write_control
+from .reference_origin import ObjectOrigin, reference_origin
 
 
 def _no_python_equivalent(node: PrimitiveNode, prop: PropertyDef) -> ConversionGap:
@@ -55,6 +74,27 @@ def _no_python_equivalent(node: PrimitiveNode, prop: PropertyDef) -> ConversionG
     return ConversionGap(
         f"Property '{prop.name}'{on_class} has no Python equivalent", node
     )
+
+
+def _reject_block_diagram_object(
+    node: PrimitiveNode, prop: PropertyDef, ctx: CodeGenContext
+) -> None:
+    """Raise the gap of a property row on a reference to an object of a block
+    diagram (a SubVI node, a Diagram, a Wire, ...): the converted code has none.
+    A Generic or GObject reference is one when the diagram made it from a block
+    diagram (``reference_origin``); one made from the front panel, or somewhere
+    the diagram does not show, is read when the code runs."""
+    class_name = node.object_name or ""
+    if is_block_diagram_class(class_name) or (
+        ctx.graph is not None
+        and is_generic_object_class(class_name)
+        and reference_origin(ctx.graph, node) is ObjectOrigin.BLOCK_DIAGRAM
+    ):
+        raise ConversionGap(
+            f"Property '{prop.name}' on a {class_name} reference: block-diagram "
+            "objects do not exist in converted code",
+            node,
+        )
 
 
 def _callees(ctx: CodeGenContext) -> str:
@@ -76,9 +116,14 @@ def _callees(ctx: CodeGenContext) -> str:
 
 
 def _default_object_expression(
-    ctx: CodeGenContext, value: DefaultObjectProperty
+    ctx: CodeGenContext,
+    value: DefaultObjectProperty,
+    node: PrimitiveNode,
+    application: str = APPLICATION_NAME,
 ) -> str:
-    """``value.python`` with the generating VI's function and callees written in."""
+    """``value.python`` with the generating VI's function and callees written in,
+    and the Application object it is read on (``application``) and the VI's saved
+    LabVIEW version (``application_properties.fill``)."""
     expression = value.python.replace("{function}", ctx.this_vi_expression())
     if "{in_packed_library}" in expression:
         packed = ctx.graph is not None and ctx.graph.is_in_packed_library(
@@ -87,7 +132,7 @@ def _default_object_expression(
         expression = expression.replace("{in_packed_library}", repr(packed))
     if "{callees}" in expression:
         expression = expression.replace("{callees}", _callees(ctx))
-    return expression
+    return application_properties.fill(value, expression, application, ctx, node)
 
 
 def _default_object_read(
@@ -156,11 +201,26 @@ def _unsupported_reason(
                 )
             if not written:
                 return f"{subject} reads 'Value (Signaling)', which is write only"
+        elif (geometry := geometry_rows.geometry_row(row)) is not None:
+            if written and not geometry.settable:
+                return (
+                    f"{subject} writes {row.name!r}, which NI's page says cannot "
+                    "be set while the VI runs "
+                    f"({geometry_rows.page_url(geometry)})"
+                )
+        elif _bound_list_attribute(class_name, codes) is not None:
+            if written:
+                return (
+                    f"{subject} writes {row.name!r}, which NI's page says cannot "
+                    "be set while the VI runs"
+                )
         elif (listed := control_property(class_name, codes)) is None:
             return (
                 f"{subject} {verb} {row.name!r}, which lvkit does not yet know "
                 "how to carry out while the VI runs"
             )
+        elif listed.holder == TREE_HOLDER:
+            continue
         elif not listed.settable_while_running:
             if written:
                 return (
@@ -222,6 +282,7 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         raise ConversionGap(f"The control {control.name!r} has no variable", node)
     statements: list[ast.stmt] = []
     bindings: dict[str, str] = {}
+    tree_rows = False
     for row, term in rows:
         if term is None:
             raise CodeGenError("Property value terminal is missing", node)
@@ -273,11 +334,47 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 statements += signal_value_change(ctx, control.id, variable, old)
             else:
                 statements += write_control(control, variable, value, ctx)
+        elif (geometry := geometry_rows.geometry_row(row)) is not None:
+            target = _bound_control(node, ctx, bound)
+            tree_rows = True
+            if term.direction == "output":
+                read = ctx.make_output_var(geometry.member, node.id, term.id)
+                statements.append(
+                    build_assign(
+                        read,
+                        geometry_rows.read(geometry, target, term.lv_type, node, ctx),
+                    )
+                )
+                bindings[term.id] = read
+            else:
+                statements += geometry_rows.write(
+                    geometry, target, value, term.lv_type, node
+                )
+        elif (members := _bound_list_attribute(class_name, codes)) is not None:
+            target = _bound_control(node, ctx, bound)
+            tree_rows = True
+            read = ctx.make_output_var(members, node.id, term.id)
+            statements.append(build_assign(read, parse_expr(f"{target}.{members}")))
+            bindings[term.id] = read
         else:
             listed = control_property(class_name, codes)
             hooks = ctx.panel_hooks
             if listed is None:
                 raise CodeGenError("Property row is not a listed property", node)
+            if listed.holder == TREE_HOLDER:
+                tree = _bound_tree(node, ctx, bound)
+                tree_rows = True
+                if term.direction == "output":
+                    read = ctx.make_output_var(listed.member, node.id, term.id)
+                    statements.append(
+                        build_assign(read, parse_expr(f"{tree}.{listed.member}"))
+                    )
+                    bindings[term.id] = read
+                else:
+                    statements.append(
+                        parse_stmt(f"{tree}.{listed.member} = {value}")
+                    )
+                continue
             if not listed.settable_while_running:
                 saved = saved_value(bound, listed.member)
                 if term.direction != "output" or saved is None:
@@ -311,7 +408,40 @@ def _bound_value(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 )
             statements += assign_state(ctx, bound.id, listed.member, parse_expr(value))
             statements.append(property_stmt(hooks, bound.id, listed, value))
+    if tree_rows:
+        return report_panel_error(node, ctx, statements, bindings)
     return CodeFragment(statements=statements, bindings=bindings)
+
+
+def _bound_control(node: PrimitiveNode, ctx: CodeGenContext, bound: FPTerminal) -> str:
+    """The reference to the control ``bound`` of this VI's panel, which a bound
+    Property Node's rows on the panel read and write."""
+    name = ctx.panel_names.get(bound.id)
+    if name is None:
+        raise ConversionGap(
+            f"The control {bound.name!r} is not on the panel of the VI", node
+        )
+    ctx.import_panels(f"{PANEL_OF_NAME}, {PANEL_ERROR_NAME}")
+    return f"{PANEL_OF_NAME}({ctx.this_vi_expression()}).control_of({name!r})"
+
+
+def _bound_tree(node: PrimitiveNode, ctx: CodeGenContext, bound: FPTerminal) -> str:
+    """The ``TreeItems`` of the Tree control ``bound`` of this VI's panel, which the
+    bound Property Node's Active Item and Active Cell rows read and write."""
+    return f"{_bound_control(node, ctx, bound)}.tree"
+
+
+_LIST_ROWS = {
+    ReferenceRow.CLUSTER_DECORATIONS: "decorations",
+    ReferenceRow.CLUSTER_ALL_OBJECTS: "all_objects",
+}
+
+
+def _bound_list_attribute(class_name: str, codes: list[int]) -> str | None:
+    """The attribute of a cluster control that the row with property ``codes`` is
+    when it is the cluster's Decos[] or AllObjs[]; None for any other row."""
+    found = reference_row(class_name, codes)
+    return _LIST_ROWS.get(found) if found is not None else None
 
 
 def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -321,7 +451,12 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     reference's Name, Path, Description and Exec.State
     (``vi_reference.vi_property_read``), its Front Panel Window:Title (a read
     and a write: ``front_panel_title``), its Front Panel Window:Window Bounds
-    (``front_panel_bounds``) and the rows of the front panel's own
+    (``front_panel_bounds``), the rows of its window the panel holds
+    (``window_rows``: State, Open, Is Frontmost, Panel Bounds, Origin, Monitor,
+    Behavior, Custom Title, Edit Mode On Open; a read and a write), the properties
+    its file records
+    (``vi_file_properties``, Help:Document Web URL also a write) and the rows of
+    the front panel's own
     references (``panel_reference``: Panel, Controls[], a control's Value,
     Indicator and Label.Text, and a write of a control's Value; and a Combo Box's
     Strings[], read and written through the panel); every other read,
@@ -356,6 +491,8 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     bindings: dict[str, str] = {}
     attr_names: dict[str, str] = {}
     panel_read = False
+    file_error = False
+    guarded = False
     for prop, term in correlate_property_terminals(
         properties, node.terminals, value_ids
     ):
@@ -378,23 +515,114 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
             raise ConversionGap("Normalized property names collide", node)
         attr_names[attr_name] = prop.name
         if default_class is not None:
+            window = window_rows.window_row(prop) if default_class == VI_CLASS else None
+            if window is not None:
+                # a node of the VI's own window that also has a row of another kind:
+                # the panel's rows, with no ``live_io`` to tell
+                target = window_rows.Target(
+                    ctx.this_vi_expression(), False, term.lv_type, node, ctx
+                )
+                if term.direction == "output":
+                    var_name = ctx.make_output_var(attr_name, term.id, term.id)
+                    statements.append(
+                        ast.Assign(
+                            targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                            value=window_rows.read(window, target),
+                        )
+                    )
+                    bindings[term.id] = var_name
+                else:
+                    value = ctx.wired_input(term.id, node)
+                    if value is None:
+                        raise ConversionGap(
+                            f"Front Panel Window:{window.name}: the value written "
+                            "is not wired",
+                            node,
+                        )
+                    statements.extend(window_rows.write(window, target, value))
+                panel_read = True
+                continue
+            monitor_list = monitors.read(default_class, prop, term, node, ctx)
+            if monitor_list is not None:
+                var_name = ctx.make_output_var(attr_name, term.id, term.id)
+                statements.append(
+                    ast.Assign(
+                        targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                        value=monitor_list,
+                    )
+                )
+                bindings[term.id] = var_name
+                continue
             value_expr = _default_object_read(node, default_class, prop, term)
             var_name = ctx.make_output_var(attr_name, term.id, term.id)
             statements.append(
                 ast.Assign(
                     targets=[ast.Name(id=var_name, ctx=ast.Store())],
-                    value=parse_expr(_default_object_expression(ctx, value_expr)),
+                    value=parse_expr(
+                        _default_object_expression(ctx, value_expr, node)
+                    ),
                 )
             )
             imports.update(value_expr.imports)
             bindings[term.id] = var_name
+            own_row = (
+                vi_file_properties.file_property(prop)
+                if default_class == VI_CLASS
+                else None
+            )
+            if own_row is not None:
+                guard = vi_file_properties.read_guard(
+                    own_row, var_name, ctx.this_vi_expression(), ctx
+                )
+                statements.extend(guard)
+                file_error = file_error or vi_file_properties.reports_error(own_row)
         elif term.direction == "output":
             # Reads execute even when their result is unwired. Repeated accesses
             # to the same property need distinct snapshots, not one shared name.
             var_name = ctx.make_output_var(f"{ref_var}_{attr_name}", term.id, term.id)
+            _reject_block_diagram_object(node, prop, ctx)
+            if is_on_application_reference(node):
+                # the program's one application: the rows of the default
+                # Application object, read on the reference
+                app_value = default_object_property(
+                    APPLICATION_CLASS, tuple(seg.code for seg in prop.segments)
+                )
+                if app_value is None:
+                    raise _no_python_equivalent(node, prop)
+                expression = _default_object_expression(
+                    ctx, app_value, node, ref_var
+                )
+                statements.append(
+                    ast.Assign(
+                        targets=[ast.Name(id=var_name, ctx=ast.Store())],
+                        value=parse_expr(expression),
+                    )
+                )
+                imports.update(app_value.imports)
+                bindings[term.id] = var_name
+                continue
             row = panel_reference.panel_row(node, prop)
             listed = panel_reference.property_row(node, prop)
-            if listed is not None:
+            window = window_rows.window_row(prop) if is_on_vi_reference(node) else None
+            geometry = (
+                None if is_on_vi_reference(node) else geometry_rows.geometry_row(prop)
+            )
+            if window is not None:
+                reflected = window_rows.read(
+                    window,
+                    window_rows.Target(ref_var, False, term.lv_type, node, ctx),
+                )
+                panel_read = True
+            elif geometry is not None:
+                reflected = geometry_rows.read(
+                    geometry,
+                    geometry_rows.reference_target(geometry, ref_var, ctx),
+                    term.lv_type,
+                    node,
+                    ctx,
+                )
+                panel_read = True
+            elif listed is not None:
                 reflected = panel_reference.read_property(listed, ref_var, ctx)
                 panel_read = True
             elif row is not None:
@@ -408,6 +636,13 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                 )
                 if reflected is None:
                     raise _no_python_equivalent(node, prop)
+                guard, reported = vi_reference.invalid_reference_guard(
+                    node, prop, ref_var, ctx
+                )
+                if guard and not guarded:
+                    statements.extend(guard)
+                    guarded = True
+                file_error = file_error or reported
                 panel_read = panel_read or vi_reference.reads_panel(node, prop)
             statements.append(
                 ast.Assign(
@@ -415,12 +650,22 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     value=reflected,
                 )
             )
+            read_row = (
+                vi_file_properties.file_property(prop)
+                if is_on_vi_reference(node)
+                else None
+            )
+            if read_row is not None:
+                guard = vi_file_properties.read_guard(read_row, var_name, ref_var, ctx)
+                statements.extend(guard)
+                file_error = file_error or vi_file_properties.reports_error(read_row)
             bindings[term.id] = var_name
         elif term.direction == "input":
             if not ctx.is_wired(term.id):
                 raise ConversionGap(
                     "Unwired property write default is unqualified", node
                 )
+            _reject_block_diagram_object(node, prop, ctx)
             row = panel_reference.panel_row(node, prop)
             listed = panel_reference.property_row(node, prop)
             if listed is not None and not listed.settable_while_running:
@@ -430,27 +675,72 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
                     f"VI runs ({listed.doc_url})",
                     node,
                 )
-            title = is_on_vi_reference(
-                node
-            ) and front_panel_title.is_title_row(prop)
-            bounds = is_on_vi_reference(node) and front_panel_bounds.is_bounds_row(
-                prop
+            title = is_on_vi_reference(node) and front_panel_title.is_title_row(prop)
+            bounds = is_on_vi_reference(node) and front_panel_bounds.is_bounds_row(prop)
+            file_row = (
+                vi_file_properties.file_property(prop)
+                if is_on_vi_reference(node)
+                else None
             )
+            if file_row is not None and not file_row.writable:
+                file_row = None
+            window = window_rows.window_row(prop) if is_on_vi_reference(node) else None
+            geometry = (
+                None if is_on_vi_reference(node) else geometry_rows.geometry_row(prop)
+            )
+            if geometry is not None:
+                geometry_rows.check_writable(geometry, node)
             if (
                 not title
                 and not bounds
+                and window is None
+                and geometry is None
+                and file_row is None
                 and listed is None
                 and (row is None or not panel_reference.is_writable(row))
             ):
+                unsettable = panel_reference.unsettable_page(node, prop)
+                if unsettable is not None:
+                    raise ConversionGap(
+                        f"Property '{prop.name}' on a {node.object_name} reference "
+                        "is written, and NI's page says it cannot be set while the "
+                        f"VI runs ({unsettable})",
+                        node,
+                    )
                 raise _no_python_equivalent(node, prop)
             value = ctx.wired_input(term.id, node)
             if value is None:
                 raise CodeGenError("Property write value is unresolved", node)
+            if window is not None:
+                statements.extend(
+                    window_rows.write(
+                        window,
+                        window_rows.Target(ref_var, False, term.lv_type, node, ctx),
+                        value,
+                    )
+                )
+                panel_read = True
+                continue
+            if geometry is not None:
+                statements.extend(
+                    geometry_rows.write(
+                        geometry,
+                        geometry_rows.reference_target(geometry, ref_var, ctx),
+                        value,
+                        term.lv_type,
+                        node,
+                    )
+                )
+                panel_read = True
+                continue
             if listed is not None:
                 statements.append(
                     panel_reference.write_property(listed, ref_var, value, ctx)
                 )
                 panel_read = True
+                continue
+            if file_row is not None:
+                statements.append(vi_file_properties.write(file_row, ref_var, value))
                 continue
             if title:
                 statements.append(front_panel_title.write(ref_var, value))
@@ -494,10 +784,17 @@ def generate(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
         statements.append(
             ast.Expr(value=ast.Constant(value="# Property Node: no properties"))
         )
-    if panel_read:
+    if panel_read or file_error:
         # A row on the front panel or one of its controls fails with the panel's own
-        # error (1026, 1035): the node's error out, as for Ctrl Val.
-        fragment = report_panel_error(node, ctx, statements, bindings)
+        # error (1026, 1035), and Clone Name of a VI that is no clone with a
+        # LabVIEWError: the node's error out, as for Ctrl Val.
+        fragment = report_panel_error(
+            node,
+            ctx,
+            statements,
+            bindings,
+            catches=LABVIEW_ERROR_NAME if file_error else PANEL_ERROR_NAME,
+        )
         fragment.imports = imports
         return fragment
     return CodeFragment(statements=statements, bindings=bindings, imports=imports)

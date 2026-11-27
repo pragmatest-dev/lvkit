@@ -48,6 +48,7 @@ from .error_flow import (
 from .errors_module import LABVIEW_ERROR_NAME
 from .fragment import CodeFragment
 from .import_resolver import ImportResolver
+from .label_names import python_label
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -71,6 +72,9 @@ class CatalogFailures:
     source: str
     kept: frozenset[int] = frozenset()
     passes: dict[int, int] = field(default_factory=dict)
+    # Each catalog input terminal's names (its label, its Python name) with its
+    # terminal index and label, for the failures that name a reference input.
+    inputs: dict[str, tuple[int, str]] = field(default_factory=dict)
 
     @classmethod
     def of_primitive(cls, entry: Mapping[str, Any]) -> CatalogFailures:
@@ -78,6 +82,13 @@ class CatalogFailures:
         if "errors" not in entry:
             return cls((), {}, "")
         parsed = PrimitiveEntry.model_validate(entry)
+        inputs: dict[str, tuple[int, str]] = {}
+        for t in parsed.terminals:
+            if t.direction != TerminalDirection.INPUT:
+                continue
+            for alias in (t.python_name, t.name):
+                if alias:
+                    inputs.setdefault(alias, (t.index, t.name or alias))
         return cls(
             tuple(parsed.errors),
             {
@@ -92,6 +103,7 @@ class CatalogFailures:
                 for t in parsed.terminals
                 if t.passes_input is not None
             },
+            inputs,
         )
 
     @classmethod
@@ -111,6 +123,13 @@ class CatalogFailures:
                 for t in entry.terminals
                 if t.index is not None and t.passes_input is not None
             },
+            {
+                t.python_param: (t.index, t.name)
+                for t in entry.terminals
+                if t.index is not None
+                and t.python_param
+                and t.direction == TerminalDirection.INPUT
+            },
         )
 
 
@@ -126,38 +145,40 @@ def own_exception_class(failure: NativeError) -> ast.ClassDef:
 
 
 def invalid_reference_guards(
-    node: AnyGraphNode, ctx: CodeGenContext, entry: VIEntry
+    node: AnyGraphNode,
+    ctx: CodeGenContext,
+    catalog: CatalogFailures,
+    failures: tuple[NativeError, ...],
+    names: Mapping[str, str],
 ) -> list[ast.stmt]:
-    """For each failure of ``entry`` that names a reference input
-    (``NativeError.invalid_input``), ``if isinstance(<input>, int): raise <it>``:
-    a reference is an object, and a number there refers to nothing. The message
-    is built when the code runs and names the value. An unwired input has none."""
+    """For each of ``failures`` that names a reference input
+    (``NativeError.invalid_input``), ``if isinstance(<input>, (int, type(None))):
+    raise <it>``: a reference is an object, so a reference that was never
+    made (Python's ``None``, LabVIEW's Not a Refnum) and a number (the default of
+    a gRPC id control) both refer to nothing. ``names`` maps an exception's name
+    to the name the module writes it under. The message is built when the code
+    runs and names the value. An unwired input has none."""
     statements: list[ast.stmt] = []
-    for failure in entry.errors:
+    for failure in failures:
         if failure.invalid_input is None:
             continue
-        catalog_term = next(
-            t
-            for t in entry.terminals
-            if t.python_param == failure.invalid_input
-            and t.direction == TerminalDirection.INPUT
-        )
+        index, label = catalog.inputs[failure.invalid_input]
         call_term = next(
             (
                 t
                 for t in getattr(node, "terminals", ())
-                if t.index == catalog_term.index
-                and t.direction == TerminalDirection.INPUT
+                if t.index == index and t.direction == TerminalDirection.INPUT
             ),
             None,
         )
         value = ctx.wired_input(call_term.id, node) if call_term else None
         if value is None or value == "None":
             continue
-        text = f"{entry.name}: the input {catalog_term.name!r} is not a reference: "
+        text = f"{catalog.source}: the input {label!r} is not a reference: "
+        exception = names.get(failure.exception, failure.exception)
         [guard] = ast.parse(
-            f"if isinstance({value}, int):\n"
-            f"    raise {failure.exception}({text!r} + repr({value}))"
+            f"if isinstance({value}, (int, type(None))):\n"
+            f"    raise {exception}({text!r} + repr({value}))"
         ).body
         statements.append(guard)
     return statements
@@ -235,8 +256,14 @@ def catch_failures(
     renamed = {old: new for old, new in written.items() if old != new}
     if renamed:
         fragment.statements = [_rename(s, renamed) for s in fragment.statements]
-    if not failures or not fragment.statements:
+    if not failures:
         return fragment
+    guards = invalid_reference_guards(node, ctx, catalog, failures, written)
+    if guards and not fragment.statements:
+        _bind_to_variables(node, fragment, ctx)
+    if not fragment.statements:
+        return fragment
+    fragment.statements = [*guards, *fragment.statements]
     # With no error out wired the failure has nowhere to go: the VI's automatic
     # error handling decides. On, it stays a Python exception; off, it is
     # dropped and the run continues.
@@ -296,6 +323,27 @@ def catch_failures(
         )
     ]
     return fragment
+
+
+def _bind_to_variables(
+    node: AnyGraphNode, fragment: CodeFragment, ctx: CodeGenContext
+) -> None:
+    """Make each output of a node whose code is only expressions (``fragment`` has
+    no statements) a variable assigned by a statement, so the node's work can run
+    in the ``try`` that catches its failures: an expression bound to an output is
+    evaluated where the output is read, after the node's failure was caught."""
+    for term in getattr(node, "terminals", ()):
+        expression = fragment.bindings.get(term.id)
+        if (
+            term.direction != TerminalDirection.OUTPUT
+            or term.is_error_cluster
+            or expression is None
+            or expression.isidentifier()
+        ):
+            continue
+        variable = ctx.make_output_var(python_label(term) or "value", node.id, term.id)
+        fragment.statements.append(build_assign(variable, parse_expr(expression)))
+        fragment.bindings[term.id] = variable
 
 
 def automatic_error_handling(ctx: CodeGenContext) -> bool:

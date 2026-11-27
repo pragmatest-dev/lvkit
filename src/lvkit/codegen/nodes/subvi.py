@@ -42,7 +42,6 @@ from ..local_time_module import imports_local_time
 from ..native_failure import (
     CatalogFailures,
     catch_failures,
-    invalid_reference_guards,
     raise_unwired_error,
 )
 from ..value_copy import is_by_value_object, owned_input
@@ -115,10 +114,6 @@ def generate(node: VINode, ctx: CodeGenContext) -> CodeFragment:
             else generate_inline(node, ctx, vilib_vi)
         )
         fragment.runs_on_error = vilib_vi.runs_on_error
-        fragment.statements = [
-            *invalid_reference_guards(node, ctx, vilib_vi),
-            *fragment.statements,
-        ]
         return catch_failures(node, fragment, CatalogFailures.of_vilib(vilib_vi), ctx)
 
     parts = build_call(node, ctx, callee_name, callee_key, vilib_vi)

@@ -46,6 +46,7 @@ from .nodes.feedback import feedback_master_of
 from .nodes.front_panel_bounds import window_bounds_statement
 from .nodes.front_panel_title import window_title_statement
 from .nodes.tag_methods import tags_statements
+from .nodes.vi_file_properties import vi_file_property_statements
 from .panel_description import function_panel_statements
 from .panel_hooks import (
     PanelHooks,
@@ -55,6 +56,7 @@ from .panel_hooks import (
     function_property_enum_name,
     reads_in_frame,
 )
+from .panel_names import panel_names
 from .references import REFERENCE_KINDS, generated_nodes
 from .type_constants import share_type_constants
 from .type_default import control_default
@@ -127,6 +129,7 @@ def build_module(
     ctx.qualified_vi_name = vi_context.qualified_name
     if shared is not None:
         shared.share_with(ctx)
+    ctx.panel_names = panel_names(vi_context)
     ctx.panel_hooks = PanelHooks.for_vi(
         ctx,
         vi_context,
@@ -502,6 +505,7 @@ def build_module_ast(
     module_body.append(window_title_statement(ctx, vi_name, func_def.name))
     module_body.append(window_bounds_statement(ctx, vi_name, func_def.name))
     module_body.append(vi_name_statement(ctx, vi_name, func_def.name))
+    module_body.extend(vi_file_property_statements(ctx, vi_name, func_def.name))
     module_body.extend(tags_statements(ctx, vi_name, func_def.name))
     module_body.extend(
         function_panel_statements(

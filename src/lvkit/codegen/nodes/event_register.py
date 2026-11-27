@@ -31,17 +31,22 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.models import LVType, LVTypeKind
 
-from ..ast_utils import build_assign, parse_stmt
+from ..ast_utils import build_assign, parse_expr, parse_stmt
 from ..cluster_members import member_expression
 from ..context import CodeGenContext
+from ..error_flow import own_error_terminals
 from ..event_kinds import QUEUE_IMPORT
 from ..fragment import CodeFragment
+from ..native_failure import automatic_error_handling, labview_error
 from .event_user import events_var, has_static_events, make_events
 from .user_events import unregister_statement
 
 _USER_EVENT = "UserEvent"
 _REGISTRATION_IN = 0
 _REGISTRATION_OUT = 1
+
+# LabVIEW's "Object reference is invalid" (0x41F).
+INVALID_REFERENCE_CODE = 1055
 
 
 def generate_register(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
@@ -85,15 +90,54 @@ def generate_register(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     if old is not None:
         statements.append(unregister_statement(old, ctx, node.id))
     each = ctx.make_output_var("registered", node.id)
-    statements.append(
-        parse_stmt(
-            f"for {each} in {registration}[2]:\n    {each}.append({registration}[0])"
-        )
+    register = parse_stmt(
+        f"for {each} in {registration}[2]:\n    {each}.append({registration}[0])"
     )
     bindings = {out.id: registration} if out is not None else {}
-    return CodeFragment(
+    fragment = CodeFragment(
         statements=statements, bindings=bindings, imports={QUEUE_IMPORT}
     )
+    # A user event that is Not a Refnum cannot be registered: error 1055,
+    # "Object reference is invalid" (LabVIEW's message for 0x41F; NI forums, "One
+    # of the cluster elements was undefined and it broke the execution of the
+    # node": forums.ni.com/t5/LabVIEW/event-registration-event-handling-
+    # weirdness/m-p/3164572). No event is registered then. With no error out
+    # wired the VI's Automatic Error Handling decides, as for a native failure:
+    # on, the error is raised; off, nothing is registered and the run continues.
+    invalid_events = f"any({each} is None for {each} in {registration}[2])"
+    wired = any(ctx.is_wired(t.id) for t in own_error_terminals(node, ctx)[1])
+    if not wired and not automatic_error_handling(ctx):
+        fragment.statements.append(
+            ast.If(
+                test=parse_expr(f"not {invalid_events}"), body=[register], orelse=[]
+            )
+        )
+        return fragment
+    ctx.import_labview_error()
+    invalid = labview_error(
+        INVALID_REFERENCE_CODE,
+        node.label or node.name or "Register For Events",
+        "'a user event is Not a Refnum'",
+    )
+    if wired:
+        own_error = ctx.make_output_var("own_error", node.id)
+        fragment.statements.append(
+            ast.If(
+                test=parse_expr(invalid_events),
+                body=[build_assign(own_error, invalid)],
+                orelse=[register, build_assign(own_error, parse_expr("None"))],
+            )
+        )
+        fragment.own_error = own_error
+    else:
+        fragment.statements.append(
+            ast.If(
+                test=parse_expr(invalid_events),
+                body=[ast.Raise(exc=invalid, cause=None)],
+                orelse=[register],
+            )
+        )
+    return fragment
 
 
 def _items(

@@ -9,8 +9,10 @@ string or array behind 32-bit sizes (an array's one per dimension, the slowest
 varying first), a cluster as its members one after another, an enum as its
 number, a time stamp as the function ``flat_timestamp_source`` holds, all
 big-endian. The ``type string`` output is the type string the variant's type
-records. A type this does not write (an extended-precision number, a refnum, a
-waveform, a path, a class) raises ``NotImplementedError`` naming it.
+records. An object of a class is written by ``flatten_class`` of the package's
+``lv_classes`` module (``classes_module.py``). A type this does not write (an
+extended-precision number, another refnum, a waveform, a path) raises
+``NotImplementedError`` naming it.
 """
 
 from __future__ import annotations
@@ -106,6 +108,11 @@ def _flatten_value(value: Any, lv_type: LVType) -> bytes:
             _flatten_value(item, member)
             for item, member in zip(members, info.fields)
         )
+    is_class = info.kind == "refnum" and info.refnum == _CLASS_REFNUM_KIND
+    if is_class and value is not None:
+        # An object of a class is flattened by its own class (the package's
+        # ``lv_classes`` module).
+        return importlib.import_module(".lv_classes", __package__).flatten_class(value)
     raise _unwritable(lv_type)
 
 

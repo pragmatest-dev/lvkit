@@ -221,6 +221,10 @@ already uses a bare `=`).
   every item has the shape `<lowercase-hyphenated name>=<value>`, and as part of the
   name otherwise (`Wait (ms)`, `Random Number (0-1)`).
 - `name` is a lowercase hyphenated word from the settings table of that header's kind.
+  A setting is named with NI's own word for it on that node (Compound Arithmetic's
+  `mode`, from "Change Mode" and "the default mode is Add"), and one concept keeps
+  one word on every node that has it (`initialized` on Feedback Nodes and shift
+  registers, `stop` on While and For Loops).
   `value` is a §4 literal: `True`/`False`, a number, a quoted string, a bare enum
   item (name-safety rule, §4), or `?` when the file's value could not be read.
 - A setting at its default is omitted and restored by the reader; a setting with no

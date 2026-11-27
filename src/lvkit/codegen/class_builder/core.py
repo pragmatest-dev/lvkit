@@ -41,6 +41,7 @@ from ..type_constants import share_type_constants
 from ..type_fields import annotation_imports
 from .config import ClassConfig
 from .equality import value_equality_method
+from .flatten import _FlattenBuilderMixin
 from .init_builder import _InitBuilderMixin
 from .methods import _MethodBuilderMixin
 from .properties import _PropertyBuilderMixin
@@ -53,7 +54,12 @@ _COMMON_IMPORTS: tuple[str, ...] = (
 )
 
 
-class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin):
+class ClassBuilder(
+    _InitBuilderMixin,
+    _FlattenBuilderMixin,
+    _PropertyBuilderMixin,
+    _MethodBuilderMixin,
+):
     """Build the Python class of a LabVIEW class."""
 
     def __init__(self, config: ClassConfig | None = None) -> None:
@@ -139,6 +145,7 @@ class ClassBuilder(_InitBuilderMixin, _PropertyBuilderMixin, _MethodBuilderMixin
                 ast.Expr(value=ast.Constant(value=f"Class {Path(class_key).name}."))
             )
         body.append(class_name_statement(graph, class_key))
+        body.extend(self._build_flatten(class_key, fields))
         body.extend(self._field_annotations(model, fields, spell))
         body.append(self._build_init(model, fields, base is not None, parent_gap))
         if base is None:

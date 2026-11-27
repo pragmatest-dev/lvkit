@@ -235,7 +235,7 @@ def test_a_control_reference_reads_its_label_indicator_and_value(
         assert (result.label, result.indicator, result.value) == (
             "c",
             True,
-            variant(None, i32),
+            variant(0, i32),
         )
 
 
@@ -340,5 +340,8 @@ def test_writes_with_no_python_meaning_stay_gaps(tmp_path: Path) -> None:
     gaps: list[Gap] = []
     project.generate(gaps)
     assert [g.reason for g in gaps] == [
-        "Property 'p104013829.p103995392' on a Ctl reference has no Python equivalent"
+        "Property 'p104013829.p103995392' on a Ctl reference is written, and NI's "
+        "page says it cannot be set while the VI runs ("
+        "https://docs-be.ni.com/api/bundle/labview-api-ref/page/properties-and-methods/"
+        "vi-server/generic/gobject/decoration/text/text.html)"
     ]

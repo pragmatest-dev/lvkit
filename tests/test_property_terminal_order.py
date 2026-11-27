@@ -13,7 +13,7 @@ from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors import CodeGenError
 from lvkit.codegen.gaps import gap_fragment
 from lvkit.codegen.nodes import generate as generate_node
-from lvkit.codegen.nodes import property_node
+from lvkit.codegen.nodes import property_node, vi_reference
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode, WireEnd
 from lvkit.models import (
@@ -157,7 +157,11 @@ def test_unwired_reads_still_execute_once_and_keep_distinct_snapshots():
     source = ast.unparse(
         ast.fix_missing_locations(ast.Module(body=fragment.statements, type_ignores=[]))
     )
-    assert source.splitlines() == [
+    lines = source.splitlines()
+    # one check that the reference holds a VI (error 1026) before the reads
+    assert lines[0] == "if not callable(ref):"
+    assert lines[1].startswith("    raise LabVIEWError(code=1026, ")
+    assert lines[2:] == [
         "ref_name = ref.vi_name",
         "ref_path = inspect.getfile(ref)",
         "ref_name_2 = ref.vi_name",
@@ -271,7 +275,82 @@ def test_wired_error_terminals_are_skipped():
     connect(ctx, "error_out", "output")
     fragment = property_node.generate(node, ctx)
     assert "error_out" not in fragment.bindings
-    assert len(fragment.statements) == 2
+    # a wired error out reports a reference that is no VI (error 1026), so the
+    # two reads run in one ``try`` instead of two bare statements
+    [attempt] = fragment.statements
+    assert isinstance(attempt, ast.Try)
+    assert len(attempt.body) == 3  # one check, then the two reads
+
+
+class _LabVIEWError(Exception):
+    def __init__(self, *, code, source, message):
+        super().__init__(message)
+        self.code, self.source, self.message = code, source, message
+
+
+@pytest.mark.parametrize("rows", [[("Name", "output")], [("Path", "output")]])
+@pytest.mark.parametrize("flattened", [None, 7])
+def test_a_vi_property_read_of_a_reference_that_is_no_vi_is_error_1026(
+    rows, flattened
+):
+    """Not a Refnum (``None``) and a reference read back from its flattened
+    number (an int) hold no VI: the read gives its default and error 1026 on the
+    error out."""
+    node, ctx, namespace = vi_fixture(rows)
+    connect(ctx, "error_in", "input")
+    ctx.bind("peer_error_in", "error")
+    connect(ctx, "error_out", "output")
+    namespace.update(ref=flattened, LabVIEWError=_LabVIEWError)
+    fragment = property_node.generate(node, ctx)
+    code = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    exec(compile(code, "property-test", "exec"), namespace)
+    error = namespace[fragment.own_error]
+    assert isinstance(error, _LabVIEWError)
+    assert error.code == 1026
+    assert namespace[fragment.bindings["row_0"]] is None
+
+
+def _run_unwired_error_out(reference, *, automatic_handling: bool, monkeypatch):
+    """The generated reads of a VI reference whose node has no error out; returns
+    the namespace after running them."""
+    node, ctx, namespace = vi_fixture([("Name", "output")])
+    monkeypatch.setattr(
+        vi_reference, "automatic_error_handling", lambda _ctx: automatic_handling
+    )
+    namespace.update(ref=reference, LabVIEWError=_LabVIEWError)
+    fragment = property_node.generate(node, ctx)
+    code = ast.fix_missing_locations(
+        ast.Module(body=fragment.statements, type_ignores=[])
+    )
+    exec(compile(code, "property-test", "exec"), namespace)
+    return namespace, fragment
+
+
+@pytest.mark.parametrize("reference", [None, 7])
+def test_a_reference_that_is_no_vi_stops_a_vi_with_automatic_error_handling(
+    reference, monkeypatch
+):
+    """With no error out the VI's automatic error handling decides: on, the run
+    stops at the node with error 1026."""
+    with pytest.raises(_LabVIEWError) as stopped:
+        _run_unwired_error_out(
+            reference, automatic_handling=True, monkeypatch=monkeypatch
+        )
+    assert stopped.value.code == 1026
+
+
+@pytest.mark.parametrize("reference", [None, 7])
+def test_a_reference_that_is_no_vi_is_dropped_with_automatic_error_handling_off(
+    reference, monkeypatch
+):
+    """Off, the error is dropped: the read gives its default and the run
+    continues."""
+    namespace, fragment = _run_unwired_error_out(
+        reference, automatic_handling=False, monkeypatch=monkeypatch
+    )
+    assert namespace[fragment.bindings["row_0"]] is None
 
 
 def _generate_unwired(rows, class_name, ni_name, code):
@@ -298,8 +377,10 @@ def test_unwired_app_user_name_is_the_account_running_the_process():
 
 
 def test_an_undocumented_default_object_property_stops_generation():
-    with pytest.raises(ConversionGap, match="'App.Kind' of the default App object"):
-        _generate_unwired_app([("Value", "output")], "App.Kind", 3)
+    with pytest.raises(
+        ConversionGap, match="'App.LVTarget' of the default App object"
+    ):
+        _generate_unwired_app([("Value", "output")], "App.LVTarget", 131)
 
 
 def test_writing_a_default_object_property_stops_generation():
@@ -326,26 +407,28 @@ def test_wired_reference_without_a_value_is_an_error():
 
 def test_an_undocumented_default_object_property_becomes_a_raise():
     node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
-    node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=3)])]
+    node.properties = [
+        PropertyDef(segments=[PropertySegment(name="App.LVTarget", code=131)])
+    ]
     fragment = generate_node(node, ctx)
     module = ast.fix_missing_locations(
         ast.Module(body=fragment.statements, type_ignores=[])
     )
     source = ast.unparse(module)
     assert source.splitlines()[-1] == (
-        "raise NotImplementedError(\"Property 'App.Kind' of the default App "
+        "raise NotImplementedError(\"Property 'App.LVTarget' of the default App "
         "object has no Python equivalent\\ngap kind: unsupported_node\\nVI: \\n"
         'node: Property Node")'
     )
     assert fragment.imports == set()
     assert [g.reason for g in ctx.gaps] == [
-        "Property 'App.Kind' of the default App object has no Python equivalent"
+        "Property 'App.LVTarget' of the default App object has no Python equivalent"
     ]
 
 
 def test_the_property_code_decides_not_the_stored_name():
     with pytest.raises(ConversionGap, match="'App.UserName' of the default App"):
-        _generate_unwired_app([("Value", "output")], "App.UserName", 3)
+        _generate_unwired_app([("Value", "output")], "App.UserName", 131)
 
 
 def test_an_unwired_app_directory_path_by_its_long_name():
@@ -441,8 +524,12 @@ def test_a_property_read_on_this_application_is_the_default_object_property():
 def test_an_undocumented_property_on_this_application_is_its_own_gap():
     node, ctx, _ = fixture([("Value", "output")], ref_value=None, class_name="App")
     _wire_from_this_application(ctx)
-    node.properties = [PropertyDef(segments=[PropertySegment(name="App.Kind", code=3)])]
-    with pytest.raises(ConversionGap, match="'App.Kind' of the default App object"):
+    node.properties = [
+        PropertyDef(segments=[PropertySegment(name="App.LVTarget", code=131)])
+    ]
+    with pytest.raises(
+        ConversionGap, match="'App.LVTarget' of the default App object"
+    ):
         property_node.generate(node, ctx)
 
 

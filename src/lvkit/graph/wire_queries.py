@@ -59,7 +59,8 @@ class WireQueriesMixin:
         def acts_on_own_front_panel_window(
             self, node: AnyGraphNode, vi_name: str
         ) -> bool: ...
-        def writes_own_window_properties(
+        def reads_monitors(self, node: AnyGraphNode) -> bool: ...
+        def calls_live_io_on_own_window(
             self, node: AnyGraphNode, vi_name: str
         ) -> bool: ...
 
@@ -319,11 +320,15 @@ class WireQueriesMixin:
         a node whose catalog entry says so (a dialog box), a primitive, or a
         vi.lib VI by the path its caller records; or an Invoke Node that opens or
         closes or centers the VI's own front panel window (FP.Open, FP.Close,
-        FP.Center) or writes its Title or Window Bounds."""
+        FP.Center), or a Property Node of that window with a row that asks
+        ``live_io`` (``calls_live_io_on_own_window``), or a Property Node that
+        reads the monitors (``reads_monitors``)."""
         for node in self.iter_nodes(vi_name):
-            if self.acts_on_own_front_panel_window(
-                node, vi_name
-            ) or self.writes_own_window_properties(node, vi_name):
+            if (
+                self.acts_on_own_front_panel_window(node, vi_name)
+                or self.calls_live_io_on_own_window(node, vi_name)
+                or self.reads_monitors(node)
+            ):
                 return True
             if isinstance(node, PrimitiveNode) and node.prim_id is not None:
                 resolved = self.primitive_catalog.resolve(prim_id=node.prim_id)

@@ -3,6 +3,7 @@ and the rule that it is written only when a generated module imports it."""
 
 from __future__ import annotations
 
+import copy
 import threading
 import time
 import types
@@ -34,6 +35,23 @@ def test_send_then_wait_returns_the_value() -> None:
     assert created is True
     notifier.send(7)
     assert notifier.wait("a") == (7, False)
+
+
+def test_a_cluster_holding_a_notifier_copies_by_value_around_the_same_notifier() -> (
+    None
+):
+    """A cluster or class object is copied by value; the notifier it holds is a
+    reference, so both copies hold the one notifier and the other fields are
+    independent."""
+    notifier, _ = helper().Notifier.obtain()
+    cluster = {"notifier": notifier, "count": 1, "items": [1]}
+    other = copy.deepcopy(cluster)
+    other["count"] = 2
+    other["items"].append(2)
+    assert other["notifier"] is notifier
+    assert (cluster["count"], cluster["items"]) == (1, [1])
+    other["notifier"].send(5)
+    assert cluster["notifier"].wait("a") == (5, False)
 
 
 def test_wait_with_a_timeout_and_no_send_times_out() -> None:

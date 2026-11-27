@@ -23,11 +23,16 @@ class DefaultObjectProperty:
     """One documented property: NI's name for it, the expression that is its
     value (with ``{function}``, ``{callees}`` and ``{in_packed_library}`` for the
     generating VI's own function, the functions it calls and whether a packed
-    library holds it) and the imports that expression needs."""
+    library holds it; ``{application}`` for the Application object the property is
+    read on; ``{lv_version}`` and ``{lv_year}`` for the LabVIEW version and year
+    the VI was saved in), the imports that expression needs and the names it uses
+    from the package's ``panels`` module (imported only where the finished
+    expression uses them)."""
 
     name: str
     python: str
     imports: tuple[str, ...]
+    panels: tuple[str, ...] = ()
 
 
 @functools.cache
@@ -37,7 +42,10 @@ def _classes() -> dict[str, dict[str, DefaultObjectProperty]]:
     return {
         class_name: {
             code_path: DefaultObjectProperty(
-                entry["name"], entry["python"], tuple(entry["imports"])
+                entry["name"],
+                entry["python"],
+                tuple(entry["imports"]),
+                tuple(entry.get("panels", ())),
             )
             for code_path, entry in properties.items()
         }

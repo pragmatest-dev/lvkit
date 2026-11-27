@@ -5,7 +5,7 @@ run."""
 
 from __future__ import annotations
 
-import ast
+import queue as queue_module
 from datetime import UTC, datetime
 
 import hightime
@@ -162,30 +162,36 @@ def test_not_a_refnum_cast_or_flattened_is_four_zero_bytes() -> None:
     assert cast(_VI_REF, STR)(None).r == "\x00\x00\x00\x00"
 
 
-def test_a_live_reference_cast_or_flattened_raises_where_it_runs() -> None:
-    # A reference is a Python object (a VI reference is a function): it has no
-    # integer value, so the cast raises, naming the kind of reference.
+def _identity(reference: object) -> int:
+    return (id(reference) & 0xFFFFFFFF) or 1
+
+
+def test_a_live_reference_cast_or_flattened_is_its_identity_number() -> None:
+    # A reference is a Python object (a VI reference is a function): it is written
+    # as its identity number, 32 bits, never 0 (which means Not a Refnum).
     def live() -> None:
         return None
 
-    for target in (U32, STR):
-        with pytest.raises(NotImplementedError, match="Flatten of a VI refnum"):
-            cast(_VI_REF, target)(live)
-    with pytest.raises(
-        NotImplementedError, match="Flatten of a Data Value Reference refnum"
-    ):
-        cast(_DVR, U32)([2.5])
+    other = [2.5]
+    to_integer = cast(_VI_REF, U32)
+    assert to_integer(live).r == _identity(live) != 0
+    assert to_integer(live).r == to_integer(live).r
+    assert cast(_DVR, U32)(other).r == _identity(other)
+    assert cast(_DVR, U32)(other).r != to_integer(live).r
+    flattened = cast(_VI_REF, STR)(live).r.encode("latin-1")
+    assert flattened == _identity(live).to_bytes(4, "big")
 
 
-def test_a_parametrized_reference_names_its_element_in_the_message() -> None:
+def test_a_queue_object_flattens_to_its_identity_number() -> None:
     queue = LVType(
         kind=LVTypeKind.PRIMITIVE,
         underlying_type="Refnum",
         ref_type="Queue",
         element_type=LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="Float64"),
     )
-    with pytest.raises(NotImplementedError, match=r"a Queue refnum\{Float64\}"):
-        cast(queue, U32)([1.0])
+    made = queue_module.Queue()
+    assert cast(queue, U32)(made).r == _identity(made)
+    assert cast(queue, U32)(made).r != cast(queue, U32)(queue_module.Queue()).r
     assert cast(U32, queue)(7).r == 7
 
 
@@ -203,36 +209,12 @@ def test_a_nonzero_integer_read_into_a_reference_passes_through() -> None:
     assert cast(_VI_REF, U32)(5).r == 5
 
 
-def test_a_reference_flatten_refusal_is_composed_at_run_time() -> None:
-    source = generate(
-        {"x": _VI_REF},
-        {"r": U32},
-        [
-            node(
-                "tc",
-                1166,
-                [(0, "input", _VI_REF), (1, "input", U32), (2, "output", U32)],
-            )
-        ],
-        [("fp:x", "tc:0"), ("tc:2", "fp:r")],
-    ).source
-    raises = [
-        n.exc.args[0]
-        for n in ast.walk(ast.parse(source))
-        if isinstance(n, ast.Raise)
-        and isinstance(n.exc, ast.Call)
-        and getattr(n.exc.func, "id", "") == "NotImplementedError"
-    ]
-    assert raises
-    assert not any(isinstance(arg, ast.Constant) for arg in raises)
-
-
 def test_a_cluster_holding_a_reference_flattens_and_reads_back() -> None:
     record = cluster(("count", U16), ("ref", _VI_REF))
     assert flattened_hex((3, None), record) == "000300000000"
     assert cast(STR, record)(text(bytes.fromhex("000300000000"))).r == (3, None)
-    with pytest.raises(NotImplementedError, match="Flatten of a VI refnum"):
-        flattened_hex((3, len), record)
+    live = len
+    assert flattened_hex((3, live), record) == "0003" + f"{_identity(live):08x}"
 
 
 def test_a_reference_cast_to_another_reference_is_kept() -> None:

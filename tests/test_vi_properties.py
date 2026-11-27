@@ -79,6 +79,7 @@ from lvkit.graph.models import (
     VIContext,
     VIHealth,
     VIProperties,
+    WindowBehavior,
     WindowProps,
 )
 from lvkit.models import VIKind
@@ -437,6 +438,31 @@ class TestParseLvsrProperties:
         root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
         assert _parse_lvsr_properties(root)["window"]["window_title"] is None
 
+    @pytest.mark.parametrize(
+        ("flags", "behavior"),
+        [
+            ('WndBit2="1" WndCanClose="1"', "default"),
+            ('WndBit0="1" WndBit2="1" WndCanClose="1"', "modal"),
+            ('WndFloatUnk1="1" WndFloatUnk9="1" WndBit2="1"', "floating"),
+            (
+                'WndFloatUnk1="1" WndBit2="1" WndFloatUnk9="1" WndBit10="1"',
+                "floating_auto_hide",
+            ),
+            ('WndBit10="1"', "default"),
+        ],
+    )
+    def test_window_behavior_is_read_from_the_flags12_bits(
+        self, flags: str, behavior: str
+    ) -> None:
+        root = self._root(
+            f"<RSRC><LVSR><Section><Flags12 {flags}/></Section></LVSR></RSRC>"
+        )
+        assert _parse_lvsr_properties(root)["window"]["behavior"] == behavior
+
+    def test_window_behavior_is_default_when_flags12_is_absent(self) -> None:
+        root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
+        assert _parse_lvsr_properties(root)["window"]["behavior"] == "default"
+
     def test_window_defaults_when_front_panel_absent(self) -> None:
         root = self._root("<RSRC><LVSR><Section/></LVSR></RSRC>")
         result = _parse_lvsr_properties(root)
@@ -763,6 +789,41 @@ class TestVIPropertiesCorpus:
         _skip_if_missing(ACTOR_FRAMEWORK_DEQUEUE_VI)
         props = _context_for(ACTOR_FRAMEWORK_DEQUEUE_VI).properties
         assert props.execution.reentrancy == Reentrancy.PREALLOCATED_CLONE
+
+    @pytest.mark.needs_samples
+    @pytest.mark.parametrize(
+        ("path", "behavior"),
+        [
+            (
+                ".lvkit/cache/samples/JKI-State-Machine/examples/3 Button Dialog/"
+                "Three Button Dialog CORE - JKI.vi",
+                WindowBehavior.MODAL,
+            ),
+            (
+                ".lvkit/cache/samples/ni-labview-icon-editor/resource/plugins/"
+                "NIIconEditor/Miscellaneous/Icon Editor/Save Graphic.vi",
+                WindowBehavior.MODAL,
+            ),
+            (
+                ".lvkit/cache/samples/JKI-VI-Tester/source/Project API/"
+                "Launch VI Tester.vi",
+                WindowBehavior.FLOATING,
+            ),
+            (
+                ".lvkit/cache/samples/JSONtext/Probes/JSONtext Pretty Print.vi",
+                WindowBehavior.FLOATING_AUTO_HIDE,
+            ),
+            (
+                ".lvkit/cache/samples/JKI-EasyXML/Source/Easy Write XML File.vi",
+                WindowBehavior.DEFAULT,
+            ),
+        ],
+    )
+    def test_window_behavior_of_real_vis(
+        self, path: str, behavior: WindowBehavior
+    ) -> None:
+        _skip_if_missing(Path(path))
+        assert _context_for(Path(path)).properties.window.behavior == behavior
 
     def test_vi_kind_ordinary_vi(self) -> None:
         props = _context_for(ORDINARY_VI).properties
