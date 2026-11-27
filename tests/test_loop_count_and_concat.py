@@ -72,6 +72,25 @@ def test_an_integer_count_is_used_as_it_is():
     assert len(_for_loop_over("3", "NumInt32")) == 3
 
 
+def test_a_concatenating_tunnel_joins_each_iterations_array():
+    assert _for_loop_over("3", "NumInt32", TunnelMode.CONCATENATING) == [
+        0,
+        0,
+        1,
+        1,
+        2,
+        2,
+    ]
+
+
+def test_an_indexing_tunnel_still_stacks_the_arrays():
+    assert _for_loop_over("3", "NumInt32", TunnelMode.INDEXING) == [
+        [0, 0],
+        [1, 1],
+        [2, 2],
+    ]
+
+
 def test_a_shift_register_variable_is_not_taken_by_a_node_output():
     ctx = CodeGenContext.from_wires(
         [Wire.from_terminals(from_terminal_id="seed", to_terminal_id="lsr_outer")]

@@ -417,7 +417,13 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 value=ast.Call(
                     func=ast.Attribute(
                         value=ast.Name(id=accum_var, ctx=ast.Load()),
-                        attr="append",
+                        # A concatenating tunnel joins each iteration's array
+                        # into one array of the same dimension.
+                        attr=(
+                            "extend"
+                            if tunnel.mode == TunnelMode.CONCATENATING
+                            else "append"
+                        ),
                         ctx=ast.Load(),
                     ),
                     args=[parse_expr(inner_val)],
