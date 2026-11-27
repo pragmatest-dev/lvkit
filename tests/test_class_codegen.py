@@ -1665,7 +1665,7 @@ def test_a_reference_value_to_a_plain_vi_reads_its_result_fields(
         assert module("caller").caller(ref=module("twice").twice, seed=3).value == 3
 
 
-def test_a_member_and_a_vi_called_differently_by_one_pane_are_a_gap(
+def test_a_member_and_a_vi_called_differently_by_one_pane_are_matched_by_slot(
     tmp_path: Path,
 ) -> None:
     # The member takes its class input as `self`; the VI names it by its label.
@@ -1679,14 +1679,17 @@ def test_a_member_and_a_vi_called_differently_by_one_pane_are_a_gap(
     project.add_method("Base", "Bump", bump(BASE, 0, True), static=True)
     project.add_vi("Twice", _function(slots))
     project.add_vi("Caller", _call_held(slots))
-    gaps: list[Gap] = []
-    package = project.generate(gaps)
-    (gap,) = gaps
-    assert "Base.lvclass:Bump.vi" in gap.reason and "Twice.vi" in gap.reason
-    assert "not all called the same way" in gap.reason
+    package = project.generate()
+    assert package.gaps == []
     with package.use() as module:
-        with pytest.raises(NotImplementedError, match="not all called the same"):
-            module("caller").caller(ref=module("twice").twice, base_in=None, n=1)
+        base = module("base").Base
+        caller = module("caller").caller
+        obj = base()
+        assert caller(ref=base.bump, base_in=obj, n=4).base_out is obj
+        assert obj._Base__count == 4
+        other = base()
+        assert caller(ref=module("twice").twice, base_in=other, n=1).base_out is other
+        assert other._Base__count == 0
 
 
 def test_a_member_and_a_vi_called_the_same_way_share_the_call(

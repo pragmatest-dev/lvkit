@@ -223,6 +223,8 @@ class PrimitiveNode(GraphNode):
     # XNode only: the recorded path of its library file, from its XNXI link
     # record (parser/xnode_links.py); "" when no record names the node.
     xnode_library_path: str = ""
+    # Convert Unit node (class uCast) only: the unit string drawn on it.
+    unit: str | None = None
     # Error Ring XNode only: its configuration (parser/error_ring.py); None
     # when its StateData does not decode.
     error_ring: ErrorRing | None = None

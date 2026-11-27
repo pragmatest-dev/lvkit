@@ -234,6 +234,7 @@ PRIMITIVES = {
         *FILE_PATH_OPS,
     ],
     "connectivity:System Exec": FILE_PATH_OPS,
+    "instrument-io:VISA Open for gRPC Session.vi": VISA,
     "waveform:DWDT Digital to Boolean Array": [("ValueError", None)],
     "addons:Get LV Enum Value from Proto Value": GRPC_ENUM_VALUE,
     "addons:Get Proto Enum Value from LV Value": GRPC_ENUM_VALUE,

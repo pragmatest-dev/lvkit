@@ -49,6 +49,7 @@ from .errors_module import LABVIEW_ERROR_NAME
 from .fragment import CodeFragment
 from .import_resolver import ImportResolver
 from .label_names import python_label
+from .visa_session import invalid_session_guards, is_visa_failure
 
 if TYPE_CHECKING:
     from .context import CodeGenContext
@@ -259,6 +260,9 @@ def catch_failures(
     if not failures:
         return fragment
     guards = invalid_reference_guards(node, ctx, catalog, failures, written)
+    visa_failure = next((f for f in failures if is_visa_failure(f)), None)
+    if visa_failure is not None:
+        guards += invalid_session_guards(node, ctx, exception_name(visa_failure))
     if guards and not fragment.statements:
         _bind_to_variables(node, fragment, ctx)
     if not fragment.statements:

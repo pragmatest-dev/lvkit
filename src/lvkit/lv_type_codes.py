@@ -118,6 +118,13 @@ SIGNED_INTEGER_TYPE_NAMES: frozenset[str] = frozenset(
         TD_FULL_TYPE.NumInt64.name,
     }
 )
+# The unsigned integers with a unit (an enum or ring is stored as one): flattened
+# like the plain unsigned integer of the same width.
+UNIT_UINT_BYTE_WIDTHS: dict[str, int] = {
+    TD_FULL_TYPE.UnitUInt8.name: 1,
+    TD_FULL_TYPE.UnitUInt16.name: 2,
+    TD_FULL_TYPE.UnitUInt32.name: 4,
+}
 FLOAT_BYTE_WIDTHS: dict[str, int] = {
     TD_FULL_TYPE.NumFloat32.name: 4,
     TD_FULL_TYPE.NumFloat64.name: 8,

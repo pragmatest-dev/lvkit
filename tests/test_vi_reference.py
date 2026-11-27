@@ -8,6 +8,7 @@ writes, and the result of running that Python next to a hand-written callee.
 
 from __future__ import annotations
 
+import ast
 import builtins
 import dataclasses
 import importlib
@@ -25,16 +26,19 @@ import pytest
 
 from lvkit.codegen.ast_utils import module_part, to_function_name
 from lvkit.codegen.builder import build_module
+from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.errors_module import ERRORS_MODULE_SOURCE
 from lvkit.codegen.gaps import Gap
 from lvkit.codegen.nodes import vi_reference
+from lvkit.codegen.pane_slots import pane_parameters
 from lvkit.codegen.variants_module import VARIANTS_MODULE_SOURCE
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.describe import describe_vi
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.netlist import build_netlist_from_graph
+from lvkit.graph.node_kinds import NodeType
 from lvkit.graph.render_lvnet import render_lvnet
-from lvkit.models import LVType, LVTypeKind, ServerClass
+from lvkit.models import LVType, LVTypeKind, PaneSlot, ServerClass, Terminal
 from lvkit.module_layout import ModuleLayout
 from lvkit.pipeline import create_import_resolver
 from tests import vi_reference_diagrams as d
@@ -515,7 +519,8 @@ def test_open_vi_reference_of_an_untyped_computed_value_is_a_gap(
 ) -> None:
     loaded = _computed(tmp_path, None)
     assert _failure(loaded) == (
-        "Open VI Reference: the computed VI path is neither a path nor a string."
+        "Open VI Reference: the computed VI path is neither a path nor a string "
+        "(wire types: ['None'])."
     )
 
 
@@ -969,6 +974,197 @@ def test_a_reference_value_call_runs(tmp_path: Path) -> None:
         assert [x for x, _ in callee.calls] == [5]
 
 
+_INT = LVType(kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt32")
+_TWO_NAMINGS = (
+    "from typing import NamedTuple\n"
+    "calls = []\n"
+    "class CalleeResult(NamedTuple):\n"
+    "    y: int\n"
+    "class OtherResult(NamedTuple):\n"
+    "    q: int\n"
+    "def callee(x=None):\n"
+    "    calls.append(('callee', x))\n"
+    "    return CalleeResult(y=x + 1)\n"
+    "callee.vi_name = 'Callee.vi'\n"
+    "def other(p=None):\n"
+    "    calls.append(('other', p))\n"
+    "    return OtherResult(q=p + 2)\n"
+    "other.vi_name = 'Other.vi'\n"
+)
+
+
+_TYPEDEF = "/project/Number.ctl"
+_STALE = LVType(
+    kind=LVTypeKind.PRIMITIVE, underlying_type="NumInt16", file_key=_TYPEDEF
+)
+
+
+def _two_namings(tmp_path: Path, *, stale_copies: bool = False) -> d.Loaded:
+    """A call through a reference typed with terminals ``a`` and ``b`` (slots 0
+    and 1) whose project holds two VIs with that pane, ``Callee.vi`` (``x``, ``y``)
+    and ``Other.vi`` (``p``, ``q``). With ``stale_copies`` every terminal names the
+    loaded typedef ``Number.ctl``, which defines an I32; the reference records
+    that I32 and each VI the copy (an I16) from before the typedef last changed."""
+    wire_type = _STALE if stale_copies else _INT
+    typed = (
+        d.CALLEE_INPUT.model_copy(update={"lv_type": wire_type}),
+        d.CALLEE_OUTPUT.model_copy(update={"lv_type": wire_type}),
+    )
+    loaded = d.load(tmp_path, [_CALL], [], [_X], typed)
+    if stale_copies:
+        loaded.graph._dep_graph.add_node(  # noqa: SLF001
+            _TYPEDEF, node_type=NodeType.TYPEDEF, root_type=_INT
+        )
+    ref_type = dataclasses.replace(_INT, file_key=_TYPEDEF) if stale_copies else _INT
+    (tmp_path / "Other_BDHb.xml").write_text(d.diagram([], []), encoding="utf-8")
+    other = loaded.graph.load_vi(tmp_path / "Other_BDHb.xml")
+    assert other is not None
+    loaded.graph._vi_display_names[other] = "Other.vi"  # noqa: SLF001
+    other_node = loaded.graph._graph.nodes[other]["node"]  # noqa: SLF001
+    other_node.terminals = [
+        Terminal(id="p", index=0, direction="input", name="p", lv_type=wire_type),
+        Terminal(id="q", index=1, direction="output", name="q", lv_type=wire_type),
+    ]
+    reference = d.typed_vi_reference(("a", "b"))
+    assert reference.element_type is not None and reference.element_type.pane
+    reference.element_type.pane = tuple(
+        dataclasses.replace(slot, type=ref_type) for slot in reference.element_type.pane
+    )
+    d.type_terminal(loaded, 31, reference)
+    d.add_control(loaded, "vi_ref", reference, 31)
+    d.add_indicator(loaded, "result", _INT, 43, 0)
+    return loaded
+
+
+def test_a_call_through_a_reference_is_matched_by_pane_slot_not_by_name(
+    tmp_path: Path,
+) -> None:
+    source = _source(_two_namings(tmp_path))
+    assert "x=5" not in source and "p=5" not in source
+    for refs in _package(tmp_path, source, _TWO_NAMINGS):
+        callee = importlib.import_module("generated_refs.callee")
+        assert refs.refs(callee.callee).result == 6  # type: ignore[attr-defined]
+        assert refs.refs(callee.other).result == 7  # type: ignore[attr-defined]
+        assert callee.calls == [("callee", 5), ("other", 5)]
+
+
+def test_a_vi_holding_an_older_copy_of_a_typedef_is_still_a_candidate(
+    tmp_path: Path,
+) -> None:
+    """The VIs and the reference name the loaded typedef; the typedef's current
+    definition decides, not the copy each recorded when it was saved."""
+    source = _source(_two_namings(tmp_path, stale_copies=True))
+    assert "x=5" not in source and "p=5" not in source
+    for refs in _package(tmp_path, source, _TWO_NAMINGS):
+        callee = importlib.import_module("generated_refs.callee")
+        assert refs.refs(callee.callee).result == 6  # type: ignore[attr-defined]
+        assert refs.refs(callee.other).result == 7  # type: ignore[attr-defined]
+        assert callee.calls == [("callee", 5), ("other", 5)]
+
+
+_MEMBER_AND_FUNCTION = (
+    "from typing import Any, NamedTuple\n"
+    "calls = []\n"
+    "class MemberResult(NamedTuple):\n"
+    "    y: int\n"
+    "class Owner:\n"
+    "    def callee(self, x=None):\n"
+    "        calls.append(('callee', self, x))\n"
+    "        return MemberResult(y=x + 1)\n"
+    "Owner.callee.vi_name = 'Owner.lvclass:Callee.vi'\n"
+    "class OtherResult(NamedTuple):\n"
+    "    q: int\n"
+    "    obj_out: Any\n"
+    "def other(p=None, obj=None):\n"
+    "    calls.append(('other', obj, p))\n"
+    "    return OtherResult(q=p + 2, obj_out=obj)\n"
+    "other.vi_name = 'Other.vi'\n"
+)
+
+
+def _member_and_function(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> d.Loaded:
+    """A call through a reference typed with an input and an output (slots 0 and
+    1) and an object in and out of the class ``Owner`` (slots 2 and 3). The
+    project holds two VIs with that pane: ``Callee.vi``, a member of ``Owner``
+    (``x``, ``y``, the class input and output) and ``Other.vi``, a plain VI
+    (``p``, ``q``, ``obj``, ``obj out``)."""
+    loaded = d.load(
+        tmp_path, [d.call_through_reference(30, callee_errors=True)], [], [_X]
+    )
+    class_key = d.own_by_class(loaded, "Owner.lvclass", is_static=True)
+    # The member's diagram (none here) wires its class input to its class output.
+    monkeypatch.setattr(
+        "lvkit.codegen.class_model.carries_receiver", lambda *args, **kw: True
+    )
+    owner = LVType(
+        kind=LVTypeKind.PRIMITIVE,
+        underlying_type="Refnum",
+        ref_type="UDClassInst",
+        classname="Owner.lvclass",
+        file_key=class_key,
+    )
+
+    def pane(names: tuple[str, str, str, str]) -> list[Terminal]:
+        return [
+            Terminal(id="a", index=0, direction="input", name=names[0], lv_type=_INT),
+            Terminal(id="b", index=1, direction="output", name=names[1], lv_type=_INT),
+            Terminal(id="c", index=2, direction="input", name=names[2], lv_type=owner),
+            Terminal(id="e", index=3, direction="output", name=names[3], lv_type=owner),
+        ]
+
+    callee_node = loaded.graph._graph.nodes[loaded.callee]["node"]  # noqa: SLF001
+    callee_node.terminals = pane(("x", "y", "owner", "owner out"))
+    (tmp_path / "Other_BDHb.xml").write_text(d.diagram([], []), encoding="utf-8")
+    other = loaded.graph.load_vi(tmp_path / "Other_BDHb.xml")
+    assert other is not None
+    loaded.graph._vi_display_names[other] = "Other.vi"  # noqa: SLF001
+    other_node = loaded.graph._graph.nodes[other]["node"]  # noqa: SLF001
+    other_node.terminals = pane(("p", "q", "obj", "obj out"))
+    reference = d.typed_vi_reference(("a", "b"))
+    assert reference.element_type is not None
+    reference.element_type.pane = (
+        PaneSlot(0, False, _INT, "a"),
+        PaneSlot(1, True, _INT, "b"),
+        PaneSlot(2, False, owner, "c"),
+        PaneSlot(3, True, owner, "e"),
+    )
+    d.type_terminal(loaded, 31, reference)
+    d.add_control(loaded, "vi_ref", reference, 31)
+    d.add_control(loaded, "obj", owner, 45, "obj")
+    d.add_indicator(loaded, "result", _INT, 43, 0)
+    d.add_indicator(loaded, "obj_out", owner, 47, 1)
+    return loaded
+
+
+def test_a_call_through_a_reference_reaches_a_member_vi_and_a_plain_vi_by_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A member VI is the function on its class, called with its object as
+    ``self``; the class output of a method is the object it was called on."""
+    source = _source(_member_and_function(tmp_path, monkeypatch))
+    assert "x=5" not in source and "p=5" not in source
+    assert (
+        "'Owner.lvclass:Callee.vi': ({0: 'x', 2: 'self'}, {1: 'y'}, {3: 2})" in source
+    )
+    for refs in _package(tmp_path, source, _MEMBER_AND_FUNCTION):
+        module = importlib.import_module("generated_refs.callee")
+        owner = module.Owner()
+        member = refs.refs(module.Owner.callee, owner)  # type: ignore[attr-defined]
+        assert (member.result, member.obj_out) == (6, owner)
+        plain = refs.refs(module.other, owner)  # type: ignore[attr-defined]
+        assert (plain.result, plain.obj_out) == (7, owner)
+        assert module.calls == [("callee", owner, 5), ("other", owner, 5)]
+
+
+def test_a_member_vi_and_a_plain_vi_with_one_name_that_name_slots_differently_is_a_gap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    loaded = _member_and_function(tmp_path, monkeypatch)
+    other = next(k for k in loaded.graph.list_vis() if k.endswith("Other_BDHb.xml"))
+    loaded.graph._vi_display_names[other] = "Owner.lvclass:Callee.vi"  # noqa: SLF001
+    assert "cannot be told apart by its name" in _failure(loaded)
+
+
 def test_a_call_by_reference_with_its_vi_chosen_in_the_setup_is_a_direct_call(
     tmp_path: Path,
 ) -> None:
@@ -1372,3 +1568,10 @@ def test_path_on_a_reference_that_is_not_a_vi_server_vi_stays_a_gap(
     assert _failure(loaded) == (
         "Property 'Path' on a Foo Interface Type 0 reference has no Python equivalent"
     )
+
+
+def test_a_started_call_matched_by_pane_slot_passes_the_slot_arguments() -> None:
+    keyword = pane_parameters("_t", "ref", [(0, "x")])
+    ctx = CodeGenContext()
+    call = vi_reference.start_forgotten(ctx, "ref", [keyword])
+    assert "kwargs={**{_t[ref.vi_name][0][0]: x}}" in ast.unparse(call)

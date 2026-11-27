@@ -13,7 +13,9 @@ target"); its ``name`` is Application:Name, "Filename of the application"
 The VIs in memory (application/allvisinmemory.html: "Returns a list of VIs in memory
 for the specified application instance") are the VI functions the program has
 imported: ``loaded_vis()`` finds them in ``sys.modules`` by the ``vi_name`` each
-carries and gives them sorted by that name; a VI reference is the function itself.
+carries and gives those names, sorted. The property's output in the VIs that read
+it is an array of String, and they pass each item to Open VI Reference or compare
+it with a VI name; ``vi_name`` is the qualified name that lookup takes.
 """
 
 APPLICATION_NAME = "application"
@@ -41,9 +43,9 @@ class Application:
 application = Application()
 
 
-def loaded_vis() -> list[Any]:
-    """Application:All VIs In Memory: the VI functions imported in this program,
-    sorted by ``vi_name``, each once."""
+def loaded_vis() -> list[str]:
+    """Application:All VIs In Memory: the names of the VIs imported in this
+    program, sorted, each once."""
     found: dict[int, Any] = {}
     for module in list(sys.modules.values()):
         for member in list(vars(module).values()):
@@ -51,5 +53,5 @@ def loaded_vis() -> list[Any]:
                 getattr(member, "vi_name", None), str
             ):
                 found[id(member)] = member
-    return sorted(found.values(), key=lambda function: function.vi_name)
+    return sorted({function.vi_name for function in found.values()})
 '''

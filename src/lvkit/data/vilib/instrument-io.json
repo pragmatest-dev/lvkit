@@ -1,6 +1,6 @@
 {
   "category": "Instrument I/O",
-  "count": 61,
+  "count": 62,
   "entries": [
     {
       "name": "VISA Write Function",
@@ -3458,6 +3458,99 @@
       "python_hint": null,
       "status": "needs_review",
       "terminals": []
+    },
+    {
+      "name": "VISA Open for gRPC Session.vi",
+      "vi_path": "<vilib>/NI-VISA/VISA Open for gRPC Session.vi",
+      "category": "Instrument I/O",
+      "description": "Opens a VISA session through the NI gRPC Device Server. Sources (public): the terminal indices are those the corpus callers' call nodes record (measurement-plugin-labview); NI grpc-device wiki 'Sharing Driver Sessions Between Clients': to use gRPC remoting with NI-VISA 2024Q2 or later, pass the VISA resource name grpc://{address}/{resource_name}?init_behavior={init_behavior}&session_name={session_name}, and 'VISA Open for gRPC Session.vi' or 'VISA Format gRPC URI.vi' builds it; init_behavior 0 = attach to the session of that name if it exists, else create one, and close or detach automatically; 1 = initialize and close; 2 = attach and detach; 3 = initialize and detach; 4 = attach and close (the open/close behavior enum's items, in order: Auto, Initialize and Close, Attach and Detach, Initialize and Detach, Attach and Close). The gRPC options cluster is session name, address (localhost) and port (31763): an empty address is localhost and a port of 0 is 31763, the defaults its labels name. The open is VISA Open of that name with the open timeout and access mode, through pyvisa; no public document says pyvisa accepts a grpc:// name, it passes the name to NI-VISA's viOpen unchanged.",
+      "is_polymorphic": false,
+      "python_hint": null,
+      "status": "resolved",
+      "terminals": [
+        {
+          "name": "error out",
+          "index": 0,
+          "direction": "output",
+          "type": "ErrorCluster",
+          "enum_values": null,
+          "python_param": "error_out"
+        },
+        {
+          "name": "VISA resource name out",
+          "index": 3,
+          "direction": "output",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "visa_resource_name_out"
+        },
+        {
+          "name": "gRPC Options",
+          "index": 6,
+          "direction": "input",
+          "type": "Cluster",
+          "enum_values": null,
+          "python_param": "grpc_options"
+        },
+        {
+          "name": "VISA Open timeout (0)",
+          "index": 7,
+          "direction": "input",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "visa_open_timeout",
+          "default": 0
+        },
+        {
+          "name": "error in (no error)",
+          "index": 8,
+          "direction": "input",
+          "type": "ErrorCluster",
+          "enum_values": null,
+          "python_param": "error_in"
+        },
+        {
+          "name": "access mode (VISA Defaults)",
+          "index": 9,
+          "direction": "input",
+          "type": "NumUInt32",
+          "enum_values": null,
+          "python_param": "access_mode",
+          "default": 0
+        },
+        {
+          "name": "open/close behavior",
+          "index": 10,
+          "direction": "input",
+          "type": "NumUInt16",
+          "enum_values": null,
+          "python_param": "open_close_behavior",
+          "default": 0
+        },
+        {
+          "name": "VISA resource name",
+          "index": 11,
+          "direction": "input",
+          "type": "Refnum",
+          "enum_values": null,
+          "python_param": "visa_resource_name"
+        }
+      ],
+      "match_names": [
+        "VISA Open for gRPC Session.vi"
+      ],
+      "imports": [
+        "import pyvisa"
+      ],
+      "errors": [
+        {
+          "exception": "VisaIOError",
+          "module": "pyvisa.errors",
+          "code_attribute": "error_code"
+        }
+      ],
+      "python_code": "_options = {grpc_options}\n_session, _address, _port = tuple(vars(_options).values()) if hasattr(_options, '__dict__') else tuple(_options)\n_uri = 'grpc://' + (_address or 'localhost') + ':' + str(_port or 31763) + '/' + str({visa_resource_name}) + '?init_behavior=' + str(int({open_close_behavior})) + '&session_name=' + str(_session)\n{visa_resource_name_out} = pyvisa.ResourceManager().open_resource(_uri, {access_mode}, {visa_open_timeout})",
+      "inline": true
     }
   ]
 }

@@ -1966,6 +1966,30 @@ class FormulaNodeHandler(NodeTypeHandler):
         return FormulaNode(**common, script=script)
 
 
+@dataclass
+class UnitCastNode(ParsedNode):
+    """A Convert Unit node (class="uCast"): ``unit`` is the unit string drawn on
+    the node (its ``textNodeLabel``'s text, VI Server class UnitCast, property
+    Unit), None when the diagram records none."""
+
+    unit: str | None = None
+
+
+class UnitCastHandler(NodeTypeHandler):
+    """Handler for Convert Unit nodes (class="uCast")."""
+
+    xml_class = "uCast"
+    display_name = "Convert Unit"
+
+    def parse(self, elem: ET.Element) -> UnitCastNode:
+        common = self._extract_common(elem)
+        text_elem = elem.find("textNodeLabel/textRec/text")
+        unit = None
+        if text_elem is not None and text_elem.text is not None:
+            unit = clean_labview_string(text_elem.text).strip()
+        return UnitCastNode(**common, unit=unit)
+
+
 class ExpressionNodeHandler(NodeTypeHandler):
     """Handler for Expression Nodes (class="exprNode")."""
 
@@ -2095,6 +2119,7 @@ _HANDLERS: list[NodeTypeHandler] = [
     StatVIRefHandler(),
     FormulaNodeHandler(),
     ExpressionNodeHandler(),
+    UnitCastHandler(),
     DecomposeClusterHandler(),
     DecomposeArrayHandler(),
     MapAccessHandler(),

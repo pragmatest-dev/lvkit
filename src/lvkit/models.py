@@ -28,6 +28,7 @@ from pydantic import BaseModel
 from .control_classes import vi_server_class
 from .conversion_gap import ConversionGap
 from .dotnet_types import DotNetType
+from .dynamic_data import DYNAMIC_DATA_ANNOTATION, DYNAMIC_DATA_FLAVOR
 from .lv_type_codes import (
     BOOLEAN_TYPE_NAMES,
     COMPLEX_TYPE_NAMES,
@@ -466,6 +467,14 @@ class LVType:
             and self.measure_flavor == TIMESTAMP_FLAVOR
         )
 
+    @property
+    def is_dynamic_data(self) -> bool:
+        """Whether this is the dynamic data type."""
+        return (
+            self.underlying_type == "MeasureData"
+            and self.measure_flavor == DYNAMIC_DATA_FLAVOR
+        )
+
     def is_named_scalar(self) -> bool:
         """Whether this is a typedef of a single value (a numeric, string,
         Boolean, Path, ...): a named type with no members, so its name stands
@@ -537,6 +546,8 @@ class LVType:
         if self.kind == LVTypeKind.PRIMITIVE:
             if self.is_timestamp:
                 return "hightime.datetime"
+            if self.is_dynamic_data:
+                return DYNAMIC_DATA_ANNOTATION
             return _LV_TO_PYTHON_TYPE.get(self.underlying_type or "", "Any")
         elif self.kind == LVTypeKind.ARRAY:
             inner = self.element_type.to_python(names) if self.element_type else "Any"

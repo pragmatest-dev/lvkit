@@ -425,9 +425,10 @@ def add_indicator(
     )
 
 
-def own_by_class(loaded: Loaded, class_name: str) -> None:
+def own_by_class(loaded: Loaded, class_name: str, *, is_static: bool = False) -> str:
     """The callee is a method of the class ``class_name``, whose file sits in the
-    callee's folder."""
+    callee's folder (the class's key is returned); ``is_static`` makes it a static
+    dispatch member, which a call by reference can call."""
     from lvkit.graph.membership import ListedMethod
     from lvkit.graph.node_kinds import NodeType
 
@@ -436,7 +437,7 @@ def own_by_class(loaded: Loaded, class_name: str) -> None:
     graph._dep_graph.add_node(class_key, node_type=NodeType.CLASS)  # noqa: SLF001
     listed = ListedMethod(
         scope="public",
-        is_static=False,
+        is_static=is_static,
         is_accessor=False,
         accessor_field=None,
         accessor_path=None,
@@ -446,3 +447,4 @@ def own_by_class(loaded: Loaded, class_name: str) -> None:
     graph._record_members(class_key, {loaded.callee: listed})  # noqa: SLF001
     graph._vi_display_names[loaded.callee] = f"{class_name}:{CALLEE_NAME}"  # noqa: SLF001
     graph._vi_display_names[class_key] = class_name  # noqa: SLF001
+    return class_key

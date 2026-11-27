@@ -67,6 +67,7 @@ def run_catalog_call(
     instance_defaults: dict[int, str | None] | None = None,
     classes: Mapping[str, str] | None = None,
     typedefs: Mapping[str, str] | None = None,
+    call_by_reference: bool = False,
 ) -> tuple[str, Any]:
     """The generated caller's source and the result of running it.
 
@@ -87,6 +88,8 @@ def run_catalog_call(
     with the source of the module generated for it, written beside the caller.
     ``typedefs`` does the same for typedef controls (``Animal.ctl``); a type whose
     ``file_key`` is ``/Animal.ctl`` is that file's class.
+    ``call_by_reference`` makes the call a Call By Reference node whose setup chooses
+    the VI (the VI is not loaded, no reference is wired).
     """
     key = "/" + "/".join(recorded)
     file_name = recorded[-1]
@@ -126,8 +129,9 @@ def run_catalog_call(
         id="call",
         vi_path="caller.vi",
         name=file_name,
-        node_type="iUse",
-        callee_key=key,
+        node_type="callByRefNode" if call_by_reference else "iUse",
+        callee_key=None if call_by_reference else key,
+        qualified_path="/".join(recorded) if call_by_reference else None,
         instance_defaults=instance_defaults,
         terminals=[
             FPTerminal(

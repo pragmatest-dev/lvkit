@@ -49,6 +49,21 @@ class CallForm:
     receiver_out: int | None
     class_key: str | None
     member: MethodShape | None = None
+    receiver_in: int | None = None
+
+    @property
+    def passed_on(self) -> tuple[tuple[int, int], ...]:
+        """``(output slot, input slot)`` of the class output that is the object the
+        call was made on (the method changed it in place): the output has no field
+        of the result, it is the value given at the class input."""
+        if self.receiver_out is None or self.receiver_in is None:
+            return ()
+        return ((self.receiver_out, self.receiver_in),)
+
+    @property
+    def output_slots(self) -> set[int]:
+        """The pane indices of every output a call of this VI gives a value for."""
+        return {i for i, _ in self.fields} | {o for o, _ in self.passed_on}
 
     def same_call(self, other: CallForm) -> bool:
         """Whether one generated call is right for both."""
@@ -73,13 +88,13 @@ class Candidates:
 
     forms: dict[str, CallForm]
 
-    @property
-    def members(self) -> list[str]:
-        return sorted(k for k, f in self.forms.items() if f.member is not None)
-
     def one_form(self) -> CallForm | None:
-        """The call right for every candidate, or None when they differ."""
+        """The call right for every candidate, or None when there is none or they
+        differ (the call is then matched by pane slot, ``pane_slots``: a method of
+        a class is a function on its class that takes its object as ``self``)."""
         forms = list(self.forms.values())
+        if not forms:
+            return None
         first = forms[0]
         if all(first.same_call(f) for f in forms[1:]):
             return next((f for f in forms if f.member is not None), first)
@@ -117,6 +132,7 @@ def _method_form(shape: MethodShape) -> CallForm:
         receiver_out=None if shape.returns_receiver else shape.receiver_out,
         class_key=shape.class_key if shape.receiver_in is not None else None,
         member=shape,
+        receiver_in=shape.receiver_in,
     )
 
 

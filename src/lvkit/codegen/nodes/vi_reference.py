@@ -57,6 +57,7 @@ from lvkit.graph.vi_reference import (
 from lvkit.models import LVType, PaneSlot, PropertyDef, Terminal
 from lvkit.vi_files import class_stem
 
+from .. import error_flow
 from ..ast_utils import (
     GENERATED_MODULE_NAMES,
     build_assign,
@@ -80,9 +81,11 @@ from ..errors import CodeGenError
 from ..fragment import CodeFragment
 from ..import_resolver import ImportResolver
 from ..native_failure import automatic_error_handling, labview_error
-from ..pane_candidates import CallForm, candidates
+from ..pane_candidates import CallForm, Candidates, candidates
+from ..pane_slots import pane_parameters, pane_result, pane_slots_table
 from ..panels_application import APPLICATION_NAME
 from ..panels_module import PANEL_CALL_IMPORTS, PANEL_OF_NAME
+from ..value_copy import owned_input
 from . import (
     application_properties,
     front_panel_bounds,
@@ -230,7 +233,8 @@ def _static_call(node: VINode, ctx: CodeGenContext, target: ReferencedVI) -> _Ca
 
 def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call:
     """A call of the function the reference holds when the code runs, with the
-    keyword names its strictly typed refnum records for the connector pane."""
+    keyword names of the project's VIs with its connector pane, else those its
+    strictly typed refnum records."""
     function = ctx.wired_input(reference.id, node)
     pane = pane_of(reference.lv_type)
     if function is None or pane is None:
@@ -247,67 +251,98 @@ def _value_call(node: VINode, ctx: CodeGenContext, reference: Terminal) -> _Call
             node,
         )
     assert ctx.graph is not None and ctx.vi_name is not None
-    form = _one_form(node, ctx, pane)
+    found = candidates(ctx.graph, pane, ctx.vi_name)
+    form = found.one_form()
     if form is not None and form.member is not None:
         call = method_call.build_call(node, ctx, form.member, receiver_keyword="self")
         result_var = call.result_var or ctx.make_output_var(
             "vi_reference_result", node.id
         )
         return _Call(function, call.keywords, result_var, call.bindings, call.prelude)
+    # The VIs of the project with this pane are called alike (``form``), or the
+    # project has none (the pane's labels), or they differ and the call reads the
+    # names from the function it holds (``pane_slots``), a member VI of a class
+    # being the function on its class.
+    table = _pane_table(node, ctx, found) if form is None and found.forms else None
     names = (
         CalleeNames(parameters=dict(form.keywords), fields=dict(form.fields))
         if form is not None
         else pane_names(pane)
     )
     labelled = {slot.index for slot in pane if slot.name}
+    if table is not None:
+        in_slots = set.intersection(
+            *({i for i, _ in f.keywords} for f in found.forms.values())
+        )
+        out_slots = set.intersection(*(f.output_slots for f in found.forms.values()))
+        object_slots = {slot for f in found.forms.values() for _, slot in f.passed_on}
+    arguments: list[tuple[int, str]] = []
     keywords: list[ast.keyword] = []
+    prelude: list[ast.stmt] = []
     result_var = ctx.make_output_var("vi_reference_result", node.id)
     bindings: dict[str, str] = {}
+    outputs: list[Terminal] = []
     for term in ctx.enriched_terminals(node):
         if term.index is None or term.index < 0:
             continue
-        if term.index not in labelled:
-            continue
-        if term.index not in (
+        if table is not None:
+            if term.index not in (in_slots if term.direction == "input" else out_slots):
+                continue
+        elif term.index not in labelled or term.index not in (
             names.parameters if term.direction == "input" else names.fields
         ):
             continue
         if term.direction == "input":
-            value = ctx.wired_input(term.id, node)
-            if value is not None:
+            # A class object or named cluster is a value in LabVIEW and the
+            # called VI may change it in place: a copy when the wire is shared.
+            value = owned_input(ctx, term, node, prelude)
+            if value is None:
+                continue
+            if table is not None:
+                arguments.append((term.index, value))
+            else:
                 keywords.append(
                     ast.keyword(
                         arg=names.parameters[term.index], value=parse_expr(value)
                     )
                 )
+        elif table is not None:
+            outputs.append(term)
         else:
             bindings[term.id] = f"{result_var}.{names.fields[term.index]}"
-    return _Call(function, keywords, result_var, bindings)
+    if table is not None:
+        given = {slot: value for slot, value in arguments if slot in object_slots}
+        for term in outputs:
+            assert term.index is not None
+            bindings[term.id] = pane_result(
+                table, function, result_var, term.index, given
+            )
+        if arguments:
+            keywords.append(pane_parameters(table, function, arguments))
+    return _Call(function, keywords, result_var, bindings, prelude)
 
 
-def _one_form(
-    node: VINode, ctx: CodeGenContext, pane: tuple[PaneSlot, ...]
-) -> CallForm | None:
-    """The call right for every VI of the project the reference value can hold
-    (``pane_candidates``): the VIs with the reference's connector pane, each
-    named as its own function or method names its terminals. None when the
-    project has no such VI (the call names them by the pane's labels); a gap
-    when they are not all called the same way."""
-    assert ctx.graph is not None and ctx.vi_name is not None
-    found = candidates(ctx.graph, pane, ctx.vi_name)
-    if not found.forms:
-        return None
-    form = found.one_form()
-    if form is None:
-        shown = ", ".join(ctx.graph.vi_display_name(k) for k in sorted(found.forms))
-        raise ConversionGap(
-            f"{_label(node)}: the VI the reference holds is only known when the "
-            f"diagram runs, and the project's VIs with its connector pane ({shown}) "
-            "are not all called the same way: their parameters or results are "
-            "named differently, or a method of a class takes its object as self.",
-            node,
-        )
-    return form
+def _pane_table(node: VINode, ctx: CodeGenContext, found: Candidates) -> str:
+    """The module-level table (``pane_slots``) of the function VIs of ``found``,
+    by VI name, and its name. Two of them with one name that name their slots
+    differently cannot be told apart by ``vi_name``: a gap."""
+    assert ctx.graph is not None
+    forms: dict[str, CallForm] = {}
+    for key in sorted(found.forms):
+        name = ctx.graph.vi_display_name(key)
+        form = found.forms[key]
+        if name in forms and not form.same_call(forms[name]):
+            raise ConversionGap(
+                f"{_label(node)}: the project's VIs with the reference's connector "
+                f"pane include two named {name!r} that name their terminals "
+                "differently, so the VI the reference holds cannot be told apart "
+                "by its name.",
+                node,
+            )
+        forms[name] = form
+    table = ctx.make_output_var("pane_slots", node.id)
+    pane_slots_table(ctx, table, node.id, forms)
+    return table
 
 
 def _input_terminal(node: PrimitiveNode, index: int) -> Terminal | None:
@@ -324,6 +359,17 @@ def pane_of(lv_type: LVType | None) -> tuple[PaneSlot, ...] | None:
     return lv_type.element_type.pane
 
 
+def _setup_names_catalog_vi(node: VINode, ctx: CodeGenContext) -> bool:
+    """Whether the node calls the VI its setup chooses (no reference wired, the
+    VI not loaded with the caller) and the vi.lib catalog has that VI."""
+    if node.callee_key is not None or not node.qualified_path:
+        return False
+    reference = _frame_terminal(node, ctx, CALL_REFERENCE_IN)
+    if reference is not None and ctx.is_wired(reference.id):
+        return False
+    return ctx.vilib_catalog.resolve_recorded(ctx.catalog_path(node)) is not None
+
+
 def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     """Call By Reference, or Start Asynchronous Call: a call of the function of
     the VI the reference holds, found when the code is generated or, when the
@@ -332,6 +378,19 @@ def generate_call(node: VINode, ctx: CodeGenContext) -> CodeFragment:
     assert ctx.graph is not None
     options: int | None = None
     known_when_generated = True
+    if style is CallStyle.CALL and _setup_names_catalog_vi(node, ctx):
+        # The VI chosen in the node's setup is a vi.lib VI the catalog writes
+        # the code of: the node is a call of it like any other call of it. Its
+        # own error in and out are the called VI's connector pane ones (index
+        # 0 up); the node's own error in and out (``error_flow.guard`` in the
+        # dispatcher) stay around the call.
+        pane = node.model_copy(
+            update={
+                "node_type": "iUse",
+                "terminals": [t for t in node.terminals if t.index >= 0],
+            }
+        )
+        return error_flow.guard(pane, subvi.generate(pane, ctx), ctx)
     if node.callee_key is not None:
         # The VI is chosen in the node's setup; the caller records it.
         name = node.qualified_name or Path(node.callee_key).name
@@ -459,7 +518,10 @@ def start_forgotten(
             ast.keyword(
                 arg="kwargs",
                 value=ast.Dict(
-                    keys=[ast.Constant(value=k.arg) for k in keywords],
+                    keys=[
+                        None if k.arg is None else ast.Constant(value=k.arg)
+                        for k in keywords
+                    ],
                     values=[k.value for k in keywords],
                 ),
             ),
@@ -795,16 +857,31 @@ def _computed_by_name(path_term: Terminal, ctx: CodeGenContext) -> bool:
     path; anything else stops generation."""
     assert ctx.graph is not None
     kinds: set[str | None] = set()
-    for _, source in ctx.graph.wire_origins(path_term.id):
-        origin = ctx.graph.get_terminal(source.terminal_id)
-        kinds.add(origin.lv_type.underlying_type if origin and origin.lv_type else None)
+    for source in ctx.graph.incoming_edges(path_term.id):
+        # The terminal that feeds the node: a loop's indexing tunnel inside the
+        # loop carries one element of the array outside it.
+        feeder = ctx.graph.get_terminal(source.terminal_id)
+        if feeder is None or feeder.lv_type is None:
+            origins = ctx.graph.wire_origins(path_term.id)
+            kinds.update(_underlying(ctx, s.terminal_id) for _, s in origins)
+        else:
+            kinds.add(feeder.lv_type.underlying_type)
     if kinds == {"String"}:
         return True
     if kinds == {"Path"}:
         return False
     raise ConversionGap(
-        "Open VI Reference: the computed VI path is neither a path nor a string.",
+        "Open VI Reference: the computed VI path is neither a path nor a string "
+        f"(wire types: {sorted(str(k) for k in kinds)}).",
     )
+
+
+def _underlying(ctx: CodeGenContext, terminal_id: str) -> str | None:
+    assert ctx.graph is not None
+    terminal = ctx.graph.get_terminal(terminal_id)
+    if terminal is None or terminal.lv_type is None:
+        return None
+    return terminal.lv_type.underlying_type
 
 
 def vi_property_read(

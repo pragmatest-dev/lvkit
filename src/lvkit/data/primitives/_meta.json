@@ -326,7 +326,7 @@
     "mergeSignal": {
       "name": "Merge Signals",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/merge-signals.html",
-      "gap_reason": "Merge Signals gives dynamic data, and generated Python has no form for dynamic data: NI says only that an array of waveforms composes it, with each input signal one or more elements, and does not say what start time and attributes a scalar input is given"
+      "op": "MERGE_SIGNALS"
     }
   }
 }

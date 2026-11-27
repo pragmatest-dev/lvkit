@@ -26,6 +26,7 @@ from lvkit.parser.node_types import (
     SharedVariableAccess,
     SharedVariableTerminal,
     SubVINode,
+    UnitCastNode,
     XNodeNode,
 )
 from lvkit.parser.node_types import (
@@ -224,6 +225,8 @@ class PrimitiveBuildHandler(NodeBuildHandler):
                     for input_uid, output_uid in node.call.row_terminal_ids
                 ),
             )
+        elif isinstance(node, UnitCastNode):
+            prim_kwargs["unit"] = node.unit
         elif isinstance(node, XNodeNode):
             # An XNode (#107) carries no object_method_id/bound-control
             # concept -- just its own real class + (for "Invoke Method")

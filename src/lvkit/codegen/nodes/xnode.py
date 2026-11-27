@@ -13,10 +13,13 @@ from lvkit.parser.error_ring import ERROR_RING_PATH
 
 from ..context import CodeGenContext
 from ..fragment import CodeFragment
-from . import error_ring, primitive
+from . import error_ring, match_regular_expression, primitive
 
 _GENERATORS: dict[str, Callable[[PrimitiveNode, CodeGenContext], CodeFragment]] = {
     ERROR_RING_PATH: error_ring.generate,
+    match_regular_expression.MATCH_REGULAR_EXPRESSION_PATH: (
+        match_regular_expression.generate
+    ),
 }
 
 
