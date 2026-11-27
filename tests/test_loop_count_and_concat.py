@@ -1,5 +1,6 @@
-"""Shift-register variable names in generated loops: each case generates a loop
-from a tiny diagram and runs or inspects the code."""
+"""For Loop count conversion, concatenating output tunnels and shift-register
+variable names: each case generates a loop from a tiny diagram and runs or
+inspects the code."""
 
 from __future__ import annotations
 
@@ -7,9 +8,68 @@ import ast
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
-from lvkit.graph.models import Wire
-from lvkit.models import Tunnel
-from tests.test_loop_codegen import _mk_loop
+from lvkit.graph.models import PrimitiveNode, Wire
+from lvkit.models import LVType, LVTypeKind, Terminal, Tunnel, TunnelMode
+from tests.helpers import register_nodes
+from tests.test_loop_codegen import _mk_loop, _output_tunnel, _run_statements
+
+
+def _number(name: str) -> LVType:
+    return LVType(kind=LVTypeKind.PRIMITIVE, underlying_type=name)
+
+
+def _for_loop_over(count_expr: str, count_type: str, mode=TunnelMode.INDEXING):
+    """A For loop whose count is the expression ``count_expr`` (a source node's
+    output of type ``count_type``); its output tunnel collects ``[i, i]``."""
+    data_flow = [
+        Wire.from_terminals(from_terminal_id="n_src", to_terminal_id="n_outer"),
+        Wire.from_terminals(from_terminal_id="val_src", to_terminal_id="out_inner"),
+    ]
+    ctx = CodeGenContext.from_wires(data_flow)
+    source = PrimitiveNode(
+        vi_path="test.vi",
+        id="src",
+        name="Source",
+        prim_id=1,
+        terminals=[
+            Terminal(
+                id="n_src",
+                index=0,
+                direction="output",
+                lv_type=_number(count_type),
+            )
+        ],
+    )
+    register_nodes(ctx.graph, [source])
+    ctx.graph._term_to_node["n_src"] = "src"  # the typed node owns the terminal
+    ctx.bind("n_src", count_expr)
+    ctx.bind("val_src", "[i, i]")
+    loop_op = _mk_loop(
+        ctx,
+        loop_type="forLoop",
+        tunnels=[
+            Tunnel(
+                outer_terminal_uid="n_outer",
+                inner_terminal_uid="n_inner",
+                tunnel_type="lMax",
+            )
+        ],
+        terminals=[*_output_tunnel("out_outer", "out_inner", mode)],
+    )
+    fragment = loop.generate(loop_op, ctx)
+    result = _run_statements(fragment.statements)
+    return result[fragment.bindings["out_outer"]]
+
+
+def test_a_float_count_is_rounded_to_nearest_ties_to_even():
+    assert len(_for_loop_over("2.5", "NumFloat64")) == 2
+    assert len(_for_loop_over("3.5", "NumFloat64")) == 4
+    assert len(_for_loop_over("0.3 * 10", "NumFloat64")) == 3
+    assert len(_for_loop_over("-1.2", "NumFloat64")) == 0
+
+
+def test_an_integer_count_is_used_as_it_is():
+    assert len(_for_loop_over("3", "NumInt32")) == 3
 
 
 def test_a_shift_register_variable_is_not_taken_by_a_node_output():

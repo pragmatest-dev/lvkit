@@ -29,6 +29,7 @@ from ..error_flow import error_occurred
 from ..fragment import CodeFragment
 from ..type_default import default_if_unset, state_seed, type_default
 from . import feedback, while_indexing
+from .ops._numeric import is_float
 
 
 def _when_condition(
@@ -210,6 +211,12 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 lv_type = _get_terminal_type(outer_term, ctx)
                 if lv_type and lv_type.kind == LVTypeKind.ARRAY:
                     n_terminal_var = f"len({outer_var})"
+                elif is_float(_wired_type(outer_term, ctx) or lv_type):
+                    # A floating-point count is converted to the I32 count by
+                    # rounding to the nearest integer, ties to even (NI,
+                    # "Integers": "the VI rounds to the nearest even integer");
+                    # Python's round() is that rounding.
+                    n_terminal_var = f"round({outer_var})"
                 else:
                     # Integer or unknown - use directly
                     n_terminal_var = outer_var
@@ -877,6 +884,16 @@ def _get_terminal_type(
             return _get_terminal_type(flow_info.src_terminal, ctx, visited)
 
     return None
+
+
+def _wired_type(terminal_uid: str, ctx: CodeGenContext) -> LVType | None:
+    """The type of the terminal that feeds ``terminal_uid`` (the wire's own
+    type, before the loop's terminal converts it)."""
+    source = ctx.get_source(terminal_uid)
+    if source is None or ctx.graph is None:
+        return None
+    feeder = ctx.graph.get_terminal(source.src_terminal)
+    return feeder.lv_type if feeder is not None else None
 
 
 def _iteration_terminal(node: LoopNode) -> Terminal | None:
