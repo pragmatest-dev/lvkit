@@ -212,11 +212,17 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 if lv_type and lv_type.kind == LVTypeKind.ARRAY:
                     n_terminal_var = f"len({outer_var})"
                 elif is_float(_wired_type(outer_term, ctx) or lv_type):
-                    # A floating-point count is converted to the I32 count by
-                    # rounding to the nearest integer, ties to even (NI,
-                    # "Integers": "the VI rounds to the nearest even integer");
-                    # Python's round() is that rounding.
-                    n_terminal_var = f"round({outer_var})"
+                    # A floating-point count is converted to the I32 count the
+                    # way To Long Integer converts it (data/primitives/
+                    # conversion.json): rounded to the nearest integer, ties to
+                    # even (NI, "Integers": "the VI rounds to the nearest even
+                    # integer"; Python's round() is that rounding), and a value
+                    # outside I32 is its nearest end (NI, "Numeric
+                    # Conversion": "LabVIEW coerces out-of-range values to the
+                    # minimum or maximum value of the integer").
+                    n_terminal_var = (
+                        f"max(-2147483648, min(2147483647, int(round({outer_var}))))"
+                    )
                 else:
                     # Integer or unknown - use directly
                     n_terminal_var = outer_var
@@ -690,10 +696,9 @@ def _unique_shift_var_name(base_name: str, ctx: CodeGenContext) -> str:
     while ctx.var_name_in_use(candidate):
         suffix += 1
         candidate = f"{base_name}_{suffix}"
-    # Reserved: a node output bound inside the loop must not take the name of
+    # Claimed: a node output bound inside the loop must not take the name of
     # the variable that carries the shift register.
-    ctx._allocated_vars.add(candidate)
-    return candidate
+    return ctx.claim_name(candidate)
 
 
 def _pluralize(var_name: str) -> str:
