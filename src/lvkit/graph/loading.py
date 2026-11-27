@@ -30,7 +30,11 @@ import networkx as nx
 from lvkit.library_folders import Folders, SearchEntries
 
 from ..cache_paths import LibraryRoots
-from ..embedded_instances import read_instance_defaults, read_instance_sources
+from ..embedded_instances import (
+    CallerInstances,
+    read_caller_instances,
+    saved_instance_defaults,
+)
 from ..extract_pool import ExtractionPool
 from ..extractor import extract_llb_members, extract_vi_xml
 from ..flattened_typedesc import embedded_private_data_copy
@@ -73,6 +77,7 @@ from ..structure import (
 from ..vi_files import VI_EXTENSIONS, glob_vi_files, is_vi_file, rglob_vi_files
 from .builders.operations import callee_keys
 from .errors import AmbiguousVIReferenceError, DependencyFileError
+from .instance_loading import InstanceCallLoad
 from .llb_members import file_is_present, llb_member_copy, vi_bytes_file
 from .load_problems import (
     CLASS_MEMBER_ATTR,
@@ -470,6 +475,16 @@ class LoadingMixin:
             node_type: NodeType = ...,
             may_stop: bool = ...,
         ) -> None: ...
+        def _load_instance_call(
+            self,
+            qname: str,
+            embedded: CallerInstances,
+            recorded: ParsedDependencyRef | None,
+            caller_key: str,
+            caller_file: Path,
+            mode: LoadMode,
+            resolved_paths: dict[str, Path | None] | None,
+        ) -> InstanceCallLoad | None: ...
         def recorded_candidates(
             self, ref: ParsedDependencyRef, caller_file: Path
         ) -> list[Path]: ...
@@ -649,10 +664,12 @@ class LoadingMixin:
         EVERY dep-graph node is keyed by path, not qname: path is unique on disk
         where a qname is not (a built copy beside its source twin share a
         qname). The qname is the human-facing display name (never a lookup
-        key)."""
-        self._source_paths[key] = vi_bytes_file(source_file)
-        # The search path's <foundvi>: the folders this load found files in.
-        self._search_path.found_folders.setdefault(Path(source_file).parent, None)
+        key). A VI saved inside its caller's file (``embedded_in``) has no file of
+        its own: it has no source path and finds no folder."""
+        if "embedded_in" not in self._dep_graph.nodes.get(key, {}):
+            self._source_paths[key] = vi_bytes_file(source_file)
+            # The search path's <foundvi>: the folders this load found files in.
+            self._search_path.found_folders.setdefault(Path(source_file).parent, None)
         self._vi_display_names[key] = qname
         self._register_dep_name(key, name, qname)
         if self._dep_graph.has_node(key):
@@ -1546,6 +1563,7 @@ class LoadingMixin:
         source_dir: Path | None = None,
         source_override: Path | None = None,
         mode: LoadMode = LoadMode.FULL,
+        preparsed: ParsedVI | None = None,
     ) -> str | None:
         """Recursively load a VI and its SubVIs.
 
@@ -1553,8 +1571,9 @@ class LoadingMixin:
         exact file the caller loaded from. The TOP-LEVEL ``load_vi`` passes its
         ``vi_path`` here so the computed ``vi_key`` matches its early-return
         probe key exactly, instead of being re-derived from the (possibly
-        different) BD-heap filename. Returns the ``vi_key`` (path), or None if
-        already visited.
+        different) BD-heap filename. ``preparsed`` is the VI's parse when the
+        caller already made it (an embedded instance, read for its saved
+        defaults). Returns the ``vi_key`` (path), or None if already visited.
         """
         # Parse VI using unified parse_vi(). When rendering (layout=True), the
         # geometry is decoded from this SAME parse and retained — no second read.
@@ -1573,7 +1592,13 @@ class LoadingMixin:
             handled, result = self._already_handled(vi_key, visited, mode)
             if handled:
                 return result
-        cached_vi = self._parse_cache.get(str(bd_xml)) if self._parse_cache else None
+        cached_vi = (
+            preparsed
+            if preparsed is not None
+            else self._parse_cache.get(str(bd_xml))
+            if self._parse_cache
+            else None
+        )
         vi = (
             cached_vi
             if cached_vi is not None
@@ -1746,8 +1771,11 @@ class LoadingMixin:
         # of the file it is an instance of (filled while loading dependencies).
         instance_qnames: dict[str, str] = {}
         # Each embedded instance's unwired control values (see
-        # ``read_instance_defaults``), by the instance's name.
+        # ``saved_instance_defaults``), by the instance's name.
         instance_defaults: dict[str, dict[int, str | None]] = {}
+        # What loading each call of an embedded instance found, by the qualified
+        # name the call records.
+        instance_loads: dict[str, InstanceCallLoad] = {}
         # Each dependency's identity (see ``_load_dependency``) by the qualified
         # name the caller's link table records for it.
         dep_keys: dict[str, str] = {}
@@ -1801,14 +1829,17 @@ class LoadingMixin:
 
             # A malleable-VI call is recorded as an embedded instance named by a
             # GUID; the file it is an instance of is what the call is to.
-            instance_sources = read_instance_sources(
-                main_xml.parent, metadata.instance_files, self.cache_roots
+            # Each instance is read once: the file it is an instance of, its saved
+            # defaults (an Express VI's dialog settings are the saved defaults of
+            # its controls) and, for a call that runs it, the VI itself.
+            embedded = read_caller_instances(
+                main_xml.parent,
+                metadata.instance_files,
+                self.cache_roots,
+                Path(vi_key),
             )
-            # An Express VI's dialog settings are the saved defaults of its
-            # instance's controls.
-            instance_defaults = read_instance_defaults(
-                main_xml.parent, metadata.instance_files, self.cache_roots
-            )
+            instance_sources = embedded.sources
+            instance_defaults = saved_instance_defaults(embedded.instances)
 
             # Sorted: dependency load ORDER decides which same-named candidate
             # file claims a name first, so a hash-ordered set here made the
@@ -1822,20 +1853,23 @@ class LoadingMixin:
                 caller_file,
             )
             for qname in sorted(all_dep_qnames):
-                instance_source = instance_sources.get(qname.rsplit(":", 1)[-1])
-                if instance_source is not None:
-                    dep_ref_map[qname] = instance_source
-                    instance_qnames[qname], instance_key = (
-                        self._load_instance_dependency(
-                            instance_source,
-                            caller_file,
-                            caller_qname=vi_key,
-                            mode=mode,
-                            resolved_paths=resolved_paths,
-                        )
-                    )
-                    if instance_key is not None:
-                        dep_keys[qname] = instance_key
+                instance_call = self._load_instance_call(
+                    qname,
+                    embedded,
+                    dep_ref_map.get(qname),
+                    vi_key,
+                    caller_file,
+                    mode,
+                    resolved_paths,
+                )
+                if instance_call is not None:
+                    if instance_call.source is not None:
+                        dep_ref_map[qname] = instance_call.source
+                    if instance_call.source_name is not None:
+                        instance_qnames[qname] = instance_call.source_name
+                    if instance_call.key is not None:
+                        dep_keys[qname] = instance_call.key
+                    instance_loads[qname] = instance_call
                     continue
                 dep_ref = self._recorded_dep_ref(
                     qname, dep_ref_map, link_index, caller_file
@@ -1939,29 +1973,41 @@ class LoadingMixin:
             )
         else:
             self._stamp_callee_keys(vi_key, iuse_to_callee_key, poly_to_callee_key)
-        self._stamp_instance_defaults(
-            vi_key, metadata.iuse_to_qualified_name, instance_defaults
+        self._stamp_instance_calls(
+            vi_key,
+            metadata.iuse_to_qualified_name,
+            instance_defaults,
+            instance_loads,
         )
 
         return vi_key
 
-    def _stamp_instance_defaults(
+    def _stamp_instance_calls(
         self,
         vi_key: str,
         iuse_to_qname: dict[str, str],
         instance_defaults: dict[str, dict[int, str | None]],
+        instance_loads: dict[str, InstanceCallLoad],
     ) -> None:
         """Give each call of an embedded instance in a VI the values its unwired
-        controls hold (``VINode.instance_defaults``)."""
-        if not instance_defaults:
+        controls hold (``VINode.instance_defaults``), whether it runs its saved
+        instance (``runs_saved_instance``), the ``.vim`` that is an instance of
+        (``instance_of_key``) and, when the instance could not be read, why
+        (``instance_unreadable``)."""
+        if not instance_defaults and not instance_loads:
             return
         for node_id in sorted(self._vi_nodes[vi_key]):
             node = self._graph.nodes[node_id].get("node")
             if not isinstance(node, VINode) or node.id == node.vi_path:
                 continue
             qname = iuse_to_qname.get(node_id.rsplit("::", 1)[-1])
-            if qname is not None:
-                node.instance_defaults = instance_defaults.get(qname.rsplit(":", 1)[-1])
+            if qname is None:
+                continue
+            node.instance_defaults = instance_defaults.get(qname.rsplit(":", 1)[-1])
+            load = instance_loads.get(qname)
+            node.runs_saved_instance = load is not None and load.saved_instance
+            node.instance_of_key = load.instance_of if load is not None else None
+            node.instance_unreadable = load.unreadable if load is not None else None
 
     def _stamp_callee_keys(
         self,

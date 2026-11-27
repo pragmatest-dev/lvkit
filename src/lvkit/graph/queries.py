@@ -175,6 +175,14 @@ class QueryMixin:
         key = node.interface_key
         return key if key is not None and key in self._vi_nodes else None
 
+    def loaded_named_key(self, node: VINode) -> str | None:
+        """The ``vi_key`` of the VI a SubVI call node is shown as a call of
+        (``VINode.named_key``: the ``.vim`` for a call that runs its saved
+        instance), when that VI is loaded in the graph, else None. The documents'
+        links and the diagram's navigation go to it."""
+        key = node.named_key
+        return key if key is not None and key in self._vi_nodes else None
+
     def is_loaded_vi(self, key: str) -> bool:
         """Whether the VI at ``key`` is loaded in the graph: not a stub, not a
         file the load did not reach."""
@@ -182,12 +190,13 @@ class QueryMixin:
 
     def call_qualified_name(self, node: VINode) -> str | None:
         """The qualified name a SubVI call node shows: the name the graph gives
-        the VI it calls (``VINode.interface_key``: the instance a polymorphic
-        call runs, else the callee; a loaded file's own name, a stub's recorded
-        one), so a call and the ``uses :`` entry of its callee spell one
-        identity one way; the caller's record when the call has no callee in
-        the graph."""
-        key = node.interface_key
+        the VI it calls (``VINode.named_key``: the ``.vim`` when the call runs its
+        saved instance, else the instance a polymorphic call runs, else the
+        callee; a loaded file's own name, a stub's recorded one), so a call and
+        the ``uses :`` entry of its callee spell one identity one way; the
+        caller's record when the call has no callee in the graph (a saved
+        instance of a ``.vim`` that is not found, an Express VI's instance)."""
+        key = node.named_key
         if key is not None and key in self._dep_graph:
             qname = self._dep_graph.nodes[key].get("qname")
             if qname:
@@ -197,9 +206,7 @@ class QueryMixin:
     def catalog_path(self, node: VINode) -> str | None:
         """The path the vi.lib catalog looks a call up by (see
         ``catalog_path_of``)."""
-        return self.catalog_path_of(
-            node.interface_key, node.qualified_path, node.vi_path
-        )
+        return self.catalog_path_of(node.named_key, node.qualified_path, node.vi_path)
 
     def catalog_gives_python(self, key: str) -> bool:
         """Whether the vi.lib catalog gives Python for the VI at ``key``, by the
@@ -241,6 +248,12 @@ class QueryMixin:
     def list_vis(self) -> list[str]:
         """List all VIs in the graph (excluding stubs)."""
         return list(self._vi_nodes.keys())
+
+    def list_file_vis(self) -> list[str]:
+        """The loaded VIs that are files: ``list_vis`` without the instances saved
+        inside their callers' files (``embedding_vi``), which a document, an index
+        or a visualisation lists with their callers."""
+        return [key for key in self._vi_nodes if self._recorded.holder_of(key) is None]
 
     def get_vi_source_path(self, vi_name: str) -> Path | None:
         """Get the source file path for the VI at ``vi_name`` (a vi_key)."""
@@ -378,6 +391,16 @@ class QueryMixin:
             return None
         return self._recorded.path(key)
 
+    def instance_vim(self, key: str) -> str | None:
+        """The qualified name of the ``.vim`` the saved instance ``key`` is an
+        instance of (a malleable VI's copy kept in its caller's file, whether or
+        not the ``.vim`` file is found); None for any other dependency, including
+        an Express VI's instance, which is an instance of no file."""
+        if key not in self._dep_graph:
+            return None
+        vim = self._dep_graph.nodes[key].get("instance_of")
+        return str(vim) if vim else None
+
     def embedding_vi(self, key: str) -> str | None:
         """The key of the loaded VI that holds ``key`` inside its own file: a
         dependency whose recorded path is a place in a VI file (an instance
@@ -455,10 +478,16 @@ class QueryMixin:
         )
 
     def get_vi_dependencies(self, vi_name: str) -> list[str]:
-        """Get VIs that this VI depends on (SubVIs it calls)."""
+        """Get VIs that this VI depends on (SubVIs it calls). A call of a ``.vim``
+        that runs its saved instance depends on the ``.vim``, which is listed; the
+        instance, a copy kept in this VI's own file, is not."""
         if vi_name not in self._dep_graph:
             return []
-        return list(self._dep_graph.successors(vi_name))
+        return [
+            dep
+            for dep in self._dep_graph.successors(vi_name)
+            if self.instance_vim(dep) is None
+        ]
 
     def dependencies_walked(self, vi_name: str) -> bool:
         """Whether this VI's own dependencies (SubVIs, classes, typedefs) were

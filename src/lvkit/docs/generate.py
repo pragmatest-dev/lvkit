@@ -193,7 +193,7 @@ def _collect_icons(
 
     icon_map: dict[str, str] = {}
 
-    for vi_name in graph.list_vis():
+    for vi_name in graph.list_file_vis():
         vi_path = graph.get_vi_source_path(vi_name)
         if not vi_path:
             continue
@@ -275,7 +275,7 @@ def _prepare_vi_documentation_data(
         keys: list[str] = []
         for node in nodes:
             if isinstance(node, VINode):
-                key = graph.loaded_callee_key(node)
+                key = graph.loaded_named_key(node)
                 if key is not None:
                     keys.append(key)
             keys.extend(_callee_keys(graph.child_nodes(node.id, vi_name)))
@@ -535,7 +535,7 @@ def generate_documents(
     typedef_infos = [graph.get_typedef(k) for k in typedef_keys]
     generator.register_typedefs([(i.key, i.name) for i in typedef_infos])
 
-    all_vis = graph.list_vis()
+    all_vis = graph.list_file_vis()
     generator.all_vis = set(all_vis)
     project = project_root(library_path_obj)
     generator.register_vis(page_names(graph, all_vis, project))

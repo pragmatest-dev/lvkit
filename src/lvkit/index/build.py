@@ -916,9 +916,9 @@ def _in_project_callee_path(
     caller itself: the call node's ``callee_key`` (the file its caller records)
     if it lies under ``real_root``. A callee outside the project, or a call with
     no recorded file, is ``None``."""
-    if not isinstance(node, VINode) or node.callee_key is None:
+    if not isinstance(node, VINode) or node.callee_file_key is None:
         return None
-    key = node.callee_key
+    key = node.callee_file_key
     if key == caller_path or not Path(key).is_relative_to(real_root):
         return None
     return key
@@ -981,7 +981,7 @@ def _callee_key(graph: InMemoryVIGraph, node: object) -> str | None:
     """The file a call node (its recorded callee) or a global variable node (its
     Global VI) refers to, else None."""
     if isinstance(node, VINode):
-        return node.callee_key
+        return node.callee_file_key
     if isinstance(node, GlobalVariableNode):
         return graph.global_vi_key(node)
     return None

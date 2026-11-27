@@ -227,6 +227,13 @@ class _VILibLookupMixin:
         vi = self.resolve_recorded(recorded_path)
         return vi is not None and vi.python_code is not None
 
+    def gives_code(self, recorded_path: str | None) -> bool:
+        """Whether the catalog writes the code of a call of the VI ``recorded_path``
+        names: it gives Python (``has_python``) or a neutral operation the generator
+        writes from the graph (``VIEntry.op``, such as the Elapsed Time Express VI)."""
+        vi = self.resolve_recorded(recorded_path)
+        return vi is not None and (vi.python_code is not None or vi.op is not None)
+
     def has_implementation(self, recorded_path: str | None) -> bool:
         """Check if we have a full Python implementation (module) for the VI a
         call records ``recorded_path`` for."""

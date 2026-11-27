@@ -52,6 +52,13 @@ def run_call(node: VINode, ctx: CodeGenContext) -> RunCall:
         name = graph.vi_display_name(variant) if graph is not None else variant
         run = node.model_copy(update={"variant_key": variant})
         return RunCall(run, Path(name.rsplit(":", 1)[-1]).name, variant)
+    if node.instance_unreadable is not None:
+        # The call runs the copy saved in its caller, which could not be read.
+        return RunCall(node, node.name or "", node.callee_key, node.instance_unreadable)
+    if node.runs_saved_instance and node.callee_key is not None:
+        # The copy saved in the caller is a VI with no name of its own but its
+        # place in the caller's file: its function is named by that.
+        return RunCall(node, Path(node.callee_key).name, node.callee_key)
     if node.callee_key is None and node.qualified_path and node.qualified_name:
         return RunCall(node, node.qualified_name, None)
     return RunCall(node, node.name or "", node.callee_key, _no_variant(node, ctx))

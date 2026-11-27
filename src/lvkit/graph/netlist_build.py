@@ -2428,8 +2428,10 @@ def _build_components_gn(
     distinct subVI or primitive/nMux/cpdArith component actually used,
     grouped by component identity and deduped by typed port signature."""
     subvi_order: list[str] = []
-    seen_subvi: set[str] = set()
-    subvi_reps: dict[str, AnyGraphNode] = {}
+    # The calls of one identity by the file whose pane each shows: the saved
+    # instances of one ``.vim`` are one identity and, each with its own types, can
+    # differ in ports.
+    subvi_reps: dict[str, dict[str | None, VINode]] = {}
     groups: dict[
         tuple[object, ...],
         list[tuple[AnyGraphNode, list[ComponentPort], list[ComponentPort]]],
@@ -2442,12 +2444,11 @@ def _build_components_gn(
             assert isinstance(node, VINode)
             # A call's identity is the VI it calls; two files that carry one
             # qualified name are two components.
-            identity = node.interface_key or node.qualified_name or node.name
+            identity = node.named_key or node.qualified_name or node.name
             assert identity is not None
-            if identity not in seen_subvi:
-                seen_subvi.add(identity)
+            if identity not in subvi_reps:
                 subvi_order.append(identity)
-                subvi_reps[identity] = node
+            subvi_reps.setdefault(identity, {}).setdefault(node.interface_key, node)
             continue
         if not _is_primitive_component_gn(graph, node):
             continue
@@ -2457,22 +2458,26 @@ def _build_components_gn(
 
     components: list[NetlistComponent] = []
     for identity in subvi_order:
-        rep = subvi_reps[identity]
-        assert isinstance(rep, VINode)
-        key = graph.call_qualified_name(rep) or rep.name
-        assert key is not None
-        ports = _subvi_ports(graph, rep)
-        if ports is not None and (ports[0] or ports[1]):
-            ins, outs = ports
-        else:
-            ins, outs = _synthesize_ports_gn(
-                [
-                    t
-                    for t in graph.enriched_terminals(rep, vi_name)
-                    if _is_real_terminal(t)
-                ]
-            )
-        components.append(NetlistComponent(name=key, inputs=ins, outputs=outs))
+        signatures: set[str] = set()
+        for rep in subvi_reps[identity].values():
+            key = graph.call_qualified_name(rep) or rep.name
+            assert key is not None
+            ports = _subvi_ports(graph, rep)
+            if ports is not None and (ports[0] or ports[1]):
+                ins, outs = ports
+            else:
+                ins, outs = _synthesize_ports_gn(
+                    [
+                        t
+                        for t in graph.enriched_terminals(rep, vi_name)
+                        if _is_real_terminal(t)
+                    ]
+                )
+            signature = _port_signature(ins, outs)
+            if signature in signatures:
+                continue
+            signatures.add(signature)
+            components.append(NetlistComponent(name=key, inputs=ins, outputs=outs))
     for instances in groups.values():
         components.extend(_dedupe_primitive_group_gn(instances))
 

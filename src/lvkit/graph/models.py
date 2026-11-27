@@ -143,6 +143,17 @@ class VINode(GraphNode):
     # the wired types; an ordinary call's terminals keep the types the called VI
     # declares.
     is_embedded_instance: bool = False
+    # True on a call that runs the instance saved in its caller's file (a malleable
+    # VI or Express VI the vi.lib catalog writes no code for): ``callee_key`` is
+    # that instance, a VI with no file of its own.
+    runs_saved_instance: bool = False
+    # On a call that runs its saved instance of a ``.vim``, the ``.vim`` file in the
+    # form of ``callee_key``: the call is shown and indexed as a call of that
+    # file. None on every other node, and when the ``.vim`` file is not found.
+    instance_of_key: str | None = None
+    # On a call of a malleable VI whose saved instance could not be read, why: the
+    # call is a gap. None on every other node.
+    instance_unreadable: str | None = None
     # On a Call By Reference node, the node's saved ``CBRSaveStyle`` byte: how
     # the node calls the VI its reference holds. None on every other node.
     call_save_style: int | None = None
@@ -170,6 +181,22 @@ class VINode(GraphNode):
         terminals are: the variant a polymorphic call resolves to, else the
         callee."""
         return self.variant_key or self.callee_key
+
+    @property
+    def callee_file_key(self) -> str | None:
+        """On a SubVI call node, the file the call is a call of: ``callee_key``,
+        except that a call running its saved instance is a call of the ``.vim``
+        (None when that file is not found, or the instance is an Express VI's)."""
+        if self.runs_saved_instance:
+            return self.instance_of_key
+        return self.callee_key
+
+    @property
+    def named_key(self) -> str | None:
+        """On a SubVI call node, the file the call is shown, named and catalogued
+        as a call of: the variant a polymorphic call resolves to, else
+        ``callee_file_key``."""
+        return self.variant_key or self.callee_file_key
 
 
 class PrimitiveNode(GraphNode):

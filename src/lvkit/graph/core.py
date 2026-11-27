@@ -166,6 +166,7 @@ def _graph_node_to_op_kind(node: AnyGraphNode) -> str:
 # Import mixins - these define methods that InMemoryVIGraph inherits
 from .construction import ConstructionMixin  # noqa: E402
 from .error_behaviour import ErrorBehaviourMixin  # noqa: E402
+from .instance_loading import InstanceLoadingMixin  # noqa: E402
 from .load_problems import LoadProblemsMixin  # noqa: E402
 from .loading import LoadingMixin  # noqa: E402
 from .membership import MembershipMixin  # noqa: E402
@@ -179,6 +180,7 @@ from .wire_queries import WireQueriesMixin  # noqa: E402
 
 class InMemoryVIGraph(
     LoadProblemsMixin,
+    InstanceLoadingMixin,
     LoadingMixin,
     MembershipMixin,
     ConstructionMixin,

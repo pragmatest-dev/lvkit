@@ -594,7 +594,7 @@ def render_vi_with_subvis(
     subvis: dict[str, str] = {}
     for rn in scene.nodes:
         if isinstance(rn.node, VINode):
-            target = graph.loaded_callee_key(rn.node)
+            target = graph.loaded_named_key(rn.node)
             if target:
                 # Key by the DOCUMENT-LOCAL dom_id — the same value emitted as
                 # ``data-node`` — so the docs NAV map matches the SVG (and neither

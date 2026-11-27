@@ -249,9 +249,14 @@ class RecordedPaths:
         )
 
     def _sources(self, key: str) -> list[str]:
-        """The keys whose paths decide ``key``'s: its callers and its owners."""
-        callers = {r.caller for r in self._references.get(key, ()) if r.caller}
-        return sorted(callers | set(self._containers_of(key)))
+        """The keys whose paths decide ``key``'s: its callers, its owners and the
+        VI that holds it."""
+        sources = {r.caller for r in self._references.get(key, ()) if r.caller}
+        sources.update(self._containers_of(key))
+        holder = self.holder_of(key)
+        if holder is not None:
+            sources.add(holder)
+        return sorted(sources)
 
     def _settle(self, key: str) -> None:
         above: set[str] = set()
@@ -299,8 +304,22 @@ class RecordedPaths:
             if tokens and is_symbolic_root(tokens[0]):
                 below = Path(key).relative_to(Path(container).parent).parts
                 candidates.append([*tokens[:-1], *below])
+        holder = self.holder_of(key)
+        if holder is not None:
+            tokens = of(holder)
+            if tokens and is_symbolic_root(tokens[0]):
+                candidates.append([*tokens, Path(key).name])
         installed = [c for c in candidates if is_symbolic_root(c[0])]
         return min(installed, key=_order) if installed else None
+
+    def holder_of(self, key: str) -> str | None:
+        """The VI whose own file holds ``key`` (a VI saved inside its caller: an
+        embedded instance has no file of its own, its place is the holder's path
+        and its name); None for a key that is a file."""
+        if key not in self._dep_graph:
+            return None
+        holder = self._dep_graph.nodes[key].get("embedded_in")
+        return str(holder) if holder else None
 
     def _containers_of(self, key: str) -> list[str]:
         """The class or library files that own ``key`` and sit above it."""

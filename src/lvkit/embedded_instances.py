@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 import struct
 import xml.etree.ElementTree as ET
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 from .cache_paths import LibraryRoots
@@ -26,7 +28,7 @@ from .parser.link_table import (
     LinkTableVersion,
     decode_instance_source,
 )
-from .parser.models import ParsedDependencyRef
+from .parser.models import ParsedDependencyRef, ParsedVI
 from .parser.xml_trees import parsed_xml
 from .text_encoding import decode_labview_text
 
@@ -143,23 +145,90 @@ def read_instance_sources(
     return sources
 
 
-def read_instance_defaults(
-    directory: Path, instance_files: list[str], roots: LibraryRoots
+@dataclass(frozen=True)
+class EmbeddedInstance:
+    """One embedded instance of a caller, read as the VI it is: its extracted
+    files and its parse (``source_override`` is ``<caller>/<instance name>``, the
+    place the instance has inside its caller)."""
+
+    name: str
+    bd_xml: Path
+    fp_xml: Path | None
+    main_xml: Path | None
+    parsed: ParsedVI
+
+
+@dataclass(frozen=True)
+class CallerInstances:
+    """Every embedded instance of one caller, by the instance's name: the VI it
+    is an instance of (``sources``, as ``read_instance_sources``), the instance read
+    as a VI (``instances``), and the error of each one that could not be read
+    (``failures``)."""
+
+    sources: dict[str, ParsedDependencyRef]
+    instances: dict[str, EmbeddedInstance]
+    failures: dict[str, Exception]
+
+
+def read_caller_instances(
+    directory: Path,
+    instance_files: list[str],
+    roots: LibraryRoots,
+    holder: Path,
+) -> CallerInstances:
+    """The embedded instances of a caller, each read once.
+
+    ``holder`` is the caller's key: an instance has no file of its own, so its
+    place is ``holder / <instance name>``, one level inside its caller, which is
+    what its own link table's relative paths start from. ``directory`` and
+    ``instance_files`` are as for ``read_instance_sources``."""
+    instances, failures = _read_instances(directory, instance_files, roots, holder)
+    return CallerInstances(
+        read_instance_sources(directory, instance_files, roots), instances, failures
+    )
+
+
+def _read_instances(
+    directory: Path,
+    instance_files: list[str],
+    roots: LibraryRoots,
+    holder: Path,
+) -> tuple[dict[str, EmbeddedInstance], dict[str, Exception]]:
+    instances: dict[str, EmbeddedInstance] = {}
+    failures: dict[str, Exception] = {}
+    for name, file_name in _instances(directory, instance_files):
+        try:
+            bd_xml, fp_xml, main_xml = extract_vi_xml(
+                directory / file_name, roots=roots
+            )
+            parsed = parse_vi(
+                bd_xml=bd_xml,
+                fp_xml=fp_xml,
+                main_xml=main_xml,
+                source_override=holder / name,
+            )
+        except Exception as exc:
+            failures[name] = exc
+            continue
+        instances[name] = EmbeddedInstance(name, bd_xml, fp_xml, main_xml, parsed)
+    return instances, failures
+
+
+def saved_instance_defaults(
+    instances: Mapping[str, EmbeddedInstance],
 ) -> dict[str, dict[int, str | None]]:
-    """For each embedded instance of a caller, the value each of its controls
-    holds when a call leaves it unwired, by connector-pane slot and keyed by the
-    instance's own file name (``<guid>.vi``).
+    """For each embedded instance, the value each of its controls holds when a
+    call leaves it unwired, by connector-pane slot and keyed by the instance's
+    name.
 
     An Express VI is saved as an instance whose controls carry the settings of
     its dialog as their saved defaults. A value is the control's saved default as
     text, or ``None`` when the control saves none (it holds its type's default).
-    Only controls (inputs) on the instance's connector pane are listed; an
-    instance whose files cannot be read is left out.
+    Only controls (inputs) on the instance's connector pane are listed.
     """
     defaults: dict[str, dict[int, str | None]] = {}
-    for name, file_name in _instances(directory, instance_files):
-        bd_xml, fp_xml, main_xml = extract_vi_xml(directory / file_name, roots=roots)
-        parsed = parse_vi(bd_xml=bd_xml, fp_xml=fp_xml, main_xml=main_xml)
+    for name, instance in instances.items():
+        parsed = instance.parsed
         pane = parsed.connector_pane
         if pane is None:
             continue

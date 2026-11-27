@@ -112,36 +112,40 @@ def test_caller_of_a_malleable_vi_generates_a_call_to_its_module(
     generate_python(_CALLER, tmp_path)
 
     [caller] = tmp_path.rglob("create_reservation_annotations.py")
-    [callee] = tmp_path.rglob("create_annotations_vim.py")
+    instance = "var_96ebd3b6_2171_43d4_b6b2_fee63be2a44d"
+    [callee] = tmp_path.rglob(f"{instance}.py")
     lines = caller.read_text(encoding="utf-8").splitlines()
-    [call_import] = [ln for ln in lines if " import create_annotations" in ln]
+    [call_import] = [ln for ln in lines if f" import {instance}" in ln]
     assert call_import.startswith("from .")
+    # The call runs the copy of the VI saved in the caller's own file.
     assert call_import.endswith(
-        ".clients.session_management_v1.session_reservation.create_annotations_vim"
-        " import create_annotations"
+        ".clients.session_management_v1.session_reservation."
+        f"create_reservation_annotationsvi.{instance} import {instance}"
     )
     assert (
-        "        create_annotations_result = create_annotations("
+        f"        {instance}_result = {instance}("
         "annotation_typedef=SimpleNamespace(key='', value=''), "
         "error_in=error_in, "
         "annotation_keys=session_reservation_keys_result."
         "session_reservation_keys)"
     ) in lines
-    assert "def create_annotations(" in callee.read_text(encoding="utf-8")
+    assert f"def {instance}(" in callee.read_text(encoding="utf-8")
 
 
 def test_caller_of_a_malleable_vi_shows_the_vi_with_its_terminal_names() -> None:
     text = _describe(_CALLER)
 
     # The call is to Create Annotations.vim, named by its own LIBN chain, with
-    # the terminal names of that VI. A malleable VI's input adapts to the wired
-    # type, so ``annotation typedef`` is the typedef the caller wires to it.
+    # the terminal names of that VI. The pane is the copy of the VI saved in the
+    # caller, adapted to the wired types: ``annotation typedef`` and
+    # ``annotations array`` carry the typedef the caller wires to them.
     assert (
         "  NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
         "Create Annotations.vim: (annotation keys: [String], annotation "
         "typedef: ni_measurementlink_sessionmanagement_v1_SessionInformation_"
         "AnnotationsEntry{key, value}, error in: Error) -> (annotations array: "
-        "[cluster{key, value}], error out: Error)"
+        "[ni_measurementlink_sessionmanagement_v1_SessionInformation_"
+        "AnnotationsEntry{key, value}], error out: Error)"
     ) in text.splitlines()
     assert (
         "    NI Session Management V1 Client.lvlib:Session Reservation.lvclass:"
