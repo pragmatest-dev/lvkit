@@ -5,11 +5,9 @@ inspects the code."""
 from __future__ import annotations
 
 import ast
-from types import SimpleNamespace
 
 from lvkit.codegen.context import CodeGenContext
 from lvkit.codegen.nodes import loop
-from lvkit.codegen.nodes.subvi import _adapted_value
 from lvkit.graph.models import PrimitiveNode, Wire
 from lvkit.models import LVType, LVTypeKind, Terminal, Tunnel, TunnelMode
 from tests.helpers import register_nodes
@@ -91,30 +89,6 @@ def test_an_indexing_tunnel_still_stacks_the_arrays():
         [1, 1],
         [2, 2],
     ]
-
-
-def _call_output(own: LVType | None, declared: LVType | None):
-    term = Terminal(id="t", index=2, direction="output", lv_type=own)
-    indicator = (
-        Terminal(id="d", index=2, direction="output", lv_type=declared)
-        if declared is not None
-        else None
-    )
-    graph = SimpleNamespace(callee_pane_output=lambda _tid: indicator)
-    return term, SimpleNamespace(graph=graph)
-
-
-def test_an_adapt_to_type_output_reads_the_value_of_the_returned_variant():
-    term, ctx = _call_output(LVType(kind=LVTypeKind.CLUSTER), _number("Variant"))
-    assert _adapted_value(term, ctx) == ".value"
-
-
-def test_a_variant_output_and_a_typed_output_are_left_alone():
-    variant = _number("Variant")
-    cluster = LVType(kind=LVTypeKind.CLUSTER)
-    assert _adapted_value(*_call_output(variant, variant)) == ""
-    assert _adapted_value(*_call_output(cluster, cluster)) == ""
-    assert _adapted_value(*_call_output(cluster, None)) == ""
 
 
 def test_a_shift_register_variable_is_not_taken_by_a_node_output():

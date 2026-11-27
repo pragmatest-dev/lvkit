@@ -119,28 +119,13 @@ class WireQueriesMixin:
         A call to a VI with an adapt-to-type input records the caller's own type
         on the terminal; the control is the type the called VI declares."""
         term = self.get_terminal(terminal_id)
-        if term is None or term.direction != TerminalDirection.INPUT:
+        if (
+            term is None
+            or term.index is None
+            or term.direction != TerminalDirection.INPUT
+        ):
             return None
-        return self._callee_pane_slot(term)
-
-    def callee_pane_output(self, terminal_id: str) -> Terminal | None:
-        """The indicator the called VI has at the connector-pane slot of the
-        subVI call output ``terminal_id``; None when the terminal is not a subVI
-        call's output, the called VI is not loaded or it has no indicator there.
-
-        A call to a VI with an adapt-to-type output records the caller's own type
-        on the terminal; the indicator is the type the called VI declares."""
-        term = self.get_terminal(terminal_id)
-        if term is None or term.direction != TerminalDirection.OUTPUT:
-            return None
-        return self._callee_pane_slot(term)
-
-    def _callee_pane_slot(self, term: Terminal) -> Terminal | None:
-        """The called VI's control or indicator at the connector-pane slot of the
-        subVI call terminal ``term``, in the terminal's own direction."""
-        if term.index is None:
-            return None
-        call = self.get_graph_node(self.terminal_node_id(term.id))
+        call = self.get_graph_node(self.terminal_node_id(terminal_id))
         if not isinstance(call, VINode) or call.id == call.vi_path:
             return None
         key = self.loaded_callee_key(call)
@@ -149,7 +134,9 @@ class WireQueriesMixin:
         return next(
             (
                 t
-                for t in self.pane_terminals(key, term.direction, public_only=False)
+                for t in self.pane_terminals(
+                    key, TerminalDirection.INPUT, public_only=False
+                )
                 if t.index == term.index
             ),
             None,

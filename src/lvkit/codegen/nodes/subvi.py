@@ -45,7 +45,6 @@ from ..native_failure import (
     raise_unwired_error,
 )
 from ..value_copy import is_by_value_object, owned_input
-from ..variant_values import is_variant_type
 from ..vilib_pane import check_against_pane, with_instance_defaults
 from . import accessor_call, error_vi, method_call, vilib_op
 from .template_inputs import template_reads
@@ -732,22 +731,9 @@ def _build_output_bindings(
         else:
             _raise_terminal_resolution(subvi_name, "output", term, ctx, vilib_vi)
 
-        bindings[term_id] = f"{result_var}.{field}{_adapted_value(term, ctx)}"
+        bindings[term_id] = f"{result_var}.{field}"
 
     return bindings
-
-
-def _adapted_value(term: Terminal, ctx: CodeGenContext) -> str:
-    """``.value`` when the called VI's indicator is a Variant but the call's
-    output is typed: an adapt-to-type output records the caller's own type on
-    the terminal, and the called VI returns the data as a ``Variant``, whose
-    value is the typed data. "" otherwise."""
-    if ctx.graph is None or is_variant_type(term.lv_type) or term.lv_type is None:
-        return ""
-    indicator = ctx.graph.callee_pane_output(term.id)
-    if indicator is None or not is_variant_type(indicator.lv_type):
-        return ""
-    return ".value"
 
 
 def _to_ast_value(value: str) -> ast.expr:
