@@ -161,3 +161,22 @@ def test_the_default_of_a_type() -> None:
     assert v.type_default(v.LV_TF) is False
     assert v.type_default(v.LV_String) == ""
     assert v.type_default(_runtime(_array(_scalar("NumInt32")), v)) == []
+
+
+def test_the_default_of_a_cluster_is_its_members_defaults() -> None:
+    """Get Array Information's element is a value of the element type: a cluster
+    of its members' defaults, a Variant member an empty variant."""
+    v = generated_variants()
+    inner = _cluster(_scalar("String"), _scalar("NumFloat64"))
+    outer = _cluster(inner, _scalar("NumInt32"), _scalar("LVVariant"))
+    runtime = v.LVType(80, "x", tuple(type_string.encode(outer)))
+    assert v.type_default(runtime) == (("", 0.0), 0, v.Variant())
+    assert v.read_type(runtime).fields[2].code == 83
+
+
+def test_a_variant_member_is_recorded_as_a_descriptor_with_no_body() -> None:
+    assert type_string.encode(_scalar("LVVariant")) == [4, 83]
+    decoded = type_string.decode(type_string.encode(_cluster(_scalar("LVVariant"))))
+    assert decoded.fields is not None
+    assert decoded.fields[0].type is not None
+    assert decoded.fields[0].type.underlying_type == "LVVariant"

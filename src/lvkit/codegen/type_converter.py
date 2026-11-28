@@ -14,14 +14,11 @@ records.
 
 from __future__ import annotations
 
-from lvkit.lv_type_codes import TD_FULL_TYPE
-
 _CONVERTER_TEMPLATE = '''
 
 # The converter of a value to a LabVIEW type: Variant To Data's conversion of a
 # cluster or an array down to its members (NI, Variant To Data: the data comes out
 # as the type wired to the type input).
-_VARIANT_CODE = $VARIANT
 _NUMBER_CODES = tuple(c for c in _NUMBER_NAMES if c not in _ENUM_CODES)
 _INCOMPATIBLE = (
     "The data type of the variant is not compatible with the data type wired to "
@@ -62,6 +59,17 @@ def convert_to_type(value: Any, lv_type: LVType) -> Any:
     """
     if lv_type.code == _VARIANT_CODE:
         return value if isinstance(value, Variant) else _bare_variant(value)
+    # A variant of a variant (a Variant member of a cluster read as a variant of its
+    # own type, JSONtext's Array of Variants to Cluster round trip) is read through
+    # to its data: "a single Variant to Data node resolved the nested wrapping"
+    # (https://lavag.org/topic/14464-control-valueset-fails-for-empty-variant-values/).
+    while (
+        isinstance(value, Variant)
+        and value.type is not None
+        and value.type.code == _VARIANT_CODE
+        and isinstance(value.value, Variant)
+    ):
+        value = value.value
     if isinstance(value, Variant):
         accepted = (
             _NUMBER_CODES + (lv_type.code,)
@@ -97,6 +105,5 @@ def _convert_rows(rows: Any, element: LVType, dimensions: int) -> list:
 
 
 def type_converter_source() -> str:
-    """The converter's source, the code of a Variant written from the table the
-    descriptors use."""
-    return _CONVERTER_TEMPLATE.replace("$VARIANT", repr(TD_FULL_TYPE.LVVariant.value))
+    """The converter's source; it reads the tables of ``type_reader``."""
+    return _CONVERTER_TEMPLATE

@@ -43,7 +43,9 @@ page's other waveform-family descriptors are not written.
 
 ``encode`` writes the types ``codegen/flat.py`` has a layout for among those the
 page documents: numbers, Booleans, strings, arrays, clusters, enums and time
-stamps, and a class. NI's page does not document the refnum layout, so a class is
+stamps, and a class. A Variant is written as the VI file stores it, a descriptor
+with no body (``parser/td_pool.py``): ``0004 0053``, the way a number is.
+NI's page does not document the refnum layout, so a class is
 written as the VI file stores a class refnum (``parser/td_pool.py``,
 ``class_refnum_body``, the layout of a file from LabVIEW 8.6.1 on): the refnum type
 code ``0070``, the class refnum kind, a field of zero and the parts of the class's
@@ -69,6 +71,7 @@ from lvkit.lv_type_codes import (
     is_boolean_type_name,
     is_numeric_type_name,
     is_string_type_name,
+    is_variant_type_name,
 )
 from lvkit.models import LVType, LVTypeKind
 from lvkit.parser.td_pool import PoolError, RawTD, TdPool, class_refnum_body
@@ -178,6 +181,8 @@ def _descriptor(lv_type: LVType, name: str | None = None) -> list[int]:
         return _sized([TD_FULL_TYPE.String.value, VARIABLE_SIZE, VARIABLE_SIZE], name)
     if underlying in NUMBER_CODES:
         return _sized([NUMBER_CODES[underlying].value], name)
+    if is_variant_type_name(underlying):
+        return _sized([TD_FULL_TYPE.LVVariant.value], name)
     if is_numeric_type_name(underlying):
         raise TypeStringError(f"a number of type {underlying!r}")
     raise TypeStringError(f"a value of type {underlying or lv_type.kind.value!r}")
@@ -344,6 +349,7 @@ def _require_known(lv_type: LVType) -> None:
         _is_class_refnum(lv_type)
         or lv_type.is_timestamp
         or underlying in NUMBER_CODES
+        or is_variant_type_name(underlying)
         or is_boolean_type_name(underlying)
         or underlying == TD_FULL_TYPE.String.name
     ):

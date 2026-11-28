@@ -28,6 +28,7 @@ _STRING_CODE = $STRING
 _ARRAY_CODE = $ARRAY
 _CLUSTER_CODE = $CLUSTER
 _REFNUM_CODE = $REFNUM
+_VARIANT_CODE = $VARIANT
 _CLASS_REFNUM_KIND = $CLASS_REFNUM
 _MEASURE_CODE = $MEASURE
 _TIMESTAMP_FLAVOR = $TIMESTAMP_FLAVOR
@@ -231,7 +232,8 @@ def read_type(lv_type: LVType | None) -> TypeInfo:
 
 def type_default(lv_type: LVType) -> Any:
     """The default of a value of ``lv_type``: what a variant holding the type alone
-    stands for (0, False, an empty string or array; None for the rest)."""
+    stands for (0, False, an empty string or array, a cluster of its members'
+    defaults, an empty variant for a Variant; None for the rest)."""
     info = read_type(lv_type)
     if info.kind in ("number", "enum"):
         name = info.number or ""
@@ -246,6 +248,10 @@ def type_default(lv_type: LVType) -> Any:
         return ""
     if info.kind == "array":
         return []
+    if info.kind == "cluster":
+        return tuple(type_default(member) for member in info.fields)
+    if lv_type.code == _VARIANT_CODE:
+        return Variant()
     return None
 '''
 
@@ -264,6 +270,7 @@ def type_reader_source(scalar_constants: dict[int, str]) -> str:
         "ARRAY": repr(TD_FULL_TYPE.Array.value),
         "CLUSTER": repr(TD_FULL_TYPE.Cluster.value),
         "REFNUM": repr(TD_FULL_TYPE.Refnum.value),
+        "VARIANT": repr(TD_FULL_TYPE.LVVariant.value),
         "CLASS_REFNUM": repr(REFNUM_TYPE.UDClassInst.value),
         "MEASURE": repr(TD_FULL_TYPE.MeasureData.value),
         "TIMESTAMP_FLAVOR": repr(MEASURE_DATA_FLAVOR.TimeStamp.value),

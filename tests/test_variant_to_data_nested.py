@@ -115,6 +115,21 @@ def test_a_variant_member_stays_a_variant_and_a_bare_value_becomes_one() -> None
     assert variants.convert_to_type((True, 1), target)[0] == typed(True, "TF")
 
 
+def test_a_variant_of_a_variant_is_read_through_to_its_data() -> None:
+    """A cluster member read as a variant of its own type (a Variant) holds the
+    member variant; Variant To Data reads through it."""
+    run = _convert(cluster(DBL, array(I32)))
+    _, typed, held = _variants()
+    given = held(
+        80,
+        (
+            held(83, typed(1.5, "DBL")),
+            held(64, [held(83, typed(2, "I32")), typed(3, "I32")]),
+        ),
+    )
+    assert run.function(given).d == (1.5, [2, 3])
+
+
 def test_a_variant_that_does_not_fit_is_error_91() -> None:
     run = _convert(cluster(DBL, I32))
     _, typed, held = _variants()
