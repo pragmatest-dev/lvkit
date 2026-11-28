@@ -9,6 +9,7 @@ import ast
 from dataclasses import replace
 
 from lvkit.codegen.ast_utils import field_attribute_names, saved_default_expr
+from lvkit.control_classes import display_name
 from lvkit.models import LVType, ScalarValue, _is_error_cluster
 from lvkit.parser.models import ParsedFPControl
 
@@ -73,10 +74,15 @@ def _saved_rows(saved: object, kind: PanelKind | None) -> tuple[object, ...]:
     return tuple(saved)
 
 
-def _no_widget(control: ParsedFPControl, python_type: str) -> str:
+def _no_widget(control: ParsedFPControl) -> str:
+    """The control named as NI's documentation names it; a class lvkit has no name
+    for is said so, with its saved class as the pointer."""
+    name = display_name(control.control_type)
+    if name is not None:
+        return f"the panel has no widget for the {name} control"
     return (
-        f"the panel has no widget for a {control.control_type} "
-        f"control of type {python_type}"
+        "the panel has no widget for a control lvkit does not recognise "
+        f"(saved class `{control.control_type}`)"
     )
 
 
@@ -91,7 +97,7 @@ def _cluster(
         return replace(
             base,
             kind=None,
-            gap=f"the panel needs the fields of the {control.control_type} control",
+            gap="the panel needs the fields of the cluster control",
         )
     if len(control.children) != len(fields):
         return replace(
@@ -99,7 +105,7 @@ def _cluster(
             kind=None,
             gap=(
                 f"the panel found {len(control.children)} fields in the "
-                f"{control.control_type} control and {len(fields)} in its type"
+                f"cluster control and {len(fields)} in its type"
             ),
         )
     named = bool(lv_type.typedef_name)
@@ -129,8 +135,12 @@ def _cluster(
 
 
 _CELL_NOUNS = {
-    PanelKind.VARIANT: "variant",
-    PanelKind.HIDDEN: "reference or LabVIEW class object",
+    PanelKind.VARIANT: "variants",
+    PanelKind.HIDDEN: "references or LabVIEW class objects",
+    PanelKind.COMBO: "combo boxes",
+    PanelKind.ARRAY: "arrays",
+    PanelKind.CLUSTER: "clusters",
+    PanelKind.ERROR: "error clusters",
 }
 
 _CELL_KINDS = (
@@ -154,7 +164,7 @@ def _array(
         return replace(
             base,
             kind=None,
-            gap=f"the panel needs the element type of the {control.control_type}",
+            gap="the panel needs the element type of the array",
         )
     if (lv_type.dimensions or 1) != 1:
         return replace(
@@ -170,7 +180,7 @@ def _array(
             return replace(
                 base,
                 kind=None,
-                gap=f"the panel needs the element of the {control.control_type}",
+                gap="the panel needs the element of the array",
             )
         if PanelKind.of(part.part_class, "", element_type) is PanelKind.ARRAY:
             return replace(
@@ -187,7 +197,7 @@ def _array(
     if blocker is not None:
         reason = blocker.gap or (
             "the panel has no widget for an array of "
-            f"{_CELL_NOUNS.get(blocker.kind, blocker.kind.name.lower())}"
+            f"{_CELL_NOUNS[blocker.kind]}"
             if blocker.kind is not None
             else "the panel has no widget for this array"
         )
@@ -224,7 +234,7 @@ def describe(
         integer=python_type == "int",
     )
     if kind is None:
-        return replace(base, gap=_no_widget(control, python_type))
+        return replace(base, gap=_no_widget(control))
     if kind is PanelKind.CLUSTER and lv_type is not None and _is_error_cluster(lv_type):
         return replace(base, kind=PanelKind.ERROR)
     if kind is PanelKind.CLUSTER:
@@ -238,7 +248,8 @@ def describe(
                 base,
                 kind=None,
                 gap=(
-                    f"the panel needs the items of the {control.control_type} "
+                    "the panel needs the items of the "
+                    f"{'enum' if kind is PanelKind.ENUM else 'ring'} "
                     "control, and none are stored"
                 ),
             )

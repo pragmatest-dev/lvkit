@@ -174,7 +174,7 @@ def test_an_array_of_references_is_a_gap_that_says_so() -> None:
     )
     described = describe(control, lv_type, None, "refs")
     assert described.gap == (
-        "the panel has no widget for an array of reference or LabVIEW class object "
+        "the panel has no widget for an array of references or LabVIEW class objects "
         "(element of the array)"
     )
 

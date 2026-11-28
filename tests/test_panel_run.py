@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
@@ -19,6 +19,7 @@ from nicegui import ui
 from nicegui.testing.user import User
 
 from tests.error_diagrams import Package, Project, project  # noqa: F401
+from tests.helpers import generated_panels
 from tests.panel_diagrams import NAME, counting_vi, shared_label_vi
 from tests.panel_harness import (
     controls_of,
@@ -438,3 +439,38 @@ def test_two_controls_with_one_label_each_reach_the_run_from_the_page(
         assert vi_panel.get("Value") == 1
 
     simulate(panel.build_panel, scenario)
+
+
+def test_an_indicator_that_cannot_show_its_value_does_not_stop_the_run_or_the_rest(
+    project: Project,  # noqa: F811
+) -> None:
+    project.add(counting_vi())
+    package = project.generate(NAME, panel=True)
+    controls = controls_of(package)
+    shown: list[Any] = []
+
+    def cannot_show(value: Any) -> None:
+        raise TypeError("no widget for this value")
+
+    def build() -> None:
+        panel = generated_panels().Panel(
+            lambda: SimpleNamespace(bad=1, good=2),
+            indicators={"bad": "bad", "good": "good"},
+            results={"bad": "bad", "good": "good"},
+        )
+        values = controls.PanelWidgets(panel)
+        panel.attach(values)
+        values.add_indicator("bad", cannot_show)
+        values.add_indicator("good", shown.append)
+        controls.RunController(values, abortable=False).toolbar()
+        ui.timer(0.1, values.paint)
+
+    async def scenario(user: User) -> None:
+        user.find(marker="Run").click()
+        await until(user, "done")
+        await until(user, "The panel could not show the value of 'bad'")
+        assert "TypeError: no widget for this value" in labels(user)
+        assert shown == [2]
+        assert "running" not in labels(user)
+
+    simulate(build, scenario)

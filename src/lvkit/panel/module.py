@@ -36,20 +36,12 @@ def _key(control: PanelControl, enum_name: str | None) -> str:
     return repr(control.key)
 
 
-def _gap_message(control: PanelControl, vi_label: str) -> str:
-    return "\n".join(
-        [
-            str(control.gap),
-            "gap kind: unsupported_control",
-            f"VI: {vi_label}",
-            f"control: {control.label}",
-        ]
-    )
-
-
-def _widget_call(control: PanelControl, enum_name: str | None, vi_label: str) -> str:
+def _widget_call(control: PanelControl, enum_name: str | None) -> str:
+    """The call that draws ``control``: its widget, or, for a control the panel
+    has no widget for, the placeholder that says why (the gap the generator
+    warned of)."""
     if control.kind is None:
-        return f"raise NotImplementedError({_gap_message(control, vi_label)!r})"
+        return f"unsupported_control({control.gap!r})"
     return widget_call(control, control.kind, _key(control, enum_name))
 
 
@@ -71,6 +63,8 @@ def panel_source(spec: PanelSource) -> str:
             for name in builders_used(c, c.kind)
         }
     )
+    if any(c.kind is None for c in drawn(spec.controls)):
+        used = sorted({*used, "unsupported_control"})
     imports = ", ".join(["PanelWidgets", "RunController", "caption", *used])
     stdlib = sorted(
         {"sys"}.union(
@@ -118,7 +112,7 @@ def panel_source(spec: PanelSource) -> str:
                 lines += [
                     f"                with values.box({_key(control, enum)}):",
                     f"                    caption({control.label!r})",
-                    f"                    {_widget_call(control, enum, spec.vi_label)}",
+                    f"                    {_widget_call(control, enum)}",
                 ]
     if not spec.rows:
         lines.append("        pass")

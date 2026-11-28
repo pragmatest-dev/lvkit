@@ -39,6 +39,9 @@ if TYPE_CHECKING:
 # What ``paint`` tells the toolbar: "started" or "finished" with the error the run
 # raised (else None).
 RunListener = Callable[[str, BaseException | None], None]
+# What ``paint`` tells the toolbar of a widget that could not show its value: the
+# name of the control or indicator and the error.
+ProblemListener = Callable[[str, BaseException], None]
 
 
 def key_of(name: Any) -> str:
@@ -80,6 +83,8 @@ class PanelWidgets:
         self._painting = False
         self._own = threading.local()
         self._run_listener: RunListener | None = None
+        self._problem_listener: ProblemListener | None = None
+        self._problems: list[tuple[str, BaseException]] = []
 
     # -- the widgets (on the event loop) -----------------------------------
 
@@ -100,7 +105,7 @@ class PanelWidgets:
         if self.panel is not None and self.panel.holds(key):
             held = self.panel.seed(key, copy.deepcopy(starting))
             if held != starting:
-                self._show(port.show, held)
+                self._show(key, port.show, held)
         self._shown[key] = port.get()
         self._painters[key] = port.show
         port.on_change(lambda value: self.set_control(name, value))
@@ -123,7 +128,7 @@ class PanelWidgets:
         if self.panel is not None and self.panel.holds(key):
             held = self.panel.value(key)
             if held is not None:
-                self._show(painter, held)
+                self._show(key, painter, held)
         self._add_properties(key, properties or {})
 
     def _add_properties(
@@ -138,7 +143,7 @@ class PanelWidgets:
         for prop, value in self.panel.properties_of(key).items():
             applier = self._appliers[key].get(prop)
             if applier is not None:
-                self._show(applier, value)
+                self._show(key, applier, value)
 
     def _report_focus(self, key: str, widget: Any) -> None:
         """Tell the panel when the user moves the keyboard focus to or from the
@@ -168,11 +173,16 @@ class PanelWidgets:
         if self.panel_events is not None:
             self.panel_events.value_changed(key, value, old)
 
-    def _show(self, painter: Callable[[Any], object], value: Any) -> None:
-        """Draw ``value`` in a widget without that counting as the user's change."""
+    def _show(self, name: str, painter: Callable[[Any], object], value: Any) -> None:
+        """Draw ``value`` in the widget of ``name`` without that counting as the
+        user's change. A widget that cannot show the value does not stop the
+        others: the failure is kept and ``paint`` tells the toolbar of it."""
         self._painting = True
         try:
             painter(value)
+        except Exception as error:  # noqa: BLE001 -- shown on the panel
+            with self._lock:
+                self._problems.append((name, error))
         finally:
             self._painting = False
 
@@ -201,14 +211,24 @@ class PanelWidgets:
             painter = self._painters.get(name)
             if painter is not None:
                 self._shown[name] = value
-                self._show(painter, value)
+                self._show(name, painter, value)
         for (name, prop), value in properties:
             applier = self._appliers.get(name, {}).get(prop)
             if applier is not None:
-                self._show(applier, value)
+                self._show(name, applier, value)
         if self._run_listener is not None:
             for kind, error in steps:
                 self._run_listener(kind, error)
+        with self._lock:
+            problems, self._problems = self._problems, []
+        if self._problem_listener is not None:
+            for name, error in problems:
+                self._problem_listener(name, error)
+
+    def on_problem(self, listener: ProblemListener) -> None:
+        """Tell ``listener`` (the toolbar) of each widget that could not show its
+        value, from ``paint``."""
+        self._problem_listener = listener
 
     def on_run(self, listener: RunListener) -> None:
         """Tell ``listener`` (the toolbar) of each run's start and end, from
@@ -247,6 +267,31 @@ class PanelWidgets:
         False."""
         with self._lock:
             self._defer_request = deferred
+
+    def geometry_changed(self, name: str, prop: str, value: Any) -> None:
+        """The program moved the object ``name`` (``prop`` "position") or scrolled
+        the pane ``name`` (``prop`` "origin"). The page lays its widgets out in
+        rows and has no fixed positions or scroll offsets to change, so the move
+        is ignored here; the panel keeps the geometry for the VI's reads."""
+
+    def window_changed(self, state: int, active: bool) -> None:
+        """The program opened, closed or gave the VI's window a state (FP.Open,
+        FP.Close, FP.State, Is Frontmost). This view is the browser tab the user
+        already has open, which a page cannot close, hide or minimise, so it
+        shows nothing for the change; the panel keeps the state for the VI's
+        reads."""
+
+    def window_property_changed(self, prop: str, value: Any) -> None:
+        """The program wrote a property of the VI's window (``panel_bounds``,
+        ``origin``, ``monitor``, ``behavior``, ``edit_mode_on_open``). A browser
+        tab has no desktop window to place, scroll or put on a monitor, so every
+        one is ignored here; the panel keeps the value for the VI's reads."""
+
+    def subpanel_changed(self, control: str, vi: Any) -> None:
+        """The program loaded the VI ``vi`` into the SubPanel control ``control``,
+        or took it out. The page draws no widget for a SubPanel control (the panel
+        gives it no name), so there is nothing to show; the panel keeps what it
+        holds for the VI's reads."""
 
     def run_started(self) -> None:
         with self._lock:

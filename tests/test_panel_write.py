@@ -14,7 +14,7 @@ from types import ModuleType
 from typing import Any
 
 import pytest
-from nicegui import Client, ui
+from nicegui import ui
 from nicegui.testing.user import User
 from nicegui.testing.user_simulation import user_simulation
 
@@ -280,7 +280,7 @@ def _slide_control_vi() -> Vi:
 
 
 @pytest.mark.filterwarnings("ignore:coroutine 'Event.wait' was never awaited")
-def test_a_control_the_panel_has_no_widget_for_is_a_gap_that_raises_when_built(
+def test_a_control_the_panel_has_no_widget_for_is_a_gap_drawn_as_a_placeholder(
     project: Project,  # noqa: F811
 ) -> None:
     project.add(_slide_control_vi())
@@ -289,22 +289,17 @@ def test_a_control_the_panel_has_no_widget_for_is_a_gap_that_raises_when_built(
         ("unsupported_control", "Level")
     ]
     assert package.gaps[0].reason == (
-        "the panel has no widget for a stdSlide control of type int"
+        "the panel has no widget for the Slide control"
     )
     source = (package.root / f"{STEM}_panel.py").read_text(encoding="utf-8")
-    assert "raise NotImplementedError(" in source
+    assert "raise NotImplementedError(" not in source
+    assert "unsupported_control('the panel has no widget" in source
     panel = _panel(package)
-    with pytest.raises(NotImplementedError, match="stdSlide control of type int"):
-        _build_in_a_page(panel.build_panel)
 
+    async def scenario(user: User) -> None:
+        await until(user, "This control is not converted: the panel has no widget")
 
-def _build_in_a_page(build_panel: Callable[[], None]) -> None:
-    async def run() -> None:
-        async with user_simulation():
-            with Client(ui.page("/gap")):
-                build_panel()
-
-    asyncio.run(run())
+    _simulate(panel.build_panel, scenario)
 
 
 def _generate(monkeypatch: pytest.MonkeyPatch, *arguments: str) -> int:

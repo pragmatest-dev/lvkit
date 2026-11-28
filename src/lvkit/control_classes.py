@@ -36,6 +36,7 @@ class _Row:
 class _Table:
     class_ids: dict[str, int]
     rows: tuple[_Row, ...]
+    display_names: dict[str, str]
 
 
 @functools.cache
@@ -48,7 +49,16 @@ def _table() -> _Table:
             _Row(row["fp_class"], row.get("type_kind"), row["class"])
             for row in raw["front_panel_classes"]
         ),
+        display_names={
+            row["fp_class"]: row["name"] for row in raw["display_names"]
+        },
     )
+
+
+def display_name(control_type: str | None) -> str | None:
+    """The name NI's documentation gives the control a front-panel class stores
+    ("Table", "Time Stamp", "Graph or Chart"); None for a class with no entry."""
+    return _table().display_names.get(control_type or "")
 
 
 def class_ids() -> dict[str, int]:

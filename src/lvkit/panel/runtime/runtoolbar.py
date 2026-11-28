@@ -7,7 +7,9 @@ so a run another VI started shows here too. Run Continuously starts the next run
 when one ends, until its toggle is switched off or Abort is pressed. A Run while
 the VI runs is refused by the panel (error 1000) and the refusal is shown. An
 error the run raised, or an ``error_out`` indicator holding one, is shown in a
-banner (an error is a value; nothing is raised). The glyphs are our own shapes.
+banner (an error is a value; nothing is raised); a control or indicator whose
+widget could not show its value is named there too, and the run still ends.
+The glyphs are our own shapes.
 """
 
 from __future__ import annotations
@@ -90,7 +92,10 @@ class RunController:
         self._banner: ui.row | None = None
         self._headline: ui.label | None = None
         self._source: ui.label | None = None
+        self._error: Any = None
+        self._unshown: list[str] = []
         view.on_run(self._on_run)
+        view.on_problem(self._on_problem)
 
     # -- the state shown ---------------------------------------------------
 
@@ -117,16 +122,30 @@ class RunController:
         )
 
     def _show_error(self, error: Any) -> None:
-        """The banner for ``error``: a LabVIEW error value, or None to hide it."""
+        """The banner for ``error``: a LabVIEW error value, or None to hide it.
+        A control or indicator that could not show its value stays in the banner
+        until the next run starts."""
+        self._error = error
         if self._banner is None or self._headline is None or self._source is None:
             return
-        if error is None:
+        if error is None and not self._unshown:
             self._banner.set_visibility(False)
             return
-        headline, source = error_text(error)
-        self._headline.set_text(headline)
-        self._source.set_text(source)
+        headline, source = error_text(error) if error is not None else ("", "")
+        self._headline.set_text("; ".join(self._unshown) or headline)
+        self._source.set_text(
+            f"{headline} ({source})" if self._unshown and error is not None else source
+        )
         self._banner.set_visibility(True)
+
+    def _on_problem(self, name: str, error: BaseException) -> None:
+        """A control or indicator could not show its value (``PanelWidgets.paint``,
+        on the loop): the run goes on and the banner says which."""
+        self._unshown.append(
+            f"The panel could not show the value of {name!r}: "
+            f"{type(error).__name__}: {error}"
+        )
+        self._show_error(self._error)
 
     def _error_out(self) -> Any:
         """The error the VI left in its ``error_out`` indicator."""
@@ -179,6 +198,7 @@ class RunController:
             self._show_state(self._status_text)
             return
         self.running = True
+        self._unshown.clear()
         self._show_error(None)
         self._show_state("running")
 
