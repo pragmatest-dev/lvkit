@@ -29,6 +29,8 @@ from ..error_flow import error_occurred
 from ..fragment import CodeFragment
 from ..type_default import default_if_unset, state_seed, type_default
 from . import feedback, while_indexing
+from .ops._numeric import is_float
+from .ops._rounding import saturating_round
 
 
 def _when_condition(
@@ -213,6 +215,12 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 lv_type = _get_terminal_type(outer_term, ctx)
                 if lv_type and lv_type.kind == LVTypeKind.ARRAY:
                     n_terminal_var = f"len({outer_var})"
+                elif is_float(lv_type):
+                    # N is a 32-bit integer: NI "Numeric Conversion", "LabVIEW
+                    # coerces out-of-range values to the minimum or maximum value
+                    # of the integer" (infinity too); a count below zero runs no
+                    # iteration.
+                    n_terminal_var = saturating_round(outer_var, 32, True)
                 else:
                     # Integer or unknown - use directly
                     n_terminal_var = outer_var

@@ -83,7 +83,7 @@ def test_key_python_code_semantics():
     assert "in_1 + 1" in str(res.resolve(prim_id=1057).python_code)
     # Sign -> +/-1, To Byte Integer -> saturating I8
     assert "(in_1 > 0) - (in_1 < 0)" in str(res.resolve(prim_id=1049).python_code)
-    assert "127" in str(res.resolve(prim_id=1140).python_code)
+    assert res.resolve(prim_id=1140).op == "TO_INTEGER"
     # 2-input arithmetic: Add / Subtract / Multiply / Divide (operators give
     # LV's type coercion for free; Divide is true division -> always float).
     # Operand order follows the connector pane, not the NI doc listing: the
@@ -256,10 +256,9 @@ def test_1142_is_to_long_integer():
     r = res.resolve(prim_id=1142)
     assert r.name == "To Long Integer"
     assert [t.type for t in r.terminals if t.direction == "output"] == ["NumInt32"]
-    code = str(r.python_code)
-    # ties-to-even rounding + saturation to the signed 32-bit range
-    for value, expected in [(2.5, 2), (3.5, 4), (3e9, 2147483647), (-3e9, -2147483648)]:
-        assert eval(code, {"in_1": value}) == expected
+    # the shared conversion op (ties-to-even rounding and saturation, run in
+    # tests/test_rounding_infinity.py)
+    assert r.op == "TO_INTEGER"
 
 
 def test_specialized_node_types_carry_no_counter_indicated_primresid():

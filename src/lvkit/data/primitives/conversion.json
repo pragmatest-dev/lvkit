@@ -44,8 +44,8 @@
           "type": "numeric"
         }
       ],
-      "python_code": "max(-128, min(127, int(round(in_1))))",
-      "inline": true,
+      "op": "TO_INTEGER",
+      "imports": ["import ctypes"],
       "verified": true
     },
     "1141": {
@@ -65,11 +65,8 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "int16_value": "ctypes.c_int16(round(in_1)).value"
-      },
+      "op": "TO_INTEGER",
       "imports": ["import ctypes"],
-      "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-word-integer.html"
     },
@@ -92,8 +89,8 @@
           "type": "numeric"
         }
       ],
-      "python_code": "max(-2147483648, min(2147483647, int(round(in_1))))",
-      "inline": true,
+      "op": "TO_INTEGER",
+      "imports": ["import ctypes"],
       "verified": true
     },
     "1143": {
@@ -113,11 +110,8 @@
           "type": "numeric"
         }
       ],
-      "python_code": {
-        "result": "ctypes.c_uint8(round(in_1)).value"
-      },
+      "op": "TO_INTEGER",
       "imports": ["import ctypes"],
-      "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-byte-integer.html"
     },
@@ -138,17 +132,14 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "uint16_value": "ctypes.c_uint16(round(in_1)).value"
-      },
+      "op": "TO_INTEGER",
       "imports": ["import ctypes"],
-      "inline": true,
       "verified": true,
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-unsigned-word-integer.html"
     },
     "1145": {
       "name": "To Unsigned Long Integer",
-      "op": "TO_U32",
+      "op": "TO_INTEGER",
       "imports": ["import ctypes"],
       "terminals": [
         {
@@ -309,7 +300,8 @@
     "1155": {
       "name": "To Quad Integer",
       "doc_url": "https://www.ni.com/docs/en-US/bundle/labview-api-ref/page/functions/to-quad-integer.html",
-      "op": "TO_QUAD_INTEGER",
+      "op": "TO_INTEGER",
+      "imports": ["import ctypes"],
       "terminals": [
         {
           "index": 0,
@@ -346,11 +338,8 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "result": "ctypes.c_uint64(round(in_1)).value"
-      },
+      "op": "TO_INTEGER",
       "imports": ["import ctypes"],
-      "inline": true,
       "note": "To Unsigned Quad Integer (NI doc) -- completes the To-<T> conversion family (1140-1144), idx0=out/idx1=in. Terminals from 'pco.camera_FloatingMean_Example_IMAQ.vi', 'testNumericU64.vi' (JKI-EasyXML)."
     },
     "1608": {

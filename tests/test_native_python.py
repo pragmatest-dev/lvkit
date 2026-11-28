@@ -143,18 +143,26 @@ def test_negate_an_array():
 
 
 @pytest.mark.parametrize(
-    "prim_id,target,ctype,value,expected",
+    "prim_id,target,value,expected",
     [
-        (1141, "NumInt16", "c_int16", 40000.0, -25536),
-        (1143, "NumUInt8", "c_uint8", 300.0, 44),
-        (1144, "NumUInt16", "c_uint16", -1.0, 65535),
-        (1145, "NumUInt32", "c_uint32", -1.0, 4294967295),
+        (1141, "NumInt16", 40000.0, 32767),
+        (1143, "NumUInt8", 300.0, 255),
+        (1144, "NumUInt16", -1.0, 0),
+        (1145, "NumUInt32", -1.0, 0),
     ],
 )
-def test_integer_conversion_wraps_with_ctypes(prim_id, target, ctype, value, expected):
+def test_float_to_integer_conversion_saturates(prim_id, target, value, expected):
+    """NI "Numeric Conversion": a floating-point number out of range is coerced
+    to the minimum or maximum value of the integer."""
     generated = unary(prim_id, DBL, scalar(target))
-    assert f"ctypes.{ctype}(round(x)).value" in body(generated)
     assert run(generated, value) == expected
+    no_lvkit(generated)
+
+
+def test_integer_to_integer_conversion_keeps_the_low_bits_with_ctypes():
+    generated = unary(1143, scalar("NumInt32"), scalar("NumUInt8"))
+    assert "ctypes.c_uint8(x).value" in body(generated)
+    assert run(generated, 300) == 44
     no_lvkit(generated)
 
 
@@ -165,8 +173,7 @@ def test_integer_conversion_rounds_half_to_even():
 
 def test_integer_conversion_of_an_array():
     generated = unary(1141, array("NumFloat64"), array("NumInt16"))
-    assert "[ctypes.c_int16(round(_e0)).value for _e0 in x]" in body(generated)
-    assert run(generated, [1.5, 40000.0, -2.5]) == [2, -25536, -2]
+    assert run(generated, [1.5, 40000.0, -2.5]) == [2, 32767, -2]
 
 
 def test_plain_integer_arithmetic_is_not_wrapped():

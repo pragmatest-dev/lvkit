@@ -380,10 +380,8 @@
           "type": "polymorphic"
         }
       ],
-      "python_code": {
-        "floor_x": "__import__('math').floor(in_1)"
-      },
-      "inline": true,
+      "op": "ROUND_TOWARD_NEGATIVE_INFINITY",
+      "imports": ["import math"],
       "verified": true,
       "note": "Round Toward -Infinity (floor) -- forced in 'MasterAquisitionFile_2P' (a scaled index must floor); distinct from 1076 (+Inf), co-occurring in 'GenerateStimulusOutputs_FP'. NB NI slug misleads: unsuffixed round-toward-infinity.html is -Inf."
     },
@@ -404,11 +402,8 @@
           "type": "NumFloat64"
         }
       ],
-      "python_code": {
-        "_import": "import math",
-        "ceiling": "math.ceil(in_1)"
-      },
-      "inline": true,
+      "op": "ROUND_TOWARD_POSITIVE_INFINITY",
+      "imports": ["import math"],
       "verified": true,
       "guess_reason": "Unary DBL->DBL. Consumer dataflow pins the mode: String Length (1502) -> /3 (Divide 1053) -> 1076 -> For Loop N count, i.e. ceil(len/3) = number of 3-digit blocks (a 4-digit number needs 2 blocks; only rounding UP is correct). NI docs (labview-api-ref/functions/round-toward-infinity-2): Round Toward +Infinity 'rounds to the next highest integer... equivalent of the ceiling function'."
     },
