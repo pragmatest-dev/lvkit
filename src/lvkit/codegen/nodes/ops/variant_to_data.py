@@ -11,6 +11,11 @@ the variant records against the data type, in this order:
   enum or a ring takes it rounded to the nearest integer, ties to even, as LabVIEW
   coerces a floating-point number to an integer; a floating-point type takes
   ``float``, a complex type ``complex``). A Boolean is not a number;
+* a cluster, or an array, of anonymous clusters, arrays, numbers, Booleans, strings
+  and Variants: ``convert_to_type`` of the ``variants`` module converts the value
+  down to the wired type, each member of a cluster and each element of an array
+  to its own type (NI: ``data`` "is the variant changed to the data type specified
+  by type"), a member that is a variant read as its value;
 * a one-dimensional array of variants: the variant must hold an array or a
   cluster, and the data is its elements, each a variant of its own type
   (``_array_of_variants``);
@@ -53,6 +58,7 @@ from __future__ import annotations
 
 import ast
 
+from lvkit import type_string
 from lvkit.conversion_gap import ConversionGap
 from lvkit.graph.models import PrimitiveNode
 from lvkit.lv_type_codes import (
@@ -73,8 +79,8 @@ from ...errors import TerminalNotOnCall
 from ...fragment import CodeFragment
 from ...import_resolver import ImportResolver
 from ...type_fields import annotation_imports
-from ...variant_values import is_variant_type, variant_input
-from ...variants_module import lv_type_code_and_name
+from ...variant_values import is_variant_type, type_expression, variant_input
+from ...variants_module import lv_type_code_and_name, lv_type_expression
 from . import register_op_fragment
 
 INCOMPATIBLE_VARIANT_MESSAGE = (
@@ -82,6 +88,8 @@ INCOMPATIBLE_VARIANT_MESSAGE = (
     "the type input."
 )
 _SOURCE = "Variant To Data"
+# The constant of the ``variants`` module that is LabVIEW's error cluster.
+_ERROR_CONSTANT = "LV_Error"
 # The catalog's terminals by position, in each direction: error in, variant,
 # type / error out, data.
 _VARIANT_POSITION = 1
@@ -313,6 +321,59 @@ def _array_of_variants(
     return CodeFragment(statements=statements, bindings={data.id: variable})
 
 
+def _converts_by_type(lv_type: LVType) -> bool:
+    """Whether the converter of the ``variants`` module (``convert_to_type``) can
+    take ``lv_type``: a cluster or an array of anonymous clusters (tuples), arrays,
+    numbers, Booleans and strings, with a type string to read it by. A named or
+    typedef cluster, a class and the error cluster have their own Python form."""
+    if lv_type.kind not in (LVTypeKind.CLUSTER, LVTypeKind.ARRAY):
+        return False
+    try:
+        type_string.encode(lv_type)
+    except type_string.TypeStringError:
+        return False
+    return _members_convert(lv_type)
+
+
+def _members_convert(lv_type: LVType) -> bool:
+    if lv_type.typedef_name or lv_type.classname or _descriptor(lv_type) is None:
+        return False
+    if lv_type.kind == LVTypeKind.CLUSTER:
+        if lv_type_expression(lv_type).text == _ERROR_CONSTANT:
+            return False
+        return all(
+            field.type is not None and _members_convert(field.type)
+            for field in lv_type.fields or []
+        )
+    if lv_type.kind == LVTypeKind.ARRAY:
+        element = lv_type.element_type
+        return element is not None and _members_convert(element)
+    return lv_type.kind == LVTypeKind.PRIMITIVE
+
+
+def _convert_by_type(
+    ctx: CodeGenContext,
+    node: PrimitiveNode,
+    data: Terminal,
+    data_wired: bool,
+    value: str,
+    lv_type: LVType,
+) -> CodeFragment:
+    """Variant To Data into a cluster or an array: ``data`` is the variant's value
+    converted all the way down to the wired type (``convert_to_type``); anything
+    that does not fit is the ``TypeError`` of error 91."""
+    ctx.import_variant("convert_to_type")
+    call = f"convert_to_type({value}, {type_expression(ctx, lv_type)})"
+    if not data_wired:
+        # Only the check is read, through the error out.
+        return CodeFragment(statements=[parse_stmt(call)])
+    variable = ctx.make_output_var("data", node.id, terminal_id=data.id)
+    return CodeFragment(
+        statements=[build_assign(variable, parse_expr(call))],
+        bindings={data.id: variable},
+    )
+
+
 @register_op_fragment("VARIANT_TO_DATA")
 def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | None:
     variant_entry = _catalog_terminal(
@@ -352,6 +413,8 @@ def variant_to_data(node: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment | 
         return CodeFragment(bindings={data.id: value})
     if _is_array_of_variants(lv_type):
         return _array_of_variants(ctx, node, data, data_wired, value)
+    if _converts_by_type(lv_type):
+        return _convert_by_type(ctx, node, data, data_wired, value, lv_type)
     convert = _numeric_conversion(lv_type)
     target: ast.expr | None = None
     if _type_check(ctx, value, lv_type, convert) is None:

@@ -26,6 +26,7 @@ from lvkit.models import ClusterField, LVType, LVTypeKind
 
 from .flat_reader import flat_reader_source
 from .flat_writer import flat_writer_source
+from .type_converter import type_converter_source
 from .type_reader import type_reader_source
 
 VARIANTS_MODULE_NAME = "variants"
@@ -280,6 +281,7 @@ def _module_source() -> str:
         + type_reader_source(_scalar_constants_by_code())
         + flat_reader_source()
         + flat_writer_source()
+        + type_converter_source()
     )
 
 
