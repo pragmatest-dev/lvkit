@@ -183,10 +183,14 @@ def _require_own_class(
     is a VI broken in LabVIEW: a gap. When the VI's own record claims the class
     (``claimed_owner``, by path), the class file and the VI disagree, and the
     reason says so. A class with a recorded load problem is reported as not
-    loaded, never as one that does not list the VI. A VI saved inside another VI's
-    file (a ``.vim`` or Express VI instance) is part of that VI."""
+    loaded, never as one that does not list the VI. The VI that makes the call is
+    the member the access scope is about (NI, "Setting the Access Scope of Member
+    VIs": Private -- "Only VIs within the same class or interface can call the
+    member VI"): a copy of a ``.vim`` is that ``.vim`` (a member of the class or
+    library the ``.vim`` belongs to), any other VI saved inside another VI's file
+    (an Express VI instance) is part of the VI that holds it."""
     if caller_key:
-        caller_key = graph.embedding_vi(caller_key) or caller_key
+        caller_key = graph.access_scope_vi(caller_key)
     caller_class = graph.owning_class_key(caller_key) if caller_key else None
     if caller_class == class_key:
         return

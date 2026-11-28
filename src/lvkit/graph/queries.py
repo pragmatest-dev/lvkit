@@ -451,6 +451,20 @@ class QueryMixin:
         vim = self._dep_graph.nodes[key].get("instance_of")
         return str(vim) if vim else None
 
+    def access_scope_vi(self, key: str) -> str:
+        """The VI whose membership decides what the VI ``key`` may call (access
+        scope is about the member that makes the call): a saved copy of a file
+        that belongs to a class or a library (a ``.vim`` of one) is that file, any
+        other VI saved inside another VI's file (an Express VI's copy) is the VI
+        that holds it, and a file is itself."""
+        source = self.instance_file(key)
+        if source is not None and (
+            self.owning_class_key(source) is not None
+            or self.get_owning_library(source) is not None
+        ):
+            return source
+        return self.embedding_vi(key) or key
+
     def embedding_vi(self, key: str) -> str | None:
         """The key of the loaded VI that holds ``key`` inside its own file: a
         dependency whose recorded path is a place in a VI file (an instance

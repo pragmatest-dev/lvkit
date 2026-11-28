@@ -6,7 +6,7 @@ import ast
 
 from lvkit.graph.models import PrimitiveNode
 from lvkit.graph.terminal_layout import array_rank
-from lvkit.models import Terminal
+from lvkit.models import LVType, Terminal
 
 from ...ast_utils import parse_expr
 from ...elementwise import arrayify
@@ -36,7 +36,13 @@ def number_input(node: PrimitiveNode) -> Terminal | None:
 def over_array_rank(expression: str, number: Terminal | None) -> str:
     """``expression`` of ``in_1``, applied to every element when ``number`` is an
     array (one comprehension level per dimension)."""
-    rank = array_rank(number.lv_type) if number is not None else 0
+    return over_type_rank(expression, number.lv_type if number is not None else None)
+
+
+def over_type_rank(expression: str, lv_type: LVType | None) -> str:
+    """``expression`` of ``in_1``, applied to every element when ``lv_type`` is an
+    array (one comprehension level per dimension)."""
+    rank = array_rank(lv_type)
     if not rank:
         return expression
     lifted, _ = arrayify(parse_expr(expression), {"in_1": rank}, conditionals=True)

@@ -50,7 +50,12 @@ _VILIB_VIM_CALLER = (
     / "measurement-plugin-labview/Source/Runtime/Clients/Session Management V1"
     / "Connection Map/Is Site in Map.vi"
 )
-_JSON_EXAMPLE = _SAMPLES / "JSONtext/Examples/Example of JOBJ Tag.vi"
+_SESSION_CALLER = (
+    _SAMPLES
+    / "measurement-plugin-labview/Source/Runtime/Sessions/niFGEN"
+    / "Get Connections - 1Pin MConn.vi"
+)
+_JSON_EXAMPLE =_SAMPLES / "JSONtext/Examples/Example of JOBJ Tag.vi"
 _PICO_EXAMPLE = (
     _SAMPLES / "picosdk-ni-labview-examples/usbtc08/USBTC08StreamingExample.vi"
 )
@@ -182,6 +187,34 @@ def test_from_json_text_instance_has_the_callers_cluster_type() -> None:
     ]
     assert declared.lv_type is not None
     assert declared.lv_type.type_descriptor() == "Variant"
+
+
+def test_a_vim_copy_calls_as_its_vim_and_an_express_copy_as_its_holder() -> None:
+    """NI, "Setting the Access Scope of Member VIs": a private member is callable
+    "only [by] VIs within the same class". The copy is the ``.vim``, a member of
+    its class; a copy of a file that belongs to no class or library (an Express
+    VI) is part of the VI that holds it; a file is itself."""
+    graph, key = load_vi_by_path(
+        _SESSION_CALLER.resolve(),
+        LoadMode.FULL,
+        userlib_root=OPENG_USERLIB,
+        layout=False,
+    )
+    vim_copies = {
+        k: graph.instance_file(k)
+        for k in graph.list_vis()
+        if (graph.instance_file(k) or "").endswith(".vim")
+    }
+    assert vim_copies
+    for copy, vim in vim_copies.items():
+        assert vim is not None
+        assert graph.owning_class_key(vim) is not None
+        assert graph.access_scope_vi(copy) == vim
+    assert graph.access_scope_vi(key) == key
+
+    express, express_key = _graph(_PICO_EXAMPLE)
+    copies = [k for k in express.list_vis() if express.embedding_vi(k) == express_key]
+    assert {express.access_scope_vi(k) for k in copies} == {express_key}
 
 
 def test_express_vi_instances_load_with_their_own_pane() -> None:
