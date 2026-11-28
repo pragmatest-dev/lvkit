@@ -261,6 +261,24 @@ class QueryMixin:
         is a file."""
         return self._recorded.holder_of(key)
 
+    def vi_file_name(self, key: str) -> str:
+        """The file name a message names the VI ``key`` by: its file's. A saved
+        copy has none of its own (LabVIEW names it with a GUID): it is named as
+        the VI it is a copy of."""
+        if self.instance_holder(key) is not None:
+            return Path(self.key_label(key)).name
+        return Path(key).name
+
+    def holding_file(self, key: str) -> str | None:
+        """The key of the VI file that holds the saved instance ``key`` in its own
+        file, through the saved copies between them (a copy of a ``.vim`` that a
+        saved copy itself calls is held by that copy); None for a key that is a
+        file."""
+        holder = self.instance_holder(key)
+        while holder is not None and self.instance_holder(holder) is not None:
+            holder = self.instance_holder(holder)
+        return holder
+
     def instance_file(self, key: str) -> str | None:
         """The key of the ``.vim`` file the saved instance ``key`` is an instance
         of, when that file is found; None for any other dependency, an Express VI's
@@ -269,6 +287,14 @@ class QueryMixin:
             return None
         vim = self._dep_graph.nodes[key].get("instance_file")
         return str(vim) if vim else None
+
+    def attributes_key(self, key: str) -> str:
+        """The VI whose own attributes (window title and bounds, reentrancy,
+        priority, tags, ...) the VI ``key`` has when it runs: a copy of a ``.vim``
+        is that ``.vim``, when its file is loaded; any other VI is itself. The
+        copy's own are its front panel and types, which adapt to a call."""
+        vim = self.instance_file(key)
+        return vim if vim is not None and vim in self._vi_nodes else key
 
     def instance_path(self, key: str) -> str | None:
         """The path the VI holding the saved instance ``key`` records for the

@@ -393,7 +393,9 @@ def _negative_guards(
     one: recorded (the warning), and raised where the value turns out negative."""
     guards: list[ast.stmt] = []
     for whole, reason in negative_gaps:
-        gap = gap_of(ConversionGap(reason, node), ctx.vi_name or "", node)
+        gap = gap_of(
+            ConversionGap(reason, node), ctx.vi_name or "", node, graph=ctx.graph
+        )
         ctx.gaps.append(gap)
         guards.append(
             ast.If(

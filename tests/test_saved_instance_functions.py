@@ -41,6 +41,9 @@ class _Graph:
     def instance_holder(self, key: str) -> str | None:
         return self._holders.get(key)
 
+    def holding_file(self, key: str) -> str | None:
+        return self._holders.get(key)
+
     def iter_nodes(self, key: str) -> list[VINode]:
         return self._calls.get(key, [])
 

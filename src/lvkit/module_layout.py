@@ -172,6 +172,12 @@ class ModuleLayout:
             return _Location((), tuple(path_tokens(recorded)))
         if not os.path.isabs(key):
             return _Location((), tuple(path_tokens(key)))
+        file_holder = self._graph.holding_file(key)
+        if file_holder is not None and file_holder != self._graph.instance_holder(key):
+            # A saved copy held by another saved copy is placed as the file's
+            # copy: the copies between have no place of their own.
+            outer = self._location(file_holder)
+            return _Location(outer.tree, (*outer.below, Path(key).name))
         library = self._graph.library_location(key, recorded)
         if library is not None:
             return _Location(library[:1], library[1:])

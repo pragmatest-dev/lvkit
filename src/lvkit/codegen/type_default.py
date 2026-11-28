@@ -186,7 +186,7 @@ def default_if_none(
     try:
         made: ast.stmt = build_assign(name, default())
     except ConversionGap as exc:
-        gap = gap_of(exc, ctx.vi_name or "", None, label)
+        gap = gap_of(exc, ctx.vi_name or "", None, label, ctx.graph)
         ctx.gaps.append(gap)
         made = raise_statement(gap.message)
     return ast.If(test=parse_expr(f"{name} is None"), body=[made], orelse=[])

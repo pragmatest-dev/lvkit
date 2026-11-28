@@ -240,6 +240,7 @@ def vi_file_property_statements(
                     key,
                     None,
                     label="VI Type",
+                    graph=ctx.graph,
                 )
             )
         values.append((VI_TYPE_ATTRIBUTE, ast.Constant(value=None)))

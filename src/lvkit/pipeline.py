@@ -1242,7 +1242,7 @@ def generate_python(
                     else home.function
                 )
                 members.append(home.key)
-            holder = graph.instance_holder(home.copies[0]) or home.key
+            holder = graph.holding_file(home.copies[0]) or home.key
             what = (
                 graph.vi_display_name(home.key)
                 if home.file_name is None

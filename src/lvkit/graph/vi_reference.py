@@ -170,6 +170,7 @@ class VIReferenceMixin(WireOriginMixin):
         _vi_nodes: dict[str, set[str]]
 
         def vi_display_name(self, vi_name: str) -> str: ...
+        def list_file_vis(self) -> list[str]: ...
         def is_stub(self, key: str) -> bool: ...
         def node_type(self, key: str) -> NodeType: ...
         def _owner_key(self, key: str, owner_type: NodeType) -> str | None: ...
@@ -367,7 +368,7 @@ class VIReferenceMixin(WireOriginMixin):
         class's methods (``class_members``); a name two loaded files share is left
         out (it names no single VI)."""
         found: dict[str, list[str]] = {}
-        for key in sorted(self._vi_nodes):
+        for key in sorted(self.list_file_vis()):
             display = self.vi_display_name(key)
             if ":" not in display or self.is_stub(key):
                 continue
@@ -384,7 +385,7 @@ class VIReferenceMixin(WireOriginMixin):
         ``<owner>:`` is one of these. A name two loaded files share is left out
         (it names no single VI)."""
         found: dict[str, list[str]] = {}
-        for key in sorted(self._vi_nodes):
+        for key in sorted(self.list_file_vis()):
             display = self.vi_display_name(key)
             if ":" in display or self.is_stub(key):
                 continue
@@ -412,7 +413,7 @@ class VIReferenceMixin(WireOriginMixin):
     def _loaded_by_name(self, name: str) -> ReferencedVI:
         """The loaded VI whose full qualified name is ``name``."""
         keys = sorted(
-            key for key in self._vi_nodes if self.vi_display_name(key) == name
+            key for key in self.list_file_vis() if self.vi_display_name(key) == name
         )
         if not keys:
             raise VIReferenceUnresolved(
@@ -430,7 +431,7 @@ class VIReferenceMixin(WireOriginMixin):
         caller = self.terminal_vi(terminal_id)
         base = Path(caller).parent if caller else Path()
         wanted = os.path.normpath(base / text)
-        for key in sorted(self._vi_nodes):
+        for key in sorted(self.list_file_vis()):
             if os.path.normpath(key) == wanted:
                 return ReferencedVI(self.vi_display_name(key), key)
         raise VIReferenceUnresolved(

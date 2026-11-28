@@ -5,6 +5,7 @@ each copy runs. Real callers from the sample corpus."""
 from __future__ import annotations
 
 import importlib
+import re
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -29,6 +30,9 @@ _RUNTIME = _SAMPLES / "measurement-plugin-labview/Source/Runtime"
 _TEMPLATES = (
     _SAMPLES
     / "actor-framework/Providers/MessageMakerProvider/_Message Maker/_templates"
+)
+_PICO_EXAMPLE = (
+    _SAMPLES / "picosdk-ni-labview-examples/usbtc08/USBTC08StreamingExample.vi"
 )
 _UNPACK_FIELDS = _SAMPLES / "grpc-labview/tests/Deprecated/Protobuf/TestUnpackFields.vi"
 
@@ -200,3 +204,115 @@ def test_json_puts_the_frame_in_the_entrys_settings() -> None:
     [entry] = [d for d in data["dependencies"] if "settings" in d]
     assert entry["settings"] == [{"frame": 0, "id": "2171"}]
     assert entry["qualified"].endswith("Assert Connections.vim")
+
+
+_GUID = re.compile(r"[0-9a-f]{8}[-_][0-9a-f]{4}[-_][0-9a-f]{4}[-_][0-9a-f]{4}")
+
+
+def _no_generated_name(root: Path) -> None:
+    """No generated file names a copy by the GUID LabVIEW gave it."""
+    for file in sorted(root.rglob("*.py")):
+        match = _GUID.search(file.read_text(encoding="utf-8"))
+        assert match is None, f"{file.relative_to(root)}: {match and match.group()}"
+
+
+def test_every_function_of_a_vim_is_that_vim_to_the_program(
+    generated_modules: Path,
+) -> None:
+    summary = generate_python(
+        _UNPACK_FIELDS, generated_modules, search_path=[str(_SAMPLES / "grpc-labview")]
+    )
+
+    root = Path(summary["output_dir"])
+    [vim_file] = sorted(root.rglob("getunpackedfield_vim.py"))
+    text = vim_file.read_text(encoding="utf-8")
+    names = ["getunpackedfield"] + [f"getunpackedfield_{n}" for n in range(2, 7)]
+    vim = "grpc-lvsupport.lvlib:GetUnpackedField.vim"
+    for name in names:
+        assert f"\n{name}.vi_name = {vim!r}\n" in text, name
+        assert f"\n{name}.window_title = 'GetUnpackedField.vim'\n" in text, name
+    _no_generated_name(root)
+    # All VIs In Memory lists the .vim once, whatever the number of its copies.
+    _import(summary, vim_file)
+    assert _import(summary, root / "panels.py").loaded_vis().count(vim) == 1
+
+
+def test_a_vim_copy_carries_the_vims_own_window_and_name(
+    generated_modules: Path,
+) -> None:
+    summary = generate_python(
+        _JSON / "Examples/Example of JOBJ Tag.vi",
+        generated_modules,
+        search_path=_SEARCH,
+        userlib_root=OPENG_USERLIB,
+    )
+
+    root = Path(summary["output_dir"])
+    text = (root / "from_json_text_vim.py").read_text(encoding="utf-8")
+    assert "\nfrom_json_text.vi_name = 'JSONtext.lvlib:From JSON Text.vim'\n" in text
+    assert "\nfrom_json_text.window_title = 'From JSON Text.vim'\n" in text
+    _no_generated_name(root)
+
+
+def test_an_express_vi_copy_is_named_as_its_caller_records_it(
+    generated_modules: Path,
+) -> None:
+    summary = generate_python(
+        _PICO_EXAMPLE, generated_modules, userlib_root=OPENG_USERLIB
+    )
+
+    root = Path(summary["output_dir"])
+    names = set()
+    for file in sorted(root.rglob("convert_to_dynamic_data*.py")):
+        [line] = [
+            ln
+            for ln in file.read_text(encoding="utf-8").splitlines()
+            if ".vi_name = " in ln
+        ]
+        names.add(line.split(" = ", 1)[1])
+    assert names == {
+        f"'USBTC08StreamingExample.vi:Instance:{n}'"
+        for n in (0, 1, 2, 3, 4, 5, 6, 7, 8)
+    }
+    _no_generated_name(root)
+
+
+def test_a_copy_is_no_file_a_name_or_a_pane_finds() -> None:
+    graph, key = load_corpus_vi(
+        _JSON.joinpath("Examples/Example of JOBJ Tag.vi").resolve()
+    )
+
+    copies = [k for k in graph.list_vis() if graph.instance_holder(k) is not None]
+    assert len(copies) == 2
+    for copy in copies:
+        assert graph.vi_display_name(copy) == graph.instance_vim(copy)
+        assert _GUID.search(graph.key_label(copy)) is None
+        assert graph.key_label(copy).startswith("Examples/Example of JOBJ Tag.vi/")
+        assert graph.attributes_key(copy) == graph.instance_file(copy)
+    files = set(graph.owned_vi_files().values()) | set(
+        graph.unowned_vi_files().values()
+    )
+    assert files.isdisjoint(copies)
+    assert graph.attributes_key(key) == key
+
+
+def test_a_copy_saved_in_a_copy_is_placed_and_named_as_its_vim(
+    generated_modules: Path,
+) -> None:
+    summary = generate_python(
+        _ONE_CONNECTION,
+        generated_modules,
+        search_path=[str(_SAMPLES / "measurement-plugin-labview/Source")],
+        userlib_root=OPENG_USERLIB,
+    )
+
+    # The copy of Get Connections from Pins.vim that a saved copy holds is a module
+    # in the folder of the file that holds both.
+    root = Path(summary["output_dir"])
+    [nested] = root.rglob(
+        "get_connections___1pin_mconnvi/get_connections_from_pins_vim.py"
+    )
+    assert nested.parent.name.endswith("vi")
+    # No folder, module, message or attribute names a copy by its GUID.
+    assert not [p for p in root.rglob("*") if _GUID.search(p.name.replace("_", "-"))]
+    _no_generated_name(root)

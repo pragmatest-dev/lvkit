@@ -131,7 +131,7 @@ def instance_homes(
     # The module's owner, the VI file name and the installation path, by home.
     by_home: dict[tuple[str, str | None, str | None], list[str]] = {}
     for key in sorted(keys):
-        holder = graph.instance_holder(key)
+        holder = graph.holding_file(key)
         if holder is None:
             continue
         vim = graph.instance_file(key)
@@ -217,7 +217,7 @@ class InstanceFunctions:
         self._planning.add(home.key)
 
         def holder_path(copy: str) -> str:
-            return self._holder_path(self._graph.instance_holder(copy) or copy)
+            return self._holder_path(self._graph.holding_file(copy) or copy)
 
         groups: list[list[str]] = []
         by_body: dict[str, list[str]] = {}

@@ -147,7 +147,7 @@ def candidates(
     wanted = slots_shape(graph, pane)
     caller_class = graph.owning_class_key(caller_key)
     forms: dict[str, CallForm] = {}
-    for key in sorted(graph.list_vis()):
+    for key in sorted(graph.list_file_vis()):
         if graph.is_stub(key) or vi_shape(graph, key) != wanted:
             continue
         shape = member_shape(graph, key)

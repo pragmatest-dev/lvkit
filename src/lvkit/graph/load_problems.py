@@ -146,7 +146,17 @@ class LoadProblemsMixin:
         method of a class whose file is known but undetermined
         (``CLASS_MEMBER_ATTR``) as the class's label and the method's file name;
         another VI that is not a file (a class method no class lists) by the
-        qualified name recorded for it, else the key as it is."""
+        qualified name recorded for it, else the key as it is. A copy of a
+        malleable or Express VI saved in its caller's file is that VI inside its
+        caller (``Caller.vi/From JSON Text.vim``), never the name LabVIEW
+        generated for the copy."""
+        if key in self._dep_graph:
+            attrs = self._dep_graph.nodes[key]
+            holder = attrs.get("embedded_in")
+            if holder is not None:
+                vim = attrs.get("instance_of")
+                name = str(vim).rsplit(":", 1)[-1] if vim else attrs.get("qname") or key
+                return f"{self.key_label(holder)}/{name}"
         if Path(key).is_absolute():
             return self.vi_label(key)
         if key in self._dep_graph:

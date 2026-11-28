@@ -72,6 +72,9 @@ class Gap:
     reason: str
     # The full diagnostic the error carries.
     detail: str
+    # The file name of the VI the message names (``InMemoryVIGraph.vi_file_name``);
+    # the file name of ``vi`` when empty.
+    vi_name: str = ""
 
     def diagnostic(self) -> list[str]:
         """The lines of the error's own diagnostic that say more than the reason
@@ -90,7 +93,8 @@ class Gap:
         kind, VI and node, then the diagnostic the error carries (the primitive's
         connector pane, the paths tried), enough to finish the conversion without
         running lvkit again."""
-        lines = [self.reason, f"gap kind: {self.kind}", f"VI: {Path(self.vi).name}"]
+        shown = self.vi_name or Path(self.vi).name
+        lines = [self.reason, f"gap kind: {self.kind}", f"VI: {shown}"]
         if self.node_name:
             lines.append(f"node: {self.node_name}")
         lines.extend(self.diagnostic())
@@ -139,9 +143,11 @@ def gap_of(
     vi: str,
     node: AnyGraphNode | None,
     label: str | None = None,
+    graph: InMemoryVIGraph | None = None,
 ) -> Gap:
     """The record of ``exc``, raised while generating ``node`` of ``vi``; ``label``
-    names what the gap is in when it is in no node (a constant)."""
+    names what the gap is in when it is in no node (a constant). ``graph`` names
+    ``vi`` in the message when it is a saved copy."""
     node = node or exc.node
     node_name = node.display_name if node is not None else label or exc.node_name
     reason = exc.summary()
@@ -177,6 +183,7 @@ def gap_of(
         name=name,
         reason=reason,
         detail=str(exc),
+        vi_name=graph.vi_file_name(vi) if graph is not None else "",
     )
 
 
@@ -312,7 +319,7 @@ def catch_gap(node: AnyGraphNode, ctx: CodeGenContext) -> Iterator[GapGuard]:
         state.restore()
         if isinstance(exc, MissingVIError):
             exc.call_terminals = _wired_terminals(node, ctx)
-        gap = gap_of(exc, ctx.vi_name or "", node)
+        gap = gap_of(exc, ctx.vi_name or "", node, graph=ctx.graph)
         ctx.gaps.append(gap)
         guard.fragment = gap_fragment(node, ctx, gap.message)
 
@@ -336,7 +343,7 @@ def catch_entry_gap(ctx: CodeGenContext, label: str | None) -> Iterator[EntryGua
         yield guard
     except ConversionGap as exc:
         state.restore()
-        gap = gap_of(exc, ctx.vi_name or "", None, label)
+        gap = gap_of(exc, ctx.vi_name or "", None, label, ctx.graph)
         ctx.gaps.append(gap)
         ctx.entry_raises.append(raise_statement(gap.message))
         guard.failed = True
@@ -353,6 +360,6 @@ def vi_body(
         return build()
     except ConversionGap as exc:
         state.restore()
-        gap = gap_of(exc, vi_name, None)
+        gap = gap_of(exc, vi_name, None, graph=ctx.graph)
         ctx.gaps.append(gap)
         return [*ctx.entry_raises, raise_statement(gap.message)]

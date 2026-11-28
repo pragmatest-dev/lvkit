@@ -502,11 +502,14 @@ def build_module_ast(
         vi_context, vi_name, body, spell, hooks=ctx.panel_hooks
     )
     module_body.append(func_def)
-    module_body.append(window_title_statement(ctx, vi_name, func_def.name))
-    module_body.append(window_bounds_statement(ctx, vi_name, func_def.name))
-    module_body.append(vi_name_statement(ctx, vi_name, func_def.name))
-    module_body.extend(vi_file_property_statements(ctx, vi_name, func_def.name))
-    module_body.extend(tags_statements(ctx, vi_name, func_def.name))
+    # The VI's own attributes: a copy of a ``.vim`` saved in a caller runs as the
+    # ``.vim``, so it carries the ``.vim``'s (its pane and types are the copy's).
+    attributes = ctx.graph.attributes_key(vi_name) if ctx.graph is not None else vi_name
+    module_body.append(window_title_statement(ctx, attributes, func_def.name))
+    module_body.append(window_bounds_statement(ctx, attributes, func_def.name))
+    module_body.append(vi_name_statement(ctx, attributes, func_def.name))
+    module_body.extend(vi_file_property_statements(ctx, attributes, func_def.name))
+    module_body.extend(tags_statements(ctx, attributes, func_def.name))
     module_body.extend(
         function_panel_statements(
             vi_context,

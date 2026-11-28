@@ -232,8 +232,13 @@ class InstanceLoadingMixin:
                 self._dep_graph.nodes[loaded]["instance_path"] = vim_path
         # The holder names the instance as it records it, and stores its path.
         self._register_dep_name(loaded, instance.name, qualified_name)
+        # A copy of a ``.vim`` is that ``.vim`` as a VI (its qualified name); an
+        # Express VI's copy, as LabVIEW records it, inside the VI that holds it.
         if loaded in self._vi_display_names:
-            self._vi_display_names[loaded] = qualified_name
+            holder_name = self._vi_display_names.get(holder_key, Path(holder_key).name)
+            self._vi_display_names[loaded] = (
+                vim_name if vim_name is not None else f"{holder_name}:{qualified_name}"
+            )
         self._note_recorded_path(loaded, recorded, qualified_name, holder_key)
         return loaded
 
