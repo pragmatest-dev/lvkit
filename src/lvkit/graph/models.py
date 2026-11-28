@@ -185,8 +185,8 @@ class VINode(GraphNode):
     @property
     def callee_file_key(self) -> str | None:
         """On a SubVI call node, the file the call is a call of: ``callee_key``,
-        except that a call running its saved instance is a call of the ``.vim``
-        (None when that file is not found, or the instance is an Express VI's)."""
+        except that a call running its saved instance is a call of the VI it is a
+        copy of (None when that file is not found)."""
         if self.runs_saved_instance:
             return self.instance_of_key
         return self.callee_key

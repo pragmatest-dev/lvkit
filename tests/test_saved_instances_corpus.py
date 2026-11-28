@@ -191,21 +191,29 @@ def test_express_vi_instances_load_with_their_own_pane() -> None:
     assert len(instance_keys) == 9
     for instance_key in instance_keys:
         assert graph.is_loaded_vi(instance_key)
-        assert graph.instance_vim(instance_key) is None
+        assert graph.instance_vim(instance_key) == "1D Dbl 1 Channel to DDT.vi"
         assert [
             t.name for t in graph.pane_terminals(instance_key, TerminalDirection.INPUT)
         ] == ["Array"]
         assert [
             t.name for t in graph.pane_terminals(instance_key, TerminalDirection.OUTPUT)
         ] == ["Dynamic Data Type"]
-    # The calls keep the names the caller records, and the manifest the stored path.
+    # Every call is a call of the block VI the copy was made from, which the
+    # copy saves as its original path: one entry with the copy's pane.
     text = render_lvnet(
         build_netlist_from_graph(graph, key), display_name="x", verbose=True
     )
-    assert "    subVI Instance:0 " in text
-    assert "(missing)" not in "\n".join(
-        line for line in text.splitlines() if "Instance:" in line
+    lines = text.splitlines()
+    [entry] = [i for i, ln in enumerate(lines) if "    subVI 1D Dbl 1 Channel" in ln]
+    assert lines[entry].endswith(
+        "; <vilib>/express/express signal manip/ConverttoDDTBlocks.llb/"
+        "1D Dbl 1 Channel to DDT.vi (missing)"
     )
+    assert lines[entry + 1 : entry + 3] == [
+        "      in   Array             : [DBL]",
+        "      out  Dynamic Data Type : MeasureData",
+    ]
+    assert "Instance:" not in text
 
 
 def test_every_view_names_a_saved_instance_call_as_a_call_of_the_vim() -> None:

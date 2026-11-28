@@ -7,7 +7,8 @@ that GUID name, so on its own it cannot say which file the call is to. The
 embedded copy is itself a VI file, and its link table records the VI it is an
 instance of: the first ``VIVI`` link after its ``IVOV`` (instance-to-owner)
 link. That link's path is relative to the instance, which sits one level inside
-its caller.
+its caller. An Express VI's copy links no owner; it saves the path of the VI it was
+made from as its ``_OriginalInstancePath`` tag.
 """
 
 from __future__ import annotations
@@ -29,10 +30,15 @@ from .parser.link_table import (
     decode_instance_source,
 )
 from .parser.models import ParsedDependencyRef, ParsedVI
+from .parser.saved_tags import read_vi_tags
 from .parser.xml_trees import parsed_xml
+from .path_value import PathType, parse_path
 from .text_encoding import decode_labview_text
 
 logger = logging.getLogger(__name__)
+
+# The tag an Express VI's saved copy keeps the path of the VI it was made from in.
+ORIGINAL_INSTANCE_PATH_TAG = "_OriginalInstancePath"
 
 # The ``VINS`` block's section 0 lists the instances' names: a u32 count, then
 # one fixed-size slot per instance holding a length-prefixed name. Sections 1..N
@@ -84,6 +90,44 @@ def _strings(link: ET.Element, tag: str) -> tuple[str, ...]:
     return tuple(s.text or "" for s in link.findall(f"{tag}/String"))
 
 
+def _original_instance_link(instance_xml: Path) -> InstanceSourceLink | None:
+    """The VI an Express VI's saved copy was made from, from the
+    ``_OriginalInstancePath`` tag the copy saves in its ``VITS`` block (an
+    absolute path, ``<vilib>/...``). pylabview writes the block's tags inline
+    when it reads them all, else leaves the ``*_VITS.bin`` file."""
+    section = parsed_xml(instance_xml).find("VITS/Section")
+    if section is None:
+        return None
+    sidecar = section.get("File")
+    if sidecar is not None:
+        for tag in read_vi_tags(instance_xml.parent / sidecar):
+            if tag.name == ORIGINAL_INSTANCE_PATH_TAG and tag.value is not None:
+                parsed = parse_path(str(tag.value.value))
+                if parsed is not None and parsed[0] == PathType.ABSOLUTE:
+                    return _original_link(parsed[1], int(parsed[0]))
+        return None
+    for variant in section.findall("LVVariant"):
+        if variant.get("Name") != ORIGINAL_INSTANCE_PATH_TAG:
+            continue
+        path = variant.find("DataFill/Path")
+        if path is None or path.get("TpVal") != str(int(PathType.ABSOLUTE)):
+            return None
+        return _original_link(
+            [s.text or "" for s in path.findall("String")], int(PathType.ABSOLUTE)
+        )
+    return None
+
+
+def _original_link(components: list[str], path_type: int) -> InstanceSourceLink | None:
+    if not components:
+        return None
+    return InstanceSourceLink(
+        name_parts=(components[-1],),
+        path_tokens=tuple(components),
+        path_type=path_type,
+    )
+
+
 def _instances(directory: Path, instance_files: list[str]) -> list[tuple[str, str]]:
     """``(name, file name)`` of each embedded instance of a caller, in the order
     the caller's ``VINS`` block lists them (``instance_files``: the name list,
@@ -130,6 +174,10 @@ def read_instance_sources(
             logger.warning("%s: instance %s: %s", directory, name, exc)
             continue
         if link is None or not link.name_parts or not link.path_tokens:
+            # An Express VI's copy links no owner; it saves the VI it was made
+            # from as a tag.
+            link = _original_instance_link(instance_xml)
+        if link is None:
             continue
         # The instance's path is <caller>/<instance>, one level below the
         # caller's: one leading empty token (one level up) is consumed.

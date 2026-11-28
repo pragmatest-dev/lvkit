@@ -2629,8 +2629,9 @@ def _build_dependency_manifest(
         # A ``.vim`` the calls run through their saved copies is shown once for
         # each copy that differs (pane and accepted frames).
         panes = [key]
-        if key in saved.by_file:
-            panes = [*saved.by_file[key], *([key] if key in saved.as_file else [])]
+        copies = saved.by_file.get(key) or saved.by_name.get(qname)
+        if copies:
+            panes = [*copies, *([key] if key in saved.as_file else [])]
         shown: set[tuple[object, ...]] = set()
         for pane in panes:
             entry = NetlistDependency(

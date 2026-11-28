@@ -7,10 +7,12 @@ LabVIEW saves, in each caller's file, a private copy of every malleable VI
 copies are written as functions in one module per ``.vim``:
 
 * The module is the ``.vim``'s own (where its source would be generated, as
-  ``ModuleLayout`` places it). A copy whose ``.vim`` file is not found, and an
-  Express VI's copy, has no such file: its module is beside the VI that holds it,
-  named from the name its call shows (``InstanceHome.file_name``), one for every
-  copy of that name in that VI.
+  ``ModuleLayout`` places it). A copy whose source VI file is not found (a
+  ``.vim`` or the block VI an Express VI's copy was made from) has its module where
+  the caller records that file when the path is under an installation folder
+  (``<vilib>/...``); any other is beside the VI that holds it. Either is named from
+  the name its call shows (``InstanceHome.file_name``), one for every copy of that
+  name.
 * Copies whose generated functions have the same body share one function
   (``normalised_body`` says what the body is).
 * A shared function that holds state (an uninitialized shift register, a Feedback
@@ -100,8 +102,8 @@ class InstanceFunction:
 
 def _file_name(graph: InMemoryVIGraph, key: str) -> str:
     """The file name of the VI a saved copy is a copy of, as its call shows it:
-    the ``.vim`` the call names, else the title of the copy's front panel window
-    (an Express VI's name)."""
+    the ``.vim`` or Express VI block VI the call names, else (a copy that records
+    none) the title of the copy's front panel window."""
     vim = graph.instance_vim(key)
     if vim:
         return vim.rsplit(":", 1)[-1]

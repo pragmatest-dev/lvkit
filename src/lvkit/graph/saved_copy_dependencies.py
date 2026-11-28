@@ -25,27 +25,34 @@ if TYPE_CHECKING:
 @dataclass
 class SavedCopyCalls:
     """What the calls of one VI run: by ``.vim`` file, the keys of the saved copies
-    its calls run (``by_file``), and the files some call runs as the file itself
+    its calls run (``by_file``), by qualified name those of a VI whose file is not
+    found (``by_name``), and the files some call runs as the file itself
     (``as_file``)."""
 
     by_file: dict[str, list[str]] = field(default_factory=dict)
+    by_name: dict[str, list[str]] = field(default_factory=dict)
     as_file: set[str] = field(default_factory=set)
 
 
 def saved_copy_calls(graph: InMemoryVIGraph, vi_name: str) -> SavedCopyCalls:
-    """The saved copies the calls of ``vi_name`` run, by the ``.vim`` file they are
-    copies of (sorted keys, each once)."""
+    """The saved copies the calls of ``vi_name`` run, by the VI they are copies of:
+    its file, else (the file is not found) the qualified name its caller records
+    (sorted keys, each once)."""
     calls = SavedCopyCalls()
     for node in graph.iter_nodes(vi_name):
         if not isinstance(node, VINode) or node.callee_key is None:
             continue
+        name = graph.instance_vim(node.callee_key) if node.runs_saved_instance else None
         if node.runs_saved_instance and node.instance_of_key is not None:
             copies = calls.by_file.setdefault(node.instance_of_key, [])
-            if node.callee_key not in copies:
-                copies.append(node.callee_key)
+        elif name is not None:
+            copies = calls.by_name.setdefault(name, [])
         else:
             calls.as_file.add(node.callee_key)
-    for copies in calls.by_file.values():
+            continue
+        if node.callee_key not in copies:
+            copies.append(node.callee_key)
+    for copies in (*calls.by_file.values(), *calls.by_name.values()):
         copies.sort()
     return calls
 

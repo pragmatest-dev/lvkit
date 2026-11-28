@@ -195,7 +195,7 @@ class QueryMixin:
         callee; a loaded file's own name, a stub's recorded one), so a call and
         the ``uses :`` entry of its callee spell one identity one way; the
         caller's record when the call has no callee in the graph (a saved
-        instance of a ``.vim`` that is not found, an Express VI's instance)."""
+        instance of a VI that is not found)."""
         key = node.named_key
         if key is not None and key in self._dep_graph:
             qname = self._dep_graph.nodes[key].get("qname")
@@ -280,9 +280,9 @@ class QueryMixin:
         return holder
 
     def instance_file(self, key: str) -> str | None:
-        """The key of the ``.vim`` file the saved instance ``key`` is an instance
-        of, when that file is found; None for any other dependency, an Express VI's
-        instance and an instance of a ``.vim`` that is not found."""
+        """The key of the file the saved instance ``key`` is a copy of (a ``.vim``,
+        or the block VI of an Express VI), when that file is found; None for any
+        other dependency and for a copy of a file that is not found."""
         if key not in self._dep_graph:
             return None
         vim = self._dep_graph.nodes[key].get("instance_file")
@@ -298,8 +298,8 @@ class QueryMixin:
 
     def instance_path(self, key: str) -> str | None:
         """The path the VI holding the saved instance ``key`` records for the
-        ``.vim`` it is an instance of (``<vilib>/...``), found or not; None for an
-        Express VI's instance."""
+        VI it is a copy of (``<vilib>/...``), found or not; None for a copy that
+        records none."""
         if key not in self._dep_graph:
             return None
         path = self._dep_graph.nodes[key].get("instance_path")
@@ -442,10 +442,10 @@ class QueryMixin:
         return self._recorded.path(key)
 
     def instance_vim(self, key: str) -> str | None:
-        """The qualified name of the ``.vim`` the saved instance ``key`` is an
-        instance of (a malleable VI's copy kept in its caller's file, whether or
-        not the ``.vim`` file is found); None for any other dependency, including
-        an Express VI's instance, which is an instance of no file."""
+        """The qualified name of the VI the saved instance ``key`` is a copy of (a
+        malleable VI's or Express VI's copy kept in its caller's file, whether or
+        not that file is found); None for any other dependency and for a copy that
+        records no VI it was made from."""
         if key not in self._dep_graph:
             return None
         vim = self._dep_graph.nodes[key].get("instance_of")

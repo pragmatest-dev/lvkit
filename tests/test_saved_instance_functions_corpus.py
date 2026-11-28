@@ -254,7 +254,7 @@ def test_a_vim_copy_carries_the_vims_own_window_and_name(
     _no_generated_name(root)
 
 
-def test_an_express_vi_copy_is_named_as_its_caller_records_it(
+def test_an_express_vi_copy_is_named_and_placed_as_the_vi_it_was_made_from(
     generated_modules: Path,
 ) -> None:
     summary = generate_python(
@@ -262,18 +262,19 @@ def test_an_express_vi_copy_is_named_as_its_caller_records_it(
     )
 
     root = Path(summary["output_dir"])
-    names = set()
-    for file in sorted(root.rglob("convert_to_dynamic_data*.py")):
-        [line] = [
-            ln
-            for ln in file.read_text(encoding="utf-8").splitlines()
-            if ".vi_name = " in ln
-        ]
-        names.add(line.split(" = ", 1)[1])
-    assert names == {
-        f"'USBTC08StreamingExample.vi:Instance:{n}'"
-        for n in (0, 1, 2, 3, 4, 5, 6, 7, 8)
-    }
+    # The nine Convert to Dynamic Data copies were made from one block VI under
+    # <vilib>: their bodies are equal, so they are one function at that path.
+    [block] = sorted(root.rglob("var_1d_dbl_1_channel_to_ddt.py"))
+    assert block.relative_to(root).parent.as_posix() == (
+        "vilib/express/express_signal_manip/converttoddtblocksllb"
+    )
+    text = block.read_text(encoding="utf-8")
+    assert text.count("\ndef ") == 1
+    name = "var_1d_dbl_1_channel_to_ddt"
+    assert f"\n{name}.vi_name = '1D Dbl 1 Channel to DDT.vi'\n" in text
+    caller = (root / "usbtc08streamingexample.py").read_text(encoding="utf-8")
+    assert caller.count("(array=array") == 9
+    assert "Instance:" not in caller + text
     _no_generated_name(root)
 
 

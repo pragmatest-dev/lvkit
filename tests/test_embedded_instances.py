@@ -212,6 +212,95 @@ def test_instance_source_is_read_from_the_raw_table_when_extraction_left_one(
     assert sources["aaaa.vi"].path_tokens == ["", "Helpers", "Adapt.vim"]
 
 
+_VITS_INLINE = """<VITS><Section Index="0" Format="inline">
+<LVVariant Name="_Wizard"><DataFill>
+<Path Ident="PTH0" TpVal="0"><String>&lt;vilib&gt;</String><String>express</String>
+<String>Config.vi</String></Path></DataFill></LVVariant>
+<LVVariant Name="_OriginalInstancePath"><DataFill>
+<Path Ident="PTH0" TpVal="0"><String>&lt;vilib&gt;</String><String>express</String>
+<String>Blocks.llb</String><String>1D Block.vi</String></Path></DataFill></LVVariant>
+</Section></VITS>"""
+
+# The ``_OriginalInstancePath`` tag of an instance's ``VITS`` block as pylabview
+# leaves it when it does not read the block's values: one tag, a Path of
+# <vilib>/Utility/TypeAssert/Assert Array Dimension Count.vim.
+_VITS_BIN_HEX = (
+    "00000001000000155f4f726967696e616c496e7374616e63655061746800000060"
+    "210080000000000100080032ffffffff0001000050544830000000400000000407"
+    "3c76696c69623e075574696c6974790a54797065417373657274204173736572"
+    "742041727261792044696d656e73696f6e20436f756e742e76696d00000000"
+)
+
+
+def _read_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, xml_text: str, vits: bytes | None
+):
+    files = _caller(tmp_path, ["aaaa.vi"])
+    xml = tmp_path / "instance.xml"
+    xml.write_text(xml_text, encoding="utf-8")
+    if vits is not None:
+        (tmp_path / "vi_VITS.bin").write_bytes(vits)
+    monkeypatch.setattr(
+        "lvkit.embedded_instances.extract_vi_xml",
+        lambda _p, roots: (xml, None, xml),
+    )
+    return read_instance_sources(tmp_path, files, LibraryRoots())
+
+
+def test_an_express_vi_copy_is_the_vi_its_original_path_tag_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    text = _INSTANCE_XML.format(name="aaaa.vi", links=_IVOV).replace(
+        "</RSRC>", _VITS_INLINE + "</RSRC>"
+    )
+
+    sources = _read_one(tmp_path, monkeypatch, text, None)
+
+    source = sources["aaaa.vi"]
+    assert (source.name, source.qualified_name) == ("1D Block.vi", "1D Block.vi")
+    # The VI the copy was made from, not the one that configures it (``_Wizard``).
+    assert source.path_tokens == ["<vilib>", "express", "Blocks.llb", "1D Block.vi"]
+    assert source.path_type == 0
+
+
+def test_the_original_path_tag_is_read_from_the_vits_file_when_not_inline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    text = _INSTANCE_XML.format(name="aaaa.vi", links=_IVOV).replace(
+        "</RSRC>",
+        '<VITS><Section Index="0" Format="bin" File="vi_VITS.bin" /></VITS></RSRC>',
+    )
+
+    sources = _read_one(tmp_path, monkeypatch, text, bytes.fromhex(_VITS_BIN_HEX))
+
+    assert sources["aaaa.vi"].path_tokens == [
+        "<vilib>",
+        "Utility",
+        "TypeAssert",
+        "Assert Array Dimension Count.vim",
+    ]
+
+
+def test_an_owner_link_wins_over_the_original_path_tag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    text = _INSTANCE_XML.format(
+        name="aaaa.vi", links=_IVOV + _vivi(["Adapt.vim"], ["", "", "Adapt.vim"])
+    ).replace("</RSRC>", _VITS_INLINE + "</RSRC>")
+
+    sources = _read_one(tmp_path, monkeypatch, text, None)
+
+    assert sources["aaaa.vi"].name == "Adapt.vim"
+
+
+def test_a_copy_with_neither_an_owner_link_nor_the_tag_has_no_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    text = _INSTANCE_XML.format(name="aaaa.vi", links=_IVOV)
+
+    assert _read_one(tmp_path, monkeypatch, text, None) == {}
+
+
 def test_caller_without_instances_has_no_sources(tmp_path: Path) -> None:
     assert read_instance_sources(tmp_path, [], LibraryRoots()) == {}
 
