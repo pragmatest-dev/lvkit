@@ -63,6 +63,7 @@ from .lvnet_grammar import (
     _LVNET_DEP_FOUND_OPEN,
     _LVNET_DEP_MISSING,
     _LVNET_DEP_PATH_SEP,
+    _LVNET_DEP_TYPE_SPEC_RE,
     _LVNET_DISABLE_KEYWORD,
     _LVNET_DRIVER_OP,
     _LVNET_ENUM_OPEN,
@@ -128,6 +129,7 @@ from .netlist_models import (
     ReferenceTargetKind,
     SharedVariableSettings,
     ShiftRegisterSettings,
+    TypeSpecialization,
     WhileLoopSettings,
 )
 from .render_lvnet import (
@@ -891,6 +893,7 @@ class ParsedDependency:
     unreadable: str | None = None
     missing: bool = False
     found: str | None = None
+    type_specializations: tuple[TypeSpecialization, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1945,7 +1948,7 @@ _USES_INTERFACE_INDENT = 6
 
 def _parse_dependency_interface(
     cursor: _Cursor, indent: int
-) -> tuple[ParsedDependencyTerminal, ...]:
+) -> tuple[tuple[ParsedDependencyTerminal, ...], tuple[TypeSpecialization, ...]]:
     """Read a ``subVI`` ``uses :`` entry's inline connector-pane interface
     (lvnet §7a, verbose-only), immediately following that entry's own line,
     at EXACTLY ``indent`` spaces -- the SAME ``in ``/``out`` terminal-line
@@ -1956,14 +1959,24 @@ def _parse_dependency_interface(
     end of the manifest. Absent entirely (``()``) for a ``class``/``typedef``
     entry or an unresolved ``subVI`` dependency -- ``render_lvnet`` never
     emits the block in either case, so its absence here is never itself an
-    error.
+    error. The ``in``/``out`` lines are followed, for a saved copy of a
+    malleable VI, by one ``type-specialization (frame=N) (id UID)`` line per Type
+    Specialization Structure (§7a), returned beside them.
     """
     terminals: list[ParsedDependencyTerminal] = []
+    specializations: list[TypeSpecialization] = []
     while True:
         line = cursor.peek()
         if line is None or line.strip() == "" or _indent_len(line) != indent:
             break
         content = line[indent:]
+        spec = _LVNET_DEP_TYPE_SPEC_RE.match(content)
+        if spec is not None:
+            cursor.take()
+            specializations.append(
+                TypeSpecialization(int(spec.group(1)), spec.group(2))
+            )
+            continue
         m = _TERMINAL_CONTENT_RE.match(content)
         if m is None:
             raise LvnetParseError(
@@ -1992,7 +2005,7 @@ def _parse_dependency_interface(
         terminals.append(
             ParsedDependencyTerminal(name=name, type=type_str, direction=direction)
         )
-    return tuple(terminals)
+    return tuple(terminals), tuple(specializations)
 
 
 def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
@@ -2062,7 +2075,9 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
             raise LvnetParseError(
                 f"line {line_no}: empty qualified identity in 'uses :' entry: {line!r}"
             )
-        interface = _parse_dependency_interface(cursor, _USES_INTERFACE_INDENT)
+        interface, specializations = _parse_dependency_interface(
+            cursor, _USES_INTERFACE_INDENT
+        )
         entries.append(
             ParsedDependency(
                 kind=kind,
@@ -2071,6 +2086,7 @@ def _parse_uses_block(cursor: _Cursor) -> tuple[ParsedDependency, ...]:
                 interface=interface,
                 missing=missing,
                 found=found,
+                type_specializations=specializations,
             )
         )
     if not entries:
@@ -3240,6 +3256,7 @@ def netlist_signature(
                     )
                     for t in d.interface
                 ),
+                tuple((s.frame, s.uid) for s in d.type_specializations),
             )
             for d in parsed.uses
         )
@@ -3263,6 +3280,7 @@ def netlist_signature(
             d.path,
             d.unreadable,
             _dependency_interface_signature(d.interface, ambiguous),
+            tuple((s.frame, s.uid) for s in d.type_specializations),
         )
         for d in module.dependencies
     )

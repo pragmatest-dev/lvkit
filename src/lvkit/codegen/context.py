@@ -197,6 +197,9 @@ class CodeGenContext:
     # the node or terminal it was named from, None for a name every call site of
     # the module shares. One dict per module, shared by child contexts.
     _module_owners: dict[str, str | None] = field(default_factory=dict, repr=False)
+    # What holds each state global (``add_state_global``), in LabVIEW's words. One
+    # dict per module, shared by child contexts.
+    state_holders: dict[str, str] = field(default_factory=dict, repr=False)
     # Nodes that lie on a cycle of the wires of one structure level, found by
     # the dependency sort, with why. One dict per module, shared by child contexts.
     circular_nodes: dict[str, str] = field(default_factory=dict, repr=False)
@@ -685,6 +688,7 @@ class CodeGenContext:
             module_declarations=self.module_declarations,  # Shared — one per module
             module_globals=self.module_globals,  # Shared — one dict
             _module_owners=self._module_owners,  # Shared — one dict
+            state_holders=self.state_holders,  # Shared — one dict
             _body_generator=self._body_generator,
         )
 
@@ -1168,18 +1172,22 @@ class CodeGenContext:
         _require_same_definition(name, held[-1], assign)
 
     def add_state_global(
-        self, name: str, value: ast.expr, owner: str | None = None
+        self, name: str, value: ast.expr, owner: str | None, holder: str
     ) -> None:
         """Register a module-level variable holding a value the VI keeps between
         calls (an uninitialized shift register, First Call?, an indicator a
         Local Variable reads), seeded to ``value``, owned like
-        ``add_module_global``. Every call of the function shares it, as every
+        ``add_module_global``. ``holder`` says what holds the state, in LabVIEW's
+        words ("a Feedback Node"); the warning about a function whose state its
+        callers share names it (``instance_functions.py``). Every call of the
+        function shares it, as every
         call of a non-reentrant VI shares its data space. A preallocated clone
         keeps one per call site in LabVIEW, so the variable of such a VI gets a
         note saying so, a string statement above it (the way this generator
         writes notes into code: an AST has no comments)."""
         fresh = name not in self.module_globals
         self.add_module_global(name, value, owner)
+        self.state_holders.setdefault(name, holder)
         if fresh and self._is_preallocated_clone():
             self.module_globals[name].insert(
                 0, ast.Expr(value=ast.Constant(value=PREALLOCATED_CLONE_NOTE))

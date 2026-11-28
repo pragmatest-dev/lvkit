@@ -189,7 +189,12 @@ def entry_property_states(ctx: CodeGenContext) -> list[ast.stmt]:
             if state is None or key in ctx.property_states:
                 continue
             name = node_owned_name(f"_lv_{listed.member}", ctx.function_name, bound.id)
-            ctx.add_state_global(name, state_expression(state), owner=bound.id)
+            ctx.add_state_global(
+                name,
+                state_expression(state),
+                owner=bound.id,
+                holder=f"the {listed.member} property of a control",
+            )
             ctx.property_states[key] = name
             names.append(name)
     if not names:

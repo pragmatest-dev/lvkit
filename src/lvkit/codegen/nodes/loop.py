@@ -130,7 +130,10 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 elif inner_sr_term is not None:
                     sr_lv_type = inner_sr_term.lv_type
                 ctx.add_state_global(
-                    global_name, state_seed(sr_lv_type), owner=outer_term
+                    global_name,
+                    state_seed(sr_lv_type),
+                    owner=outer_term,
+                    holder="an uninitialized shift register",
                 )
 
                 shift_var = _unique_shift_var_name(_make_var_name(tunnel, ctx), ctx)

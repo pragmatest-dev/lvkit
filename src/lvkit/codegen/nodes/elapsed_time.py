@@ -137,7 +137,9 @@ def generate(node: VINode, ctx: CodeGenContext, entry: VIEntry) -> CodeFragment:
     if auto_reset == "False":
         auto_reset = None
     state = node_owned_name("_lv_elapsed_start", ctx.function_name, node.id)
-    ctx.add_state_global(state, ast.Constant(value=None), owner=node.id)
+    ctx.add_state_global(
+        state, ast.Constant(value=None), owner=node.id, holder="an Elapsed Time node"
+    )
     present = ctx.make_output_var("present", node.id)
     # 0 (the unwired value too) is "the current time".
     set_start = setting("set_start_time")

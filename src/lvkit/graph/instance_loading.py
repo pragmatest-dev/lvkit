@@ -147,8 +147,22 @@ class InstanceLoadingMixin:
             return InstanceCallLoad(source_key, source=source, source_name=source_name)
         if instance is not None:
             try:
+                vim_path = (
+                    self.catalog_path_of(
+                        source_key, "/".join(source.path_tokens), caller_key
+                    )
+                    if source is not None
+                    else None
+                )
                 key = self._load_embedded_instance(
-                    instance, caller_key, mode, qname, recorded, source_name
+                    instance,
+                    caller_key,
+                    mode,
+                    qname,
+                    recorded,
+                    source_name,
+                    source_key,
+                    vim_path,
                 )
             except Exception as exc:
                 failure = exc
@@ -177,6 +191,8 @@ class InstanceLoadingMixin:
         qualified_name: str,
         recorded: ParsedDependencyRef | None,
         vim_name: str | None,
+        vim_key: str | None,
+        vim_path: str | None,
     ) -> str | None:
         """Load the VI an embedded instance is, as a dependency of the VI that
         holds it. The instance has no file of its own: its key is
@@ -184,8 +200,11 @@ class InstanceLoadingMixin:
         paths its own link table records are relative to that place, one level
         inside the holder. ``qualified_name`` and ``recorded`` are the name and
         path the holder records for the instance; ``vim_name`` is the qualified name
-        of the ``.vim`` it is an instance of, when it is (found or not). Returns the
-        key; an instance that cannot be loaded raises."""
+        of the ``.vim`` it is an instance of, when it is (found or not), and
+        ``vim_key`` that file's key (``InMemoryVIGraph.instance_file``) and
+        ``vim_path`` the path the holder records for it
+        (``InMemoryVIGraph.instance_path``). Returns the key; an instance that
+        cannot be loaded raises."""
         place = Path(holder_key) / instance.name
         key = str(place.resolve())
         # The place is known before the instance's own dependencies load, so the
@@ -207,6 +226,10 @@ class InstanceLoadingMixin:
         self._dep_graph.add_edge(holder_key, loaded)
         if vim_name is not None:
             self._dep_graph.nodes[loaded]["instance_of"] = vim_name
+            if vim_key is not None:
+                self._dep_graph.nodes[loaded]["instance_file"] = vim_key
+            if vim_path is not None:
+                self._dep_graph.nodes[loaded]["instance_path"] = vim_path
         # The holder names the instance as it records it, and stores its path.
         self._register_dep_name(loaded, instance.name, qualified_name)
         if loaded in self._vi_display_names:

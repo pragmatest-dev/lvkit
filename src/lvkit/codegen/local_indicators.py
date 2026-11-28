@@ -144,7 +144,12 @@ class LocalIndicators:
             if holds_class(control.lv_type)
             else control_default(ctx, control)
         )
-        ctx.add_state_global(module_name, seed, owner=terminal_id)
+        ctx.add_state_global(
+            module_name,
+            seed,
+            owner=terminal_id,
+            holder="an indicator read by a local variable",
+        )
         flag = (
             ctx.make_output_var(f"{variable}_written", terminal_id)
             if control.is_public

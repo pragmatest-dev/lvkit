@@ -255,6 +255,30 @@ class QueryMixin:
         or a visualisation lists with their callers."""
         return [key for key in self._vi_nodes if self._recorded.holder_of(key) is None]
 
+    def instance_holder(self, key: str) -> str | None:
+        """The key of the VI whose own file holds the saved instance ``key`` (a
+        copy of a malleable or Express VI kept in its caller); None for a key that
+        is a file."""
+        return self._recorded.holder_of(key)
+
+    def instance_file(self, key: str) -> str | None:
+        """The key of the ``.vim`` file the saved instance ``key`` is an instance
+        of, when that file is found; None for any other dependency, an Express VI's
+        instance and an instance of a ``.vim`` that is not found."""
+        if key not in self._dep_graph:
+            return None
+        vim = self._dep_graph.nodes[key].get("instance_file")
+        return str(vim) if vim else None
+
+    def instance_path(self, key: str) -> str | None:
+        """The path the VI holding the saved instance ``key`` records for the
+        ``.vim`` it is an instance of (``<vilib>/...``), found or not; None for an
+        Express VI's instance."""
+        if key not in self._dep_graph:
+            return None
+        path = self._dep_graph.nodes[key].get("instance_path")
+        return str(path) if path else None
+
     def get_vi_source_path(self, vi_name: str) -> Path | None:
         """Get the source file path for the VI at ``vi_name`` (a vi_key)."""
         return self._source_paths.get(vi_name)

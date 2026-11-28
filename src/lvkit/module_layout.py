@@ -196,10 +196,15 @@ class ModuleLayout:
             stem = name
         return ModulePlace(_packages(folders), module_part(stem))
 
-    def place_beside(self, key: str, sibling_keys: list[str]) -> ModulePlace:
+    def place_beside(
+        self, key: str, sibling_keys: list[str], file_name: str | None = None
+    ) -> ModulePlace:
         """``key`` (a polymorphic wrapper with no file) in the package of the first
-        of its variants ``sibling_keys`` that can be placed."""
-        stem = vi_module_stem(self._graph.vi_display_name(key).split(":")[-1])
+        of its variants ``sibling_keys`` that can be placed. Its module is named
+        from ``file_name``, else from the name the graph gives ``key``."""
+        stem = vi_module_stem(
+            file_name or self._graph.vi_display_name(key).split(":")[-1]
+        )
         error: UnplacedVIError | None = None
         for sibling in sibling_keys:
             try:

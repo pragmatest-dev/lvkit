@@ -1000,6 +1000,17 @@ _DEPENDENCY_KIND_OF_NODE_TYPE = {
 
 
 @dataclass(frozen=True)
+class TypeSpecialization:
+    """A Type Specialization Structure of a VI saved inside its caller (a
+    malleable VI's copy) and the frame LabVIEW accepted for the types the call
+    wires: ``frame`` is the index the structure's ``frame [i]`` header numbers,
+    ``uid`` the structure's own id (``NetlistScope.uid``)."""
+
+    frame: int
+    uid: str
+
+
+@dataclass(frozen=True)
 class NetlistDependency:
     """One external FILE this VI directly depends on -- a subVI call, a
     referenced class (``.lvclass``), or a referenced typedef (``.ctl``).
@@ -1040,6 +1051,10 @@ class NetlistDependency:
     unreadable: str | None = None
     missing: bool = False
     found: str | None = None
+    # The frames the copy of a malleable VI this entry is the pane of runs (one
+    # per Type Specialization Structure, in document order); verbose lvnet and JSON
+    # show them. Empty for any other dependency.
+    type_specializations: list[TypeSpecialization] = field(default_factory=list)
 
 
 @dataclass

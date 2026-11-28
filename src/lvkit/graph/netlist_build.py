@@ -155,6 +155,7 @@ from .render_lvnet import (
     _lvnet_const_value_str,
     lvnet_literal_token,
 )
+from .saved_copy_dependencies import copy_type_specializations, saved_copy_calls
 from .shift_registers import pair_by_position
 from .unwired_default import instance_default, pane_default
 
@@ -2585,6 +2586,7 @@ def _build_dependency_manifest(
                     n.library.qualified_name,
                 )
 
+    saved = saved_copy_calls(graph, vi_name)
     manifest: list[NetlistDependency] = []
     seen: set[str] = set()
     for key in dep_keys:
@@ -2624,18 +2626,38 @@ def _build_dependency_manifest(
         elif nt == NodeType.VI or (resolved is not None and is_vi_file(resolved)):
             hint = DependencyKind.SUBVI
         kind = _dependency_kind_for(qname, hint)
-        manifest.append(
-            NetlistDependency(
+        # A ``.vim`` the calls run through their saved copies is shown once for
+        # each copy that differs (pane and accepted frames).
+        panes = [key]
+        if key in saved.by_file:
+            panes = [*saved.by_file[key], *([key] if key in saved.as_file else [])]
+        shown: set[tuple[object, ...]] = set()
+        for pane in panes:
+            entry = NetlistDependency(
                 kind=kind,
                 qualified=qname,
                 path=stored.stored,
                 missing=stored.missing,
                 found=stored.found,
-                interface=_dependency_interface(graph, kind, key),
+                interface=_dependency_interface(graph, kind, pane),
+                type_specializations=copy_type_specializations(graph, pane)
+                if pane != key
+                else [],
             )
-        )
-    return sorted(
-        [*manifest, *assemblies], key=lambda d: (d.qualified, d.unreadable or "")
+            if _manifest_order(entry)[2:] not in shown:
+                shown.add(_manifest_order(entry)[2:])
+                manifest.append(entry)
+    return sorted([*manifest, *assemblies], key=_manifest_order)
+
+
+def _manifest_order(dep: NetlistDependency) -> tuple[object, ...]:
+    """The order of ``uses :`` entries: by identity, then (the copies of one
+    ``.vim``) by pane and accepted frames, so equal text is never reordered."""
+    return (
+        dep.qualified,
+        dep.unreadable or "",
+        tuple((t.direction, t.name, t.type) for t in dep.interface),
+        tuple((s.frame, s.uid) for s in dep.type_specializations),
     )
 
 

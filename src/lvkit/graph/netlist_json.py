@@ -355,6 +355,10 @@ def _dependency_to_dict(dep: NetlistDependency) -> dict[str, Any]:
         d["found"] = dep.found
     if dep.interface:
         d["interface"] = [_dependency_terminal_to_dict(t) for t in dep.interface]
+    if dep.type_specializations:
+        d["settings"] = [
+            {"frame": s.frame, "id": s.uid} for s in dep.type_specializations
+        ]
     return d
 
 

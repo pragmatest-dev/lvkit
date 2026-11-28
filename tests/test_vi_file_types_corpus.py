@@ -112,24 +112,24 @@ def test_caller_of_a_malleable_vi_generates_a_call_to_its_module(
     generate_python(_CALLER, tmp_path)
 
     [caller] = tmp_path.rglob("create_reservation_annotations.py")
-    instance = "var_96ebd3b6_2171_43d4_b6b2_fee63be2a44d"
-    [callee] = tmp_path.rglob(f"{instance}.py")
+    [callee] = tmp_path.rglob("create_annotations_vim.py")
     lines = caller.read_text(encoding="utf-8").splitlines()
-    [call_import] = [ln for ln in lines if f" import {instance}" in ln]
+    [call_import] = [ln for ln in lines if " import create_annotations" in ln]
     assert call_import.startswith("from .")
-    # The call runs the copy of the VI saved in the caller's own file.
+    # The call runs the copy of the VI saved in the caller's own file, written as
+    # a function of the ``.vim``'s own module.
     assert call_import.endswith(
         ".clients.session_management_v1.session_reservation."
-        f"create_reservation_annotationsvi.{instance} import {instance}"
+        "create_annotations_vim import create_annotations"
     )
     assert (
-        f"        {instance}_result = {instance}("
+        "        create_annotations_result = create_annotations("
         "annotation_typedef=SimpleNamespace(key='', value=''), "
         "error_in=error_in, "
         "annotation_keys=session_reservation_keys_result."
         "session_reservation_keys)"
     ) in lines
-    assert f"def {instance}(" in callee.read_text(encoding="utf-8")
+    assert "def create_annotations(" in callee.read_text(encoding="utf-8")
 
 
 def test_caller_of_a_malleable_vi_shows_the_vi_with_its_terminal_names() -> None:

@@ -1181,6 +1181,7 @@ def _reconstruct_dependency(
         unreadable=d.unreadable,
         missing=d.missing,
         found=d.found,
+        type_specializations=list(d.type_specializations),
     )
 
 

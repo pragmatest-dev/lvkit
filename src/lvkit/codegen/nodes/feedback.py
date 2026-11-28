@@ -162,13 +162,20 @@ def _read(master: PrimitiveNode, ctx: CodeGenContext) -> CodeFragment:
     statements: list[ast.stmt] = []
     if held is None:
         held = _state_name(master, ctx)
-        ctx.add_state_global(held, state_seed(out.lv_type), owner=master.id)
+        ctx.add_state_global(
+            held, state_seed(out.lv_type), owner=master.id, holder="a Feedback Node"
+        )
         names = [held]
         init = next((t for t in master.terminals if t.direction == "input"), None)
         start = ctx.wired_input(init.id, master) if init is not None else None
         if start is not None:
             started = node_owned_name(_STARTED_PREFIX, ctx.function_name, master.id)
-            ctx.add_state_global(started, ast.Constant(value=False), owner=master.id)
+            ctx.add_state_global(
+                started,
+                ast.Constant(value=False),
+                owner=master.id,
+                holder="a Feedback Node",
+            )
             names.append(started)
             statements.append(ast.Global(names=names))
             statements.append(

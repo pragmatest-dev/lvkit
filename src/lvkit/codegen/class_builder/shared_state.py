@@ -27,6 +27,8 @@ class ModuleParts:
     # second method asking for a helper gets the one the first wrote.
     helper_names: dict[str, str] = field(default_factory=dict)
     globals: dict[str, list[ast.stmt]] = field(default_factory=dict)
+    # What holds each state global, in LabVIEW's words (``add_state_global``).
+    state_holders: dict[str, str] = field(default_factory=dict)
     flat_functions: dict[tuple[Any, ...], str] = field(default_factory=dict)
     # The ``panel`` of each method, set after the class (``panel_description``).
     panels: list[ast.stmt] = field(default_factory=list)
@@ -38,6 +40,7 @@ class ModuleParts:
         ctx.formula_helpers = self.helpers
         ctx.helper_names = self.helper_names
         ctx.module_globals = self.globals
+        ctx.state_holders = self.state_holders
         ctx.flat_functions = self.flat_functions
 
     def collect(self, ctx: CodeGenContext) -> None:

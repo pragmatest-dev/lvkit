@@ -355,6 +355,20 @@ _LVNET_DEP_QUALIFIED_CAP = 60
 # see ``_render_lvnet_instance``).
 _LVNET_DEP_INTERFACE_INDENT = _LVNET_INDENT * 3
 
+# A verbose ``uses :`` entry of a malleable VI's saved copy ends with one line
+# per Type Specialization Structure of the copy, at the interface's indent:
+# ``type-specialization (frame=N) (id UID)`` (§7a).
+_LVNET_DEP_TYPE_SPEC_WORD = _LVNET_DISABLE_KEYWORD[DisableStructureKind.TYPE_SPEC]
+_LVNET_DEP_TYPE_SPEC_RE = re.compile(
+    rf"^{_LVNET_DEP_TYPE_SPEC_WORD} \(frame=(\d+)\) \(id (\S+)\)$"
+)
+
+
+def lvnet_type_specialization_line(frame: int, uid: str) -> str:
+    """The ``uses :`` line for one Type Specialization Structure of a saved copy
+    (see ``_LVNET_DEP_TYPE_SPEC_RE``, its reader)."""
+    return f"{_LVNET_DEP_TYPE_SPEC_WORD} (frame={frame}) (id {uid})"
+
 
 def lvnet_net_separator(bare: str) -> str:
     """Reformat a structure-scoped net name's separator from the model's

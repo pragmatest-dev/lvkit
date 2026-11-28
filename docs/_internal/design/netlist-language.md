@@ -598,6 +598,31 @@ uses :
   leaf-loaded connector pane for each direct dependency straight from the
   text.
 
+- **A malleable VI (`.vim`) is shown as the copy each call runs.** LabVIEW saves,
+  in the calling VI, a copy of the `.vim` adapted to each call: its controls have
+  the types wired to the call, and each Type Specialization Structure keeps the
+  frame LabVIEW accepted for them. The `uses :` entry of a `.vim` has the
+  qualified identity and path of the `.vim`, and (verbose) the connector pane of
+  the copy, so two calls whose copies differ in pane or in an accepted frame are
+  two entries (same identity, one after the other); copies with one pane and the
+  same frames are one entry. Nothing marks the entry as a copy. After the in/out
+  lines, verbose adds one line per Type Specialization Structure of the copy, in
+  document order, at the interface's indent:
+
+  ```
+  uses :
+    subVI <qualified-identity>   ; <stored-path>
+      in  <name> : <Type>
+      out <name> : <Type>
+      type-specialization (frame=N) (id <uid>)
+  ```
+
+  `N` is the accepted frame, the index the structure's own `frame [i]` header
+  numbers (§8); `<uid>` is the structure's `(id <uid>)` (the same id its
+  verbose header carries in the copy). Terse shows none of these lines; the
+  reader (`lvnet_parse._parse_dependency_interface`) accepts them back, and the
+  JSON form carries them as the entry's `settings` (§12).
+
 ## 8. Structures
 
 Each structure is a node that presents its outputs on its own header; **each
@@ -1006,7 +1031,9 @@ carries, the JSON counterparts of lvnet's own verbose-only elements —
   (`kind` ∈ `subVI`/`typedef`/`class`); a resolved `subVI` entry also
   carries `interface[]` — its own connector pane, ordered inputs then
   outputs, each `{name, type, direction, lv_type?}` (omitted entirely,
-  never `[]`, for a `class`/`typedef` dependency or an unresolved `subVI`).
+  never `[]`, for a `class`/`typedef` dependency or an unresolved `subVI`); the
+  entry of a malleable VI's saved copy that has Type Specialization Structures
+  also carries `settings`: `[{"frame": N, "id": "<uid>"}, ...]` (§7a).
 - Every terminal that carries a structured type — `connector_pane.
   terminals[]`, boundary `inputs[]`/`outputs[]`, a dependency's own
   `interface[]`, and each body instance's wired `inputs[]`/`outputs[]` —

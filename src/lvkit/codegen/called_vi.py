@@ -57,7 +57,8 @@ def run_call(node: VINode, ctx: CodeGenContext) -> RunCall:
         return RunCall(node, node.name or "", node.callee_key, node.instance_unreadable)
     if node.runs_saved_instance and node.callee_key is not None:
         # The copy saved in the caller is a VI with no name of its own but its
-        # place in the caller's file: its function is named by that.
+        # place in the caller's file; the function the call imports is the one
+        # its copy maps to (``InstanceFunctions.function_name``).
         return RunCall(node, Path(node.callee_key).name, node.callee_key)
     if node.callee_key is None and node.qualified_path and node.qualified_name:
         return RunCall(node, node.qualified_name, None)

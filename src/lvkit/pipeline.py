@@ -11,7 +11,7 @@ import os
 import shutil
 import sys
 import traceback
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -23,6 +23,7 @@ from lvkit.codegen.ast_optimizer import (
 )
 from lvkit.codegen.ast_utils import (
     build_type_checking_block,
+    numbered_name,
     package_root_name,
     to_function_name,
     unique_names,
@@ -93,6 +94,15 @@ from lvkit.conversion_gap import ConversionGap
 from lvkit.graph import InMemoryVIGraph
 from lvkit.graph.loading import LoadMode
 from lvkit.graph.node_kinds import NodeType
+from lvkit.instance_functions import (
+    InstanceFunctions,
+    InstanceHome,
+    TrialBody,
+    called_as_files,
+    instance_homes,
+    normalised_body,
+    state_problem,
+)
 from lvkit.library_folders import Folders, SearchEntries
 from lvkit.long_paths import display_path, extended_length, too_long_to_import
 from lvkit.models import LVType
@@ -191,6 +201,7 @@ def create_import_resolver(
     module_names: set[str] | None = None,
     spellings: dict[str, str] | None = None,
     module_key: str | None = None,
+    instance_functions: InstanceFunctions | None = None,
 ) -> ImportResolver:
     """Create an import resolver for a VI.
 
@@ -225,6 +236,8 @@ def create_import_resolver(
             import the same way, so the module imports it once.
         module_key: The file whose module ``caller_path`` is (a class, a
             polymorphic VI); ``caller_key`` when omitted.
+        instance_functions: The functions of the instances saved in callers'
+            files; a call of one imports the function its copy maps to.
 
     Returns:
         An ``ImportResolver``: ``function`` gives the import of a SubVI's
@@ -334,6 +347,8 @@ def create_import_resolver(
     def function_import(subvi_name: str, callee_key: str | None) -> NameImport:
         located = locate(subvi_name, callee_key)
         derived = to_function_name(subvi_name)
+        if callee_key is not None and instance_functions is not None:
+            derived = instance_functions.function_name(callee_key) or derived
         if located == caller_path:
             return NameImport("", derived)
         dots, package, module = relative(located)
@@ -755,17 +770,23 @@ def _generate_polymorphic_module(
     package_modules: PackageModules | None = None,
     gaps: list[Gap] | None = None,
     copies: ModuleCopies | None = None,
+    function_names: Mapping[str, str] | None = None,
+    description: str | None = None,
+    instance_functions: InstanceFunctions | None = None,
 ) -> str:
     """The module of the polymorphic VI ``wrapper_name``: the functions of its
     ``variants``, each called directly by the calls that record it. Data files
     the variants read at run time are added to ``data_files``, the files they
     name beside them to ``copies``, and the gaps found in the variants to
-    ``gaps``."""
+    ``gaps``. A module of other functions (the saved copies of a ``.vim``,
+    ``instance_functions.py``) names each by ``function_names`` (its key to its
+    name) and is described by ``description``."""
     # repr() makes the VI path a valid string literal whatever it contains
     # (a Windows path holds backslashes).
     shown = layout.display_path(wrapper_name)
+    names = function_names or {}
     lines = [
-        repr(f"The variants of the polymorphic VI {shown}."),
+        repr(description or f"The variants of the polymorphic VI {shown}."),
         "from __future__ import annotations",
         "",
     ]
@@ -783,17 +804,22 @@ def _generate_polymorphic_module(
 
     # One module holds every variant: their imports are spelled against one set
     # of the module's names, which starts with every function it defines.
-    module_names = {to_function_name(Path(name).name) for name in variants}
+    def function_of(variant_name: str) -> str:
+        return names.get(variant_name) or to_function_name(Path(variant_name).name)
+
+    module_names = {function_of(name) for name in variants}
     spellings: dict[str, str] = {}
     # Their module-level code (helpers, ctypes declarations, globals) is named
     # against one another, and each statement goes into the module once.
     shared = ModuleParts(module_stem=to_function_name(Path(wrapper_name).name))
     written: set[str] = set()
     for variant_name in variants:
-        vi_context = graph.get_vi_context(variant_name)
         # build_module names the variant function from its DISPLAY name
-        # (basename).
-        func_name = to_function_name(Path(variant_name).name)
+        # (basename), or the name this module gives it.
+        func_name = function_of(variant_name)
+        vi_context = graph.get_vi_context(variant_name)
+        if variant_name in names:
+            vi_context = vi_context.model_copy(update={"name": func_name})
         variant_funcs.append(func_name)
 
         import_resolver = create_import_resolver(
@@ -810,6 +836,7 @@ def _generate_polymorphic_module(
             module_names=module_names,
             spellings=spellings,
             module_key=wrapper_name,
+            instance_functions=instance_functions,
         )
         code = build_module(
             vi_context,
@@ -1055,12 +1082,19 @@ def generate_python(
         },
     )
 
+    # A copy of a malleable or Express VI saved in its caller's file is a function
+    # of the module of its VI (``instance_functions.py``): it has no module of its
+    # own.
+    instance_keys = frozenset(
+        key for key in order if graph.instance_holder(key) is not None
+    )
+
     # Every module lives at the project-relative path of its file.
     layout = ModuleLayout(
         graph,
         order,
         project_root(input_path),
-        shared=frozenset(poly_variants) | frozenset(class_of_member),
+        shared=frozenset(poly_variants) | frozenset(class_of_member) | instance_keys,
         reserved=[
             ERRORS_MODULE_NAME,
             VARIANTS_MODULE_NAME,
@@ -1093,6 +1127,12 @@ def generate_python(
             LOCAL_TIME_MODULE_NAME,
         },
     )
+    homes = instance_homes(graph, instance_keys, lambda vim: vim in layout.places)
+    for home in homes:
+        if home.place_path is not None:
+            layout.places[home.key] = layout.place_of_name(home.place_path)
+        elif home.file_name is not None:
+            layout.place_beside(home.key, list(home.copies), home.file_name)
     copies = PackageCopies(graph, layout, output_dir_resolved)
     vi_paths: dict[str, Path] = {
         key: output_dir_resolved.joinpath(*place.packages) / f"{place.module}.py"
@@ -1111,6 +1151,144 @@ def generate_python(
             for variant_name in variants:
                 vi_paths[variant_name] = wrapper_path
 
+    for home in homes:
+        for copy in home.copies:
+            vi_paths[copy] = vi_paths[home.key]
+
+    def trial(copy: str, function_name: str) -> TrialBody:
+        """The body of the function written from the saved copy ``copy`` under
+        ``function_name``, and what holds state in it (see ``InstanceFunctions``).
+        A copy that cannot be built has a body of its own: the module that writes
+        it reports why."""
+        home = instance_functions.home_of(copy)
+        assert home is not None
+        parts = ModuleParts(module_stem=function_name)
+        resolver = create_import_resolver(
+            vi_folder_name,
+            output_dir_resolved,
+            vi_paths,
+            vi_paths[home.key],
+            caller_key=copy,
+            graph=graph,
+            vilib_resolver=vilib_resolver,
+            defined_names=[function_name],
+            package_modules=package_modules,
+            layout=layout,
+            module_key=home.key,
+            instance_functions=instance_functions,
+        )
+        context = graph.get_vi_context(copy).model_copy(
+            update={"name": function_name}
+        )
+        try:
+            code = build_module(
+                context,
+                vi_name=copy,
+                import_resolver=resolver,
+                graph=graph,
+                data_files={},
+                gaps=[],
+                shared=parts,
+                share_types=False,
+            )
+        except Exception:  # noqa: BLE001 — the module that writes the copy reports it
+            return f"<not built: {copy}>", ()
+        body = normalised_body(code, function_name, [graph.key_label(copy)])
+        return body, tuple(sorted(set(parts.state_holders.values())))
+
+    instance_functions = InstanceFunctions(graph, homes, layout.display_path, trial)
+    # The VI of a ``.vim`` module whose own source is written too: one a call
+    # runs as itself (its copy could not be read) or the run was asked for.
+    asked_for = graph.keys_loaded_from(input_path)
+    sources_written = {
+        home.key
+        for home in homes
+        if home.file_name is None
+        and home.key in (called_as_files(graph, order) | asked_for)
+    }
+    vim_homes = {home.key: home for home in homes if home.file_name is None}
+
+    def write_instance_module(home: InstanceHome) -> None:
+        """Generate and write the module of ``home``: the functions of its saved
+        copies, and the ``.vim``'s own source when it is called as itself."""
+        module_path = vi_paths[home.key]
+        current_gaps = GapLog(graph)
+        code = ""
+        try:
+            _ensure_packages(module_path, output_dir_resolved)
+            functions = instance_functions.functions(home)
+            for function in functions:
+                sites = instance_functions.call_sites(function)
+                if function.state and len(sites) > 1:
+                    graph.record_problem(
+                        home.key,
+                        state_problem(
+                            graph,
+                            home.key,
+                            graph.vi_display_name(home.key)
+                            if home.file_name is None
+                            else home.file_name,
+                            function,
+                            sites,
+                        ),
+                    )
+            members = [function.key for function in functions]
+            names = {function.key: function.name for function in functions}
+            if home.key in sources_written:
+                used = set(names.values())
+                names[home.key] = (
+                    numbered_name(home.function, lambda n: n in used)
+                    if home.function in used
+                    else home.function
+                )
+                members.append(home.key)
+            holder = graph.instance_holder(home.copies[0]) or home.key
+            what = (
+                graph.vi_display_name(home.key)
+                if home.file_name is None
+                else home.file_name
+            )
+            data_files: dict[str, bytes] = {}
+            module_copies = copies.module()
+            code = _generate_polymorphic_module(
+                home.key,
+                members,
+                graph,
+                vilib_resolver,
+                vi_folder_name,
+                output_dir_resolved,
+                vi_paths,
+                layout,
+                data_files=data_files,
+                package_modules=package_modules,
+                copies=module_copies,
+                gaps=current_gaps,
+                function_names=names,
+                description=(
+                    f"The functions of the copies of {what} saved in "
+                    + (
+                        f"{layout.display_path(holder)}."
+                        if home.place_path is None and home.file_name is not None
+                        else "its callers' files, one for each different copy."
+                    )
+                ),
+                instance_functions=instance_functions,
+            )
+            ast.parse(code)
+            _write_module_files(module_path, code, data_files, module_copies)
+            _report_gaps(current_gaps, all_gaps, graph)
+            print(
+                f"         -> saved copies: {module_path.name}"
+                f" ({len(names)} functions)"
+            )
+            generated.append((home.key, module_path, "ast"))
+        except SyntaxError as e:
+            _write_syntax_error(module_path, code, e, home.key, generated, graph)
+        except Exception as e:  # noqa: BLE001 — per-module; keep generating the rest
+            _record_failure(graph, home.key, e)
+            print(f"         -> FAILED: {e}")
+            generated.append((home.key, None, "failed"))
+
     generated: list[tuple[str, Path | None, str]] = []
     all_gaps: list[Gap] = []
     fail_fast_stop = False
@@ -1122,6 +1300,11 @@ def generate_python(
             if vi_name in class_of_member:
                 print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
                 print("         -> (method of its class)")
+                continue
+
+            if vi_name in instance_keys:
+                print(f"  [{i}/{len(order)}] {graph.key_label(vi_name)}")
+                print("         -> (a function in the module of its VI)")
                 continue
 
             # Skip variants - they'll be generated with their wrapper
@@ -1202,6 +1385,7 @@ def generate_python(
                             layout=layout,
                             copies=module_copies,
                             module_key=vi_name,
+                            instance_functions=instance_functions,
                         ),
                         gaps=vi_gaps,
                         data_files=data_files,
@@ -1217,6 +1401,9 @@ def generate_python(
                     error_path.write_text(f"# ERROR: {e}", encoding="utf-8")
                     print(f"         -> FAILED: {e}")
                     generated.append((vi_name, error_path, "error"))
+
+            elif vi_name in vim_homes:
+                write_instance_module(vim_homes[vi_name])
 
             elif vi_name in poly_groups:
                 # Generate polymorphic module with all variants
@@ -1239,6 +1426,7 @@ def generate_python(
                         package_modules=package_modules,
                         copies=module_copies,
                         gaps=vi_gaps,
+                        instance_functions=instance_functions,
                     )
                     ast.parse(code)  # Validate syntax
                     _write_module_files(output_path, code, data_files, module_copies)
@@ -1273,6 +1461,7 @@ def generate_python(
                         package_modules=package_modules,
                         layout=layout,
                         copies=module_copies,
+                        instance_functions=instance_functions,
                     )
                     data_files: dict[str, bytes] = {}
                     hooks: list[PanelHooks] = []
@@ -1314,6 +1503,12 @@ def generate_python(
                     print(f"         -> FAILED: {e}")
                     generated.append((vi_name, error_path, "error"))
 
+        # The modules of the copies that have no file of their VI to join
+        for home in homes:
+            if home.file_name is not None:
+                current = home.key
+                write_instance_module(home)
+
         # Generate the modules of the polymorphic VIs
         # whose wrapper VI wasn't in the conversion order
         for wrapper_name, variants in poly_groups.items():
@@ -1346,6 +1541,7 @@ def generate_python(
                         package_modules=package_modules,
                         copies=module_copies,
                         gaps=wrapper_gaps,
+                        instance_functions=instance_functions,
                     )
                     ast.parse(code)
                     _write_module_files(wrapper_path, code, data_files, module_copies)

@@ -87,6 +87,7 @@ from .lvnet_grammar import (
     _lvnet_tunnel_mode_word,
     lvnet_id_suffix,
     lvnet_net_separator,
+    lvnet_type_specialization_line,
 )
 from .lvnet_scalar import lvnet_literal_token, lvnet_value_token
 from .lvnet_settings import ends_in_settings_group, lvnet_settings_group
@@ -2159,6 +2160,11 @@ def render_lvnet_uses(
             lines.append(f"    {kind_part}{dep.qualified}{marks}")
         if verbose:
             _render_lvnet_dependency_interface(dep.interface, lines)
+            lines.extend(
+                f"{_LVNET_DEP_INTERFACE_INDENT}"
+                f"{lvnet_type_specialization_line(s.frame, s.uid)}"
+                for s in dep.type_specializations
+            )
 
 
 def render_lvnet(
