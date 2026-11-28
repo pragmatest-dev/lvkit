@@ -49,6 +49,11 @@ class PrimitiveTerminal(TerminalDefault):
     # NI's page says that when an error cluster is wired to this input, only
     # the error cluster's status passes to it.
     error_cluster_status: bool = False
+    # The terminal has the same data type as the node's other terminals that have
+    # this set (NI's Select page: "t and f must be of the same type"; the result is
+    # one of them): a typed wire on one meets a Variant on another as a coercion
+    # dot (``codegen/variant_values.py``).
+    shares_type: bool = False
 
     @property
     def takes_wire_type(self) -> bool:

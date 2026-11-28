@@ -569,13 +569,15 @@
           "direction": "output",
           "name": "s? t:f",
           "python_name": "result",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "shares_type": true
         },
         {
           "index": 1,
           "direction": "input",
           "name": "f",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "shares_type": true
         },
         {
           "index": 2,
@@ -588,7 +590,8 @@
           "index": 3,
           "direction": "input",
           "name": "t",
-          "type": "polymorphic"
+          "type": "polymorphic",
+          "shares_type": true
         }
       ],
       "python_code": {

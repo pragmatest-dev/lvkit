@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from lvkit.graph.models import ConstantNode, VINode
+from lvkit.graph.models import ConstantNode, PrimitiveNode, VINode
 from lvkit.lv_type_codes import is_variant_type_name
 from lvkit.models import FPTerminal, LVType, LVTypeKind, Terminal
 
@@ -105,6 +105,30 @@ def _source(
     return ctx.graph.get_terminal(source_id)
 
 
+def _adapts_to_variant(ctx: CodeGenContext, terminal: Terminal) -> bool:
+    """Whether ``terminal`` is a terminal of a primitive that has the type of the
+    node's other terminals of the same kind (``PrimitiveTerminal.shares_type``:
+    Select's ``t``, ``f`` and result) and one of those is a Variant: a typed wire
+    on this one meets a Variant, a coercion dot."""
+    graph = ctx.graph
+    if graph is None:
+        return False
+    node = graph.get_graph_node(graph.terminal_node_id(terminal.id))
+    if not isinstance(node, PrimitiveNode) or node.prim_id is None:
+        return False
+    resolved = ctx.primitive_catalog.resolve(
+        prim_id=node.prim_id,
+        node_slots={(t.index, t.direction) for t in node.terminals},
+    )
+    if resolved is None:
+        return False
+    sharing = {(t.index, t.direction) for t in resolved.terminals if t.shares_type}
+    shared = [t for t in node.terminals if (t.index, t.direction) in sharing]
+    return any(t.id == terminal.id for t in shared) and any(
+        t.id != terminal.id and is_variant_type(t.lv_type) for t in shared
+    )
+
+
 def _coerced_source(
     ctx: CodeGenContext, terminal_id: str, source_id: str | None
 ) -> Terminal | None:
@@ -119,7 +143,9 @@ def _coerced_source(
         return None
     if not is_variant_type(terminal.lv_type):
         control = ctx.graph.callee_pane_terminal(terminal_id)
-        if control is None or not is_variant_type(control.lv_type):
+        if (
+            control is None or not is_variant_type(control.lv_type)
+        ) and not _adapts_to_variant(ctx, terminal):
             return None
     source = _source(ctx, terminal_id, source_id)
     if source is None or source.lv_type is None or is_variant_type(source.lv_type):
