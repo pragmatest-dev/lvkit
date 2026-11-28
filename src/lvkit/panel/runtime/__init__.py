@@ -33,6 +33,7 @@ from .widgets_cluster import cluster_control, cluster_indicator, cluster_port
 from .widgets_error import error_control, error_indicator, error_port
 from .widgets_opaque import (
     hidden_port,
+    unsupported_control,
     variant_control,
     variant_indicator,
     variant_port,
@@ -77,6 +78,7 @@ __all__ = [
     "string_control",
     "string_indicator",
     "string_port",
+    "unsupported_control",
     "variant_control",
     "variant_indicator",
     "variant_port",

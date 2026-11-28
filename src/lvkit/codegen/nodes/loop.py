@@ -215,11 +215,15 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 lv_type = _get_terminal_type(outer_term, ctx)
                 if lv_type and lv_type.kind == LVTypeKind.ARRAY:
                     n_terminal_var = f"len({outer_var})"
-                elif is_float(lv_type):
-                    # N is a 32-bit integer: NI "Numeric Conversion", "LabVIEW
+                elif is_float(_wired_type(outer_term, ctx) or lv_type):
+                    # The wire feeding N (the loop's own terminal is I32) is a
+                    # floating-point number: it converts to the I32 count as To
+                    # Long Integer converts it (ops/_rounding.py): rounded to the
+                    # nearest, ties to even (NI, "Integers": "the VI rounds to the
+                    # nearest even integer"), and a value outside I32, infinity
+                    # too, is its nearest end (NI, "Numeric Conversion": "LabVIEW
                     # coerces out-of-range values to the minimum or maximum value
-                    # of the integer" (infinity too); a count below zero runs no
-                    # iteration.
+                    # of the integer"); a count below zero runs no iteration.
                     n_terminal_var = saturating_round(outer_var, 32, True)
                 else:
                     # Integer or unknown - use directly
@@ -421,7 +425,13 @@ def generate(node: LoopNode, ctx: CodeGenContext) -> CodeFragment:
                 value=ast.Call(
                     func=ast.Attribute(
                         value=ast.Name(id=accum_var, ctx=ast.Load()),
-                        attr="append",
+                        # A concatenating tunnel joins each iteration's array
+                        # into one array of the same dimension.
+                        attr=(
+                            "extend"
+                            if tunnel.mode == TunnelMode.CONCATENATING
+                            else "append"
+                        ),
                         ctx=ast.Load(),
                     ),
                     args=[parse_expr(inner_val)],
@@ -683,14 +693,14 @@ def _unique_shift_var_name(base_name: str, ctx: CodeGenContext) -> str:
     silently clobbering one with the other's seed value. Mirrors
     _singularize()'s conflict-resolution pattern.
     """
-    if not ctx.var_name_in_use(base_name):
-        return base_name
-    suffix = 2
-    candidate = f"{base_name}_{suffix}"
+    candidate = base_name
+    suffix = 1
     while ctx.var_name_in_use(candidate):
         suffix += 1
         candidate = f"{base_name}_{suffix}"
-    return candidate
+    # Claimed: a node output bound inside the loop must not take the name of
+    # the variable that carries the shift register.
+    return ctx.claim_name(candidate)
 
 
 def _pluralize(var_name: str) -> str:
@@ -887,6 +897,16 @@ def _get_terminal_type(
             return _get_terminal_type(flow_info.src_terminal, ctx, visited)
 
     return None
+
+
+def _wired_type(terminal_uid: str, ctx: CodeGenContext) -> LVType | None:
+    """The type of the terminal that feeds ``terminal_uid`` (the wire's own
+    type, before the loop's terminal converts it)."""
+    source = ctx.get_source(terminal_uid)
+    if source is None or ctx.graph is None:
+        return None
+    feeder = ctx.graph.get_terminal(source.src_terminal)
+    return feeder.lv_type if feeder is not None else None
 
 
 def _iteration_terminal(node: LoopNode) -> Terminal | None:

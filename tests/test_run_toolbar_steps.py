@@ -56,6 +56,9 @@ class _View:
     def on_run(self, listener: Listener) -> None:
         self.listener = listener
 
+    def on_problem(self, listener: Any) -> None:
+        pass
+
     def notice(self, kind: str) -> None:
         """The panel's notice, as ``PanelWidgets.paint`` passes it on."""
         assert self.listener is not None

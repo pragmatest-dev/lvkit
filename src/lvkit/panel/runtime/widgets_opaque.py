@@ -35,6 +35,16 @@ def hidden_port(*, readonly: bool) -> Port:
     return Port(lambda: None, lambda value: None)
 
 
+def unsupported_control(reason: str) -> None:
+    """The place of a control the panel has no widget for: its caption (drawn by the
+    caller) and the reason it is not converted. It is tied to no name, so the
+    panel keeps the control's own default for a run and an indicator's value is
+    kept without being drawn."""
+    ui.label(f"This control is not converted: {reason}").classes(
+        "text-xs text-gray-500 border border-dashed rounded px-2 py-1"
+    )
+
+
 def variant_control(view: PanelWidgets, name: Any) -> Port:
     return bind_control(view, name, variant_port(readonly=False))
 

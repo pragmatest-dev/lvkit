@@ -30,13 +30,14 @@ from tests.panel_diagrams import (
     cluster_type,
 )
 from tests.panel_harness import (
-    build_in_a_page,
     fire,
     found,
+    labels,
     panel_of,
     record_calls,
     run_once,
     simulate,
+    until,
 )
 
 NAME = "Array Demo.vi"
@@ -200,7 +201,7 @@ def test_an_array_of_clusters_has_a_column_for_each_field_and_rows_are_tuples(
     [
         (
             [("Gain", "stdNum", I32), ("Level", "stdSlide", I32)],
-            "the panel has no widget for a stdSlide control of type int "
+            "the panel has no widget for the Slide control "
             "(field 'Level' of the cluster) (element of the array)",
         ),
     ],
@@ -218,8 +219,13 @@ def test_an_array_of_clusters_with_a_field_the_panel_cannot_draw_is_a_gap(
         ("unsupported_control", "Shown"),
     ]
     assert package.gaps[0].reason == reason
-    with pytest.raises(NotImplementedError, match="element of the array"):
-        build_in_a_page(panel_of(package, STEM).build_panel)
+    panel = panel_of(package, STEM)
+
+    async def scenario(user: User) -> None:
+        await until(user, "This control is not converted: ")
+        assert "element of the array" in labels(user)
+
+    simulate(panel.build_panel, scenario)
 
 
 def test_an_array_of_arrays_is_a_gap(project: Project) -> None:  # noqa: F811
