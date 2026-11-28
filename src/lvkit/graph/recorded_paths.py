@@ -15,6 +15,8 @@ resolves against it. The resolved path of a key is the one value placement
 Several references can resolve one file to different installation paths; the
 smaller joined path (compared without regard to case, then as recorded) is the
 file's, so the answer does not depend on the order the references were loaded in.
+A path a saved copy records (a VI kept inside its caller's file, with the paths of
+the day it was saved) counts only for a file no reference of a file settles.
 A file no reference names from an installation folder has no resolved path; a
 path a caller records relative to itself (``recorded_by``) is only a place beside
 that caller.
@@ -273,22 +275,34 @@ class RecordedPaths:
         # key below it only from the next round, as if it had settled just now.
         last = max((round_ for round_, _ in self._settled.values()), default=0)
         round_ = 1
-        while unsettled:
-            update = {k: self._candidate(k, values, round_) for k in unsettled}
-            gained = {k: v for k, v in update.items() if v is not None}
-            if not gained and round_ > last:
-                break
-            values.update({k: (round_, v) for k, v in gained.items()})
-            unsettled = [k for k in unsettled if k not in gained]
-            round_ += 1
+        # The paths the references of the files give settle first; only a key they
+        # leave without one takes a path a saved copy records.
+        for with_copies in (False, True):
+            while unsettled:
+                update = {
+                    k: self._candidate(k, values, round_, with_copies)
+                    for k in unsettled
+                }
+                gained = {k: v for k, v in update.items() if v is not None}
+                if not gained and round_ > last:
+                    break
+                values.update({k: (round_, v) for k, v in gained.items()})
+                unsettled = [k for k in unsettled if k not in gained]
+                round_ += 1
         self._settled.update(dict.fromkeys(above, (0, None)))
         self._settled.update(values)
 
     def _candidate(
-        self, key: str, values: dict[str, tuple[int, list[str]]], round_: int
+        self,
+        key: str,
+        values: dict[str, tuple[int, list[str]]],
+        round_: int,
+        with_copies: bool,
     ) -> list[str] | None:
         """The installation path ``key`` gets in round ``round_`` from the paths the
-        keys above it settled in the rounds before."""
+        keys above it settled in the rounds before. What a saved copy records
+        counts only when ``with_copies``: a copy keeps the paths of the day it was
+        saved, which a file that records the path now does not."""
 
         def of(source: str) -> list[str] | None:
             settled = values[source] if source in values else self._settled.get(source)
@@ -296,6 +310,10 @@ class RecordedPaths:
 
         candidates: list[list[str]] = []
         for reference in self._references.get(key, ()):
+            caller_key = reference.caller
+            by_copy = caller_key is not None and self.holder_of(caller_key) is not None
+            if by_copy and not with_copies:
+                continue
             relative = reference.path_type != ABSOLUTE_PATH_TYPE
             caller = of(reference.caller) if reference.caller and relative else None
             candidates.append(resolve_against(list(reference.tokens), caller))

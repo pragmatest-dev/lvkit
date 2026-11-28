@@ -42,6 +42,25 @@ def test_a_path_the_instance_records_relative_to_itself_leaves_through_its_calle
     assert paths.path("/proj/helper.vi") == "<vilib>/Utility/helper.vi"
 
 
+def test_a_path_a_file_records_is_not_displaced_by_a_saved_copys() -> None:
+    paths = _paths()
+    # A file records the path now; the copy kept the one of the day it was saved
+    # (smaller), and reaches the file from its holder's folder too.
+    paths.record("/proj/helper.vi", "/proj/other.vi", ["<vilib>", "x", "helper.vi"])
+    paths.record("/proj/helper.vi", INSTANCE, ["<vilib>", "a", "helper.vi"])
+    paths.record("/proj/helper.vi", INSTANCE, ["", "", "helper.vi"])
+
+    assert paths.path("/proj/helper.vi") == "<vilib>/x/helper.vi"
+
+
+def test_a_file_only_saved_copies_reach_takes_the_smaller_of_their_paths() -> None:
+    paths = _paths()
+    paths.record("/proj/helper.vi", INSTANCE, ["", "", "helper.vi"])
+    paths.record("/proj/helper.vi", INSTANCE, ["<vilib>", "a", "helper.vi"])
+
+    assert paths.path("/proj/helper.vi") == "<vilib>/a/helper.vi"
+
+
 def test_instance_of_a_caller_with_no_installation_path_has_none() -> None:
     graph = nx.DiGraph()
     graph.add_node(CALLER)
